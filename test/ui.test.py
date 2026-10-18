@@ -244,8 +244,48 @@ def check_pyramid(pg):
     assert pg.locator('.card.selected').count() == 0, 'drawing clears the selection'
 
 
+STACKING_PROBLEMS = """() => {
+    const cards = [...document.querySelectorAll('.card')].map(c => {
+        const r = c.getBoundingClientRect();
+        return { label: c.getAttribute('aria-label'), x: r.x, y: r.y, w: r.width, h: r.height,
+                 z: +c.style.zIndex, order: [...c.parentNode.children].indexOf(c) };
+    });
+    const bad = [];
+    for (const a of cards) for (const b of cards) {
+        const overlap = Math.min(a.x + a.w, b.x + b.w) > Math.max(a.x, b.x) + 2 &&
+                        Math.min(a.y + a.h, b.y + b.h) > Math.max(a.y, b.y) + 2;
+        if (!overlap || b.y - a.y < 5) continue;          // b is the lower card and must paint above a
+        const above = b.z > a.z || (b.z === a.z && b.order > a.order);
+        if (!above) bad.push([a.label, b.label]);
+    }
+    return bad;
+}"""
+
+
+def check_pyramid_stacking(pg):
+    start(pg, 'pyramid')
+    assert not pg.evaluate(STACKING_PROBLEMS), 'fresh deal'
+    # A new deal reuses the card elements, so stacking must not depend on their order in the page.
+    for n in range(3):
+        pg.click('#new')
+        pg.wait_for_timeout(1300)                       # the deal animation staggers by up to 0.7 s
+        problems = pg.evaluate(STACKING_PROBLEMS)
+        assert not problems, f'after new deal {n + 1}: {problems[:3]}'
+    # Undo re-creates cards that were taken off the table.
+    pg.evaluate("""() => localStorage.setItem('baize.v2', JSON.stringify({ current: 'pyramid', games: { pyramid: {
+        options: {}, seed: 1, actions: [{ type: 'take', from: ['p6_2'] }, { type: 'take', from: ['p6_3', 'p6_4'] },
+                                        { type: 'take', from: ['p5_3', 'p6_6'] }] } } }))""")
+    pg.reload()
+    pg.wait_for_timeout(800)
+    for step in range(3):
+        pg.click('#undo')
+        pg.wait_for_timeout(300)
+        problems = pg.evaluate(STACKING_PROBLEMS)
+        assert not problems, f'after undo {step + 1}: {problems[:3]}'
+
+
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

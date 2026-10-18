@@ -930,6 +930,8 @@ const StandardDeck = (() => {
   const ASPECT = 1.4;
   const DRAG_SLOP = 5;        // px before a press becomes a drag
   const DOUBLE_TAP_MS = 350;
+  const Z_PER_PILE = 256;     // stacking: pile n sits above pile n-1, and each card above the one beneath it
+  const DRAG_Z = 100000;      // dragged cards float above every pile
   const VIEWER = null;        // solo play: nothing is hidden from this player
 
   const $ = id => document.getElementById(id);
@@ -1042,7 +1044,7 @@ const StandardDeck = (() => {
   function place(state, slots, g) {
     const pos = new Map();
     const areas = [];
-    for (const slot of slots) {
+    for (const [s, slot] of slots.entries()) {
       const entries = state.piles[slot.id];
       const x0 = g.left + slot.col * g.cw * (1 + COL_GAP);
       const y0 = yOf(slot) * g.ch;
@@ -1050,7 +1052,7 @@ const StandardDeck = (() => {
       const offsets = fanOffsets(slot, entries, isUp);
       entries.forEach((entry, i) => {
         pos.set(entry.card.id, {
-          card: entry.card, pile: slot.id, index: i, up: isUp(entry), z: i + 1,
+          card: entry.card, pile: slot.id, index: i, up: isUp(entry), z: s * Z_PER_PILE + i + 1,
           x: x0 + (slot.fan === 'right' ? offsets[i] * g.cw : 0),
           y: y0 + (slot.fan === 'down' ? offsets[i] * g.ch : 0),
           covered: i < entries.length - 1 && offsets[i + 1] === offsets[i],
@@ -1318,7 +1320,7 @@ const StandardDeck = (() => {
       const el = cardEls.get(entry.card.id);
       el.classList.remove('selected');
       el.classList.add('dragging');
-      el.style.zIndex = 1000 + i;
+      el.style.zIndex = DRAG_Z + i;
       return el;
     });
   }
