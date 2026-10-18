@@ -292,15 +292,19 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
        options          [{ id, label, choices: [{ value, label }], default }]
        setup(options, rng)                     -> state  ({ piles: { [pileId]: [{ card, up }] } })
        layout(options)                         -> slots  [{ id, col, row, fan, visible, limit, glyph }]
+                                                 col may be fractional; y (in card heights) replaces row when given;
+                                                 bare: true draws no empty-pile outline. Piles without a slot are not drawn.
        faceUp(state, pileId, entry, viewer)    -> boolean (viewer is null in solo play)
-       canPickUp(state, pileId, index)         -> boolean
+       canPickUp(state, pileId, index)         -> boolean (may be dragged, and by default selected)
+       canSelect(state, pileId, index)         -> boolean (optional: may be selected by tapping; defaults to canPickUp)
        reduce(state, action, options)          -> { state } | { error }
-       onTap(state, pileId, index)             -> action | null
+       onTap(state, pileId, index, selection)  -> action | null  (selection is the card already picked by tapping, or null)
        onActivate(state, pileId, index)        -> action | null  (double tap)
        autoAction(state)                       -> action | null
-       isWon(state), status(state)             -> boolean, [{ label, value }]
+       isWon(state), status(state, options)    -> boolean, [{ label, value }]
        showsMovable                            -> true if the game supports highlighting movable cards
-       help                                    -> one or two sentences of rules, shown under the table
+       movable(state, options)                 -> Set of card ids (optional: replaces the generic search for movable cards)
+       help                                    -> a few sentences of rules, shown in the rules card
      Dragging produces { type: 'move', from, index, to }; any other action type reaches
      the ruleset through onTap or onActivate. Hanabi would add per-player hand piles,
      a faceUp that hides the viewer's own hand, and play, discard and hint actions.
@@ -389,6 +393,7 @@ const CardSim = (() => {
      cards below it in the pile), or a tap on the top card of its pile. */
 
   function movableCards(rules, state, options) {
+    if (rules.movable) return rules.movable(state, options);
     const ids = new Set();
     const piles = Object.entries(state.piles);
     const mark = (pile, index) => state.piles[pile].slice(index).forEach(e => ids.add(e.card.id));
@@ -438,12 +443,12 @@ const CardSim = (() => {
   const buildsDown = (landing, lead) =>
     landing.up && isRed(landing.card.suit) !== isRed(lead.suit) && landing.card.rank === lead.rank + 1;
 
-  /** Run a handler on a private copy of the piles. A handler returns an error message, or nothing. */
+  /** Run a handler on a private copy of the state. A handler returns an error message, or nothing. */
   function reduceWith(handlers, state, action, options) {
     const handler = Object.hasOwn(handlers, action.type) ? handlers[action.type] : null;
     if (!handler) return { error: `Unknown action ${action.type}` };
     const next = structuredClone(state);
-    const error = handler(next.piles, action, options);
+    const error = handler(next.piles, action, options, next);
     return error ? { error } : { state: next };
   }
 
@@ -749,7 +754,124 @@ const CardSim = (() => {
     ],
   };
 
-  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf };
+  /* ---------- Pyramid ----------
+     28 cards in seven overlapping rows. A card is free once both cards that overlap it are
+     gone. Remove a free king on its own, or two free cards whose ranks add up to 13 (ace 1,
+     jack 11, queen 12). The top card of the waste counts as free. Draw from the stock one card
+     at a time; the waste may be turned over again a limited number of times. Clear the
+     pyramid to win. Removed cards go to an undrawn pile. */
+
+  const PYRAMID_ROWS = 7;
+  const pyramidId = (row, i) => `p${row}_${i}`;
+  const PYRAMID = Array.from({ length: PYRAMID_ROWS }, (_, r) => Array.from({ length: r + 1 }, (_, i) => pyramidId(r, i)));
+  const PYRAMID_IDS = PYRAMID.flat();
+  const UNLIMITED_REDEALS = 99;
+
+  /** Piles whose top card can be taken now: free pyramid cards, and the waste. */
+  function takeable(piles) {
+    const open = [];
+    PYRAMID.forEach((row, r) => row.forEach((id, i) => {
+      if (!piles[id].length) return;
+      const covered = r + 1 < PYRAMID_ROWS && piles[pyramidId(r + 1, i)].length + piles[pyramidId(r + 1, i + 1)].length > 0;
+      if (!covered) open.push(id);
+    }));
+    if (piles.waste.length) open.push('waste');
+    return open;
+  }
+
+  const pyramidActions = {
+    draw: golfActions.draw,
+
+    recycle(piles, _action, options, state) {
+      if (piles.stock.length || !piles.waste.length) return 'There is nothing to turn over';
+      if (state.redeals >= options.redeals) return 'There are no redeals left';
+      piles.stock = piles.waste.reverse().map(({ card }) => faceDown(card));
+      piles.waste = [];
+      state.redeals += 1;
+    },
+
+    take(piles, { from }) {
+      if (!Array.isArray(from) || from.length < 1 || from.length > 2 || new Set(from).size !== from.length) {
+        return 'Take one king, or two different cards';
+      }
+      const open = takeable(piles);
+      if (!from.every(id => open.includes(id))) return 'Only free cards can be taken';
+      if (from.reduce((sum, id) => sum + top(piles[id]).card.rank, 0) !== 13) return 'Those cards do not add up to 13';
+      for (const id of from) piles.out.push(piles[id].pop());
+    },
+  };
+
+  const pyramid = {
+    id: 'pyramid',
+    name: 'Pyramid',
+    showsMovable: true,
+    help: 'Clear the pyramid. Remove a free king on its own, or any two free cards that add up to 13: ace 1, jack 11, queen 12 and the rest at face value. A card is free when nothing overlaps it, and the top card of the waste counts as free. Tap a king to remove it, or tap one card and then its partner. Tap the stock to draw. The waste can be turned over again as many times as the Redeals setting allows.',
+
+    options: [
+      { id: 'redeals', label: 'Redeals', default: 2, choices: [{ value: 2, label: 'Two' }, { value: UNLIMITED_REDEALS, label: 'Unlimited' }] },
+    ],
+
+    setup(_options, rng) {
+      const deck = dealDeck(rng);
+      const piles = { stock: deck.slice(PYRAMID_IDS.length).map(faceDown), waste: [], out: [] };
+      PYRAMID_IDS.forEach((id, k) => { piles[id] = [{ card: deck[k], up: true }]; });
+      return { piles, redeals: 0 };
+    },
+
+    layout: () => [
+      ...PYRAMID.flatMap((row, r) => row.map((id, i) => ({ id, col: 3 - r / 2 + i, y: r * 0.5, bare: true }))),
+      { id: 'stock', col: 0, y: PYRAMID_ROWS * 0.5 + 0.8, glyph: '↻' },
+      { id: 'waste', col: 1, y: PYRAMID_ROWS * 0.5 + 0.8 },
+    ],
+
+    faceUp: (_state, _pileId, entry) => entry.up,
+    canPickUp: () => false,
+    canSelect: (state, pileId, index) => takeable(state.piles).includes(pileId) && index === state.piles[pileId].length - 1,
+    reduce: (state, action, options) => reduceWith(pyramidActions, state, action, options),
+
+    onTap(state, pileId, index, selection) {
+      const { piles } = state;
+      if (pileId === 'stock') {
+        if (piles.stock.length) return { type: 'draw' };
+        return piles.waste.length ? { type: 'recycle' } : null;
+      }
+      if (!pyramid.canSelect(state, pileId, index)) return null;
+      if (top(piles[pileId]).card.rank === 13) return { type: 'take', from: [pileId] };
+      return selection && selection.pile !== pileId ? { type: 'take', from: [selection.pile, pileId] } : null;
+    },
+
+    onActivate: () => null,
+    autoAction: () => null,
+
+    /** Free kings, free pairs that add up to 13, and the top of the stock (a tap draws). */
+    movable(state) {
+      const { piles } = state;
+      const open = takeable(piles);
+      const rankOf = id => top(piles[id]).card.rank;
+      const ids = new Set();
+      open.forEach((a, i) => {
+        if (rankOf(a) === 13) ids.add(top(piles[a]).card.id);
+        for (const b of open.slice(i + 1)) {
+          if (rankOf(a) + rankOf(b) === 13) {
+            ids.add(top(piles[a]).card.id);
+            ids.add(top(piles[b]).card.id);
+          }
+        }
+      });
+      if (piles.stock.length) ids.add(top(piles.stock).card.id);
+      return ids;
+    },
+
+    isWon: state => PYRAMID_IDS.every(id => !state.piles[id].length),
+
+    status: (state, options) => [
+      { label: 'Left', value: `${PYRAMID_IDS.filter(id => state.piles[id].length).length} / ${PYRAMID_IDS.length}` },
+      { label: 'Stock', value: state.piles.stock.length },
+      { label: 'Redeals', value: options.redeals >= UNLIMITED_REDEALS ? 'unlimited' : Math.max(0, options.redeals - state.redeals) },
+    ],
+  };
+
+  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid };
 })();
 </script>
 
@@ -797,6 +919,7 @@ const StandardDeck = (() => {
     { rules: CardSim.klondike, deck: StandardDeck },
     { rules: CardSim.freecell, deck: StandardDeck },
     { rules: CardSim.golf, deck: StandardDeck },
+    { rules: CardSim.pyramid, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';
@@ -903,6 +1026,7 @@ const StandardDeck = (() => {
   /* ---------- Geometry ---------- */
 
   const extentOf = slot => (Number.isFinite(slot.limit) ? slot.limit : 4);
+  const yOf = slot => slot.y ?? slot.row * ROW_GAP;   // in card heights
   const normaliseSlot = slot => ({ fan: 'none', visible: Infinity, limit: Infinity, ...slot });
 
   function measure(slots) {
@@ -911,7 +1035,7 @@ const StandardDeck = (() => {
     const cw = Math.min(MAX_CARD_W, boardW / (cols + (cols - 1) * COL_GAP));
     const ch = cw * ASPECT;
     const gridW = cols * cw + (cols - 1) * cw * COL_GAP;
-    const height = Math.max(...slots.map(s => s.row * ROW_GAP * ch + (s.fan === 'down' ? extentOf(s) : 1) * ch));
+    const height = Math.max(...slots.map(s => (yOf(s) + (s.fan === 'down' ? extentOf(s) : 1)) * ch));
     return { cw, ch, left: (boardW - gridW) / 2, height };
   }
 
@@ -921,7 +1045,7 @@ const StandardDeck = (() => {
     for (const slot of slots) {
       const entries = state.piles[slot.id];
       const x0 = g.left + slot.col * g.cw * (1 + COL_GAP);
-      const y0 = slot.row * ROW_GAP * g.ch;
+      const y0 = yOf(slot) * g.ch;
       const isUp = entry => game.rules.faceUp(state, slot.id, entry, VIEWER);
       const offsets = fanOffsets(slot, entries, isUp);
       entries.forEach((entry, i) => {
@@ -933,7 +1057,7 @@ const StandardDeck = (() => {
         });
       });
       areas.push({
-        id: slot.id, glyph: slot.glyph, x: x0, y: y0,
+        id: slot.id, glyph: slot.glyph, bare: slot.bare, x: x0, y: y0,
         w: g.cw * (slot.fan === 'right' ? 1 + (Math.min(slot.visible, 5) - 1) * FAN_STEP.right.up : 1),
         h: g.ch * (slot.fan === 'down' ? extentOf(slot) : 1),
       });
@@ -961,6 +1085,7 @@ const StandardDeck = (() => {
   function syncSlots() {
     const live = new Set();
     for (const area of geometry.areas) {
+      if (area.bare) continue;
       live.add(area.id);
       let el = slotEls.get(area.id);
       if (!el) {
@@ -1010,7 +1135,7 @@ const StandardDeck = (() => {
     const items = [
       ['Deal', `#${String(session.seed).padStart(6, '0')}`],
       ['Moves', session.actions.length],
-      ...rules.status(state).map(s => [s.label, s.value]),
+      ...rules.status(state, session.options).map(s => [s.label, s.value]),
     ];
     els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))));
     els.undo.disabled = busy || session.actions.length === 0;
@@ -1124,20 +1249,24 @@ const StandardDeck = (() => {
     const state = session.state;
 
     if (selection && selection.pile !== pile) {
-      const moved = perform({ type: 'move', from: selection.pile, index: selection.index, to: pile });
+      // The ruleset may turn the second tap into its own action (Pyramid pairs); otherwise it is a move.
+      const completed = rules.onTap(state, pile, index, selection) ??
+        { type: 'move', from: selection.pile, index: selection.index, to: pile };
+      const done = perform(completed);
       selection = null;
-      if (moved) return;
+      if (done) return;
     }
 
     const now = performance.now();
     const double = lastTap && lastTap.pile === pile && lastTap.index === index && now - lastTap.time < DOUBLE_TAP_MS;
     lastTap = { pile, index, time: now };
 
-    const action = double ? rules.onActivate(state, pile, index) : rules.onTap(state, pile, index);
+    const action = double ? rules.onActivate(state, pile, index) : rules.onTap(state, pile, index, selection);
     if (action && perform(action)) return;
 
     const same = selection && selection.pile === pile && selection.index === index;
-    selection = !same && index >= 0 && rules.canPickUp(state, pile, index) ? { pile, index } : null;
+    const canSelect = rules.canSelect ?? rules.canPickUp;
+    selection = !same && index >= 0 && canSelect(state, pile, index) ? { pile, index } : null;
     render();
   }
 

@@ -1,6 +1,6 @@
 # Baize
 
-A single-page card-table simulator. `baize.html` is the whole app: open it in a browser, or publish it as is. It plays Klondike, FreeCell and Golf, and the engine is written so that other games (Hanabi, for one) can be added as rulesets.
+A single-page card-table simulator. `baize.html` is the whole app: open it in a browser, or publish it as is. It plays Klondike, FreeCell, Golf and Pyramid, and the engine is written so that other games (Hanabi, for one) can be added as rulesets.
 
 'Baize' is the green woollen cloth that covers a card table.
 
@@ -29,7 +29,7 @@ Runs the engine, rulesets and deck art in Node (about 45 seconds, mostly random 
 python3 test/ui.test.py
 ```
 
-Drives the page in Chromium with Python Playwright: the game menu and saves, highlighting with Shift and rank keys, the Show moves toggle, Golf taps, FreeCell drag and double-tap, and the rules card (opening, closing, stacking order). Deals are fixed by seed. One check fails if cards ever get a CSS filter (or a transition on one) again, which is what made highlighting slow.
+Drives the page in Chromium with Python Playwright: the game menu and saves, highlighting with Shift and rank keys, the Show moves toggle, Golf taps, FreeCell drag and double-tap, Pyramid pairs and kings, and the rules card (opening, closing, stacking order). Deals are fixed by seed. One check fails if cards ever get a CSS filter (or a transition on one) again, which is what made highlighting slow.
 
 ## Card art
 

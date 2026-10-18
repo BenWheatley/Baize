@@ -6,12 +6,13 @@ import pathlib
 from playwright.sync_api import sync_playwright
 
 URL = (pathlib.Path(__file__).resolve().parent.parent / 'baize.html').as_uri()
-GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2'}
+GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2', 'pyramid': '3'}
 FACE_DOWN = 'Face-down card'
 
 # Deals are fixed so that the checks do not depend on luck. Seed 1 of FreeCell has three
-# movable aces; seed 14 of Golf has two playable column cards.
-SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14}
+# movable aces; seed 14 of Golf has two playable column cards; seed 2 of Pyramid has exactly one
+# pair (queen and ace of spades) and one king (hearts) in the free bottom row.
+SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14, 'pyramid': 2}
 
 
 def status(pg):
@@ -46,7 +47,7 @@ def shift(pg, down):
 
 def check_menu_and_saves(pg):
     names = pg.eval_on_selector_all('#game option', 'o => o.map(x => x.textContent)')
-    assert names == ['Klondike', 'FreeCell', 'Golf'], names
+    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid'], names
     start(pg, 'klondike')
     box = pg.locator('.slot[data-pile=stock]').bounding_box()
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
@@ -201,8 +202,50 @@ def check_rules_card(pg):
     assert not pg.evaluate('document.documentElement.scrollWidth > innerWidth'), 'no sideways scroll'
 
 
+def check_pyramid(pg):
+    start(pg, 'pyramid')
+    assert 'Left 28 / 28' in status(pg), status(pg)
+    assert pg.locator('.slot').count() == 2, 'only the stock and waste have outlines'
+    shift(pg, True)
+    assert lit(pg) == sorted([FACE_DOWN, 'Ace of spades', 'King of hearts', 'Queen of spades']), lit(pg)
+    shift(pg, False)
+
+    def tap(label):
+        b = pg.locator(f'.card[aria-label="{label}"]').bounding_box()
+        pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] / 2)
+        pg.wait_for_timeout(250)
+
+    tap('Queen of spades')
+    assert pg.locator('.card.selected').count() == 1, 'the first card of a pair is selected'
+    tap('Ace of spades')
+    assert 'Left 26 / 28' in status(pg) and 'Moves 1' in status(pg), status(pg)
+    assert pg.locator('.card[aria-label="Ace of spades"]').count() == 0, 'removed cards leave the table'
+    tap('King of hearts')
+    assert 'Left 25 / 28' in status(pg), status(pg)
+    pg.click('#undo')
+    pg.click('#undo')
+    pg.wait_for_timeout(300)
+    assert 'Left 28 / 28' in status(pg) and 'Moves 0' in status(pg), status(pg)
+    # two cards that do not add up to 13 only move the selection
+    cards = pg.evaluate("""() => [...document.querySelectorAll('.card')].map(c => ({
+        label: c.getAttribute('aria-label'), y: c.getBoundingClientRect().y }))""")
+    free_row = max(c['y'] for c in cards if c['label'] != FACE_DOWN)
+    bottom = [c['label'] for c in cards if abs(c['y'] - free_row) < 3 and c['label'] not in
+              ('Queen of spades', 'Ace of spades', 'King of hearts')][:2]
+    assert len(bottom) == 2, bottom
+    tap(bottom[0])
+    tap(bottom[1])
+    assert 'Moves 0' in status(pg) and pg.locator('.card.selected').count() == 1, status(pg)
+    # the stock draws
+    box = pg.locator('.slot[data-pile=stock]').bounding_box()
+    pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    pg.wait_for_timeout(250)
+    assert 'Stock 23' in status(pg) and 'Moves 1' in status(pg), status(pg)
+    assert pg.locator('.card.selected').count() == 0, 'drawing clears the selection'
+
+
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

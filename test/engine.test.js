@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -451,6 +451,176 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     same(session.state, golf.setup(o, mulberry32(seed)), 'undo restores the deal');
   }
   console.log(`golf playouts: ${wins} wins of 60`);
+}
+
+/* Pyramid */
+{
+  const rowIds = r => Array.from({ length: r + 1 }, (_, i) => `p${r}_${i}`);
+  const ALL = [0, 1, 2, 3, 4, 5, 6].flatMap(rowIds);
+  const o2 = { redeals: 2 };
+  const blankPy = () => {
+    const st = pyramid.setup(o2, mulberry32(1));
+    for (const id of Object.keys(st.piles)) st.piles[id] = [];
+    return st;
+  };
+  const pok = (state, action, o = o2) => { const r = pyramid.reduce(state, action, o); assert(r.state, `expected legal: ${JSON.stringify(action)} (${r.error})`); return r.state; };
+  const pbad = (state, action, why, o = o2) => assert(pyramid.reduce(state, action, o).error, `expected illegal: ${why}`);
+  const take = (...from) => ({ type: 'take', from });
+  const idsOf = (st, o = o2) => [...movableCards(pyramid, st, o)].sort();
+
+  // deal
+  const dealt = pyramid.setup(o2, mulberry32(4));
+  const all = Object.values(dealt.piles).flat();
+  assert.strictEqual(all.length, 52);
+  assert.strictEqual(new Set(all.map(e => e.card.id)).size, 52);
+  ALL.forEach(id => { assert.strictEqual(dealt.piles[id].length, 1); assert(dealt.piles[id][0].up); });
+  assert.strictEqual(dealt.piles.stock.length, 24);
+  assert(dealt.piles.stock.every(e => !e.up));
+  assert.strictEqual(dealt.piles.waste.length, 0);
+  assert.strictEqual(dealt.piles.out.length, 0);
+  assert.strictEqual(dealt.redeals, 0);
+  same(pyramid.setup(o2, mulberry32(4)), dealt);
+  // only the bottom row is free at the start
+  ALL.forEach(id => assert.strictEqual(pyramid.canSelect(dealt, id, 0), id.startsWith('p6_'), id));
+
+  // pairs and kings
+  let s = blankPy();
+  s.piles.p6_0 = [entry('hearts', 6)];
+  s.piles.p6_1 = [entry('spades', 7)];
+  s.piles.p6_2 = [entry('clubs', 7)];
+  s.piles.p6_3 = [entry('clubs', 13)];
+  s.piles.p6_4 = [entry('clubs', 12)];
+  s.piles.p6_5 = [entry('diamonds', 1)];
+  s.piles.p5_0 = [entry('diamonds', 5)];          // overlapped by p6_0 and p6_1
+  pbad(s, take('p6_0'), 'a six alone');
+  pbad(s, take('p6_0', 'p6_0'), 'the same card twice');
+  pbad(s, take('p6_0', 'p6_1', 'p6_2'), 'three cards');
+  pbad(s, take(), 'no cards');
+  pbad(s, take('p6_1', 'p6_2'), '7 + 7');
+  pbad(s, take('p5_0', 'p6_5'), 'a covered card');
+  pbad(s, take('stock'), 'not a takeable pile');
+  pbad(s, take('out', 'p6_0'), 'unknown or closed pile');
+  pbad(s, take('__proto__'), 'prototype key');
+  pbad(s, { type: 'take', from: 'p6_3' }, 'from must be a list');
+  pbad(s, { type: 'move', from: 'p6_3', index: 0, to: 'waste' }, 'dragging is not a Pyramid action');
+  let t = pok(s, take('p6_3'));                   // king alone
+  assert.strictEqual(t.piles.p6_3.length, 0);
+  assert.strictEqual(t.piles.out.at(-1).card.id, 'c13');
+  t = pok(t, take('p6_4', 'p6_5'));               // queen + ace
+  assert.strictEqual(t.piles.out.length, 3);
+  t = pok(t, take('p6_1', 'p6_0'));  // 6 + 7, in either order
+  assert.strictEqual(t.piles.p5_0.length, 1);
+  assert(pyramid.canSelect(t, 'p5_0', 0), 'uncovered once both cards below are gone');
+  const u = pok(s, take('p6_0', 'p6_1'));
+  assert(pyramid.canSelect(u, 'p5_0', 0));
+  const half = pok(s, take('p6_5', 'p6_4'));
+  assert(!pyramid.canSelect(half, 'p5_0', 0), 'still overlapped by p6_0 and p6_1');
+
+  // the waste takes part, and only its top card
+  const w = blankPy();
+  w.piles.p6_0 = [entry('hearts', 4)];
+  w.piles.waste = [entry('clubs', 9), entry('spades', 9)];
+  const w2 = pok(w, take('waste', 'p6_0'));
+  assert.strictEqual(w2.piles.waste.length, 1);
+  assert.strictEqual(w2.piles.waste[0].card.id, 'c9', 'the card beneath is left');
+  w.piles.waste = [entry('spades', 13)];
+  const w3 = pok(w, take('waste'));
+  assert.strictEqual(w3.piles.waste.length, 0);
+  assert(!pyramid.canSelect(w, 'waste', 5));
+
+  // draw and redeals
+  const d = blankPy();
+  d.piles.stock = [entry('clubs', 2, false), entry('spades', 3, false)];
+  let dd = pok(d, { type: 'draw' });
+  assert.strictEqual(dd.piles.waste.at(-1).card.id, 's3');
+  assert(dd.piles.waste.at(-1).up);
+  pbad(dd, { type: 'recycle' }, 'stock is not empty');
+  dd = pok(dd, { type: 'draw' });
+  pbad(dd, { type: 'draw' }, 'empty stock');
+  let r1 = pok(dd, { type: 'recycle' });
+  assert.strictEqual(r1.piles.stock.length, 2);
+  assert.strictEqual(r1.piles.stock.at(-1).card.id, 's3', 'the first card drawn comes round first again');
+  assert(r1.piles.stock.every(e => !e.up));
+  assert.strictEqual(r1.redeals, 1);
+  let r2 = pok(pok(pok(r1, { type: 'draw' }), { type: 'draw' }), { type: 'recycle' });
+  assert.strictEqual(r2.redeals, 2);
+  const r3 = pok(pok(r2, { type: 'draw' }), { type: 'draw' });
+  pbad(r3, { type: 'recycle' }, 'third redeal with Two allowed');
+  pok(r3, { type: 'recycle' }, { redeals: 99 });
+  pbad(blankPy(), { type: 'recycle' }, 'nothing to turn over');
+
+  // taps
+  const tp = blankPy();
+  tp.piles.p6_0 = [entry('hearts', 6)];
+  tp.piles.p6_1 = [entry('spades', 7)];
+  tp.piles.p6_2 = [entry('clubs', 13)];
+  tp.piles.p5_0 = [entry('clubs', 2)];
+  tp.piles.stock = [entry('clubs', 3, false)];
+  same(pyramid.onTap(tp, 'stock', 0), { type: 'draw' });
+  same(pyramid.onTap(tp, 'p6_2', 0), take('p6_2'), 'a king goes at once');
+  assert.strictEqual(pyramid.onTap(tp, 'p6_0', 0, null), null, 'first card of a pair only selects');
+  same(pyramid.onTap(tp, 'p6_1', 0, { pile: 'p6_0', index: 0 }), take('p6_0', 'p6_1'));
+  assert.strictEqual(pyramid.onTap(tp, 'p6_0', 0, { pile: 'p6_0', index: 0 }), null, 'same card again');
+  assert.strictEqual(pyramid.onTap(tp, 'p5_0', 0, null), null, 'covered card');
+  assert.strictEqual(pyramid.onTap(tp, 'p4_0', 0), null, 'empty position');
+  tp.piles.stock = [];
+  assert.strictEqual(pyramid.onTap(tp, 'stock', -1), null);
+  tp.piles.waste = [entry('clubs', 4)];
+  same(pyramid.onTap(tp, 'stock', -1), { type: 'recycle' });
+  assert(!pyramid.canPickUp(tp, 'p6_0', 0), 'nothing is dragged');
+
+  // highlights: kings, pairs, and the top of the stock
+  const h = blankPy();
+  h.piles.p6_0 = [entry('hearts', 6)];
+  h.piles.p6_1 = [entry('spades', 7)];
+  h.piles.p6_2 = [entry('clubs', 9)];
+  h.piles.p6_3 = [entry('clubs', 13)];
+  h.piles.p5_0 = [entry('diamonds', 4)];          // would pair with the nine, but is covered
+  h.piles.waste = [entry('diamonds', 2)];
+  same(idsOf(h), ['c13', 'h6', 's7']);
+  h.piles.waste = [entry('diamonds', 4)];
+  same(idsOf(h), ['c13', 'c9', 'd4', 'h6', 's7'], 'waste four pairs with the nine');
+  h.piles.stock = [entry('spades', 2, false), entry('hearts', 3, false)];
+  assert(idsOf(h).includes('h3'), 'top of the stock can be tapped');
+  assert(!idsOf(h).includes('s2'));
+
+  // status and win
+  const st = pyramid.status(dealt, o2);
+  same(st.map(x => x.value), ['28 / 28', 24, 2]);
+  same(pyramid.status(r1, o2).map(x => x.value), ['0 / 28', 2, 1]);
+  assert.strictEqual(pyramid.status(dealt, { redeals: 99 })[2].value, 'unlimited');
+  assert(pyramid.isWon(blankPy()));
+  assert(!pyramid.isWon(h));
+
+  // random playouts: invariants, replay, undo
+  let wins = 0;
+  for (let seed = 0; seed < 40; seed++) {
+    const o = { redeals: seed % 2 ? 99 : 2 };
+    const session = new Session(pyramid, o, seed);
+    const rng = mulberry32(seed + 9);
+    for (let step = 0; step < 250 && !session.won; step++) {
+      const state = session.state;
+      const open = [...ALL, 'waste'].filter(id => state.piles[id].length && pyramid.canSelect(state, id, state.piles[id].length - 1));
+      const choices = [];
+      for (const a of open) {
+        choices.push(take(a));
+        for (const b of open) if (a < b) choices.push(take(a, b));
+      }
+      choices.push({ type: 'draw' }, { type: 'recycle' });
+      const legal = choices.filter(a => pyramid.reduce(state, a, o).state);
+      if (!legal.length) break;
+      assert(session.apply(legal[Math.floor(rng() * legal.length)]));
+      const cards = Object.values(session.state.piles).flat();
+      assert.strictEqual(cards.length, 52);
+      assert.strictEqual(new Set(cards.map(e => e.card.id)).size, 52);
+      assert(session.state.redeals <= o.redeals);
+    }
+    if (session.won) wins++;
+    same(new Session(pyramid, o, seed, session.actions).state, session.state, 'replay matches');
+    while (session.undo());
+    same(session.state, pyramid.setup(o, mulberry32(seed)), 'undo restores the deal');
+  }
+  console.log(`pyramid playouts: ${wins} wins of 40`);
 }
 
 /* Deck artwork */
