@@ -1,0 +1,942 @@
+<title>Baize</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@500;700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column. Header (name + controls), a status line, then the felt table.
+   Colours are a card-room palette: baize green, ivory cards, oxblood backs, brass for focus. */
+:root {
+  --bg: #e7ece8;
+  --fg: #14211b;
+  --muted: #52645a;
+  --rule: #c5d0c8;
+  --line: #8fa297;
+  --felt: #2c6a54;
+  --felt-deep: #1f4f3e;
+  --felt-line: rgba(255, 255, 255, 0.3);
+  --btn-bg: #14211b;
+  --btn-fg: #e7ece8;
+  --accent: #e6b94c;
+  --card: #fdfcf8;
+  --card-edge: #bfb9a8;
+  --ink: #18212b;
+  --red: #b42a33;
+  --back: #7b2231;
+  --back-line: #d8b45a;
+  --font-display: 'Bodoni Moda', 'Bodoni 72', Didot, Georgia, serif;
+  --font-ui: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1612; --fg: #e2eae4; --muted: #8c9f93; --rule: #21322a; --line: #3d5348;
+    --felt: #154236; --felt-deep: #0b2b22; --felt-line: rgba(255, 255, 255, 0.22);
+    --btn-bg: #e2eae4; --btn-fg: #0d1612;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1612; --fg: #e2eae4; --muted: #8c9f93; --rule: #21322a; --line: #3d5348;
+  --felt: #154236; --felt-deep: #0b2b22; --felt-line: rgba(255, 255, 255, 0.22);
+  --btn-bg: #e2eae4; --btn-fg: #0d1612;
+  color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.45 var(--font-ui);
+  padding-block: 14px 28px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.app { max-width: 920px; margin-inline: auto; display: grid; gap: 10px; }
+
+/* Header */
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
+.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+h1 { margin: 0; font: 700 30px/1 var(--font-display); letter-spacing: 0.01em; }
+.game-name, #game { font: 600 12px var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+#game { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+
+button {
+  font: 500 14px var(--font-ui);
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 11px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--fg); }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible, #game:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+
+.seg { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg-label { display: grid; place-items: center; padding: 0 9px; color: var(--muted); font-size: 13px; }
+.seg button { border: 0; border-left: 1px solid var(--line); border-radius: 0; }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
+.status { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status b { color: var(--fg); font-weight: 600; }
+
+/* Table */
+.table {
+  position: relative;
+  padding: 14px;
+  border-radius: 14px;
+  background: radial-gradient(120% 90% at 50% 15%, var(--felt) 0%, var(--felt-deep) 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2), inset 0 0 70px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.table::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.board { position: relative; }
+
+.slot {
+  position: absolute; left: 0; top: 0; z-index: 0;
+  width: var(--cw); height: var(--ch);
+  box-sizing: border-box;
+  border: 1.5px dashed var(--felt-line);
+  border-radius: calc(var(--cw) * 0.07);
+  display: grid; place-items: center;
+  color: var(--felt-line);
+  font: 600 calc(var(--cw) * 0.38) / 1 var(--font-display);
+  touch-action: none;
+}
+
+.card {
+  position: absolute; left: 0; top: 0;
+  width: var(--cw); height: var(--ch);
+  border-radius: calc(var(--cw) * 0.07);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.28);
+  touch-action: none;
+  cursor: grab;
+  will-change: transform;
+}
+.card svg { display: block; width: 100%; height: 100%; }
+.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.board.instant .card { transition: none; }
+.card.covered { box-shadow: none; }
+.card.selected { box-shadow: 0 0 0 2.5px var(--accent), 0 3px 8px rgba(0, 0, 0, 0.35); }
+.card.dragging { transition: none; cursor: grabbing; box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4); }
+
+/* Card artwork (inline SVG, drawn for this page, released under CC0) */
+.paper { fill: var(--card); stroke: var(--card-edge); stroke-width: 1; }
+.red { color: var(--red); }
+.black { color: var(--ink); }
+.rank { fill: currentColor; font-family: var(--font-display); font-weight: 700; }
+.panel { fill: none; stroke: currentColor; stroke-width: 0.8; opacity: 0.4; }
+.back-base { fill: var(--back); stroke: var(--card-edge); stroke-width: 1; }
+.back-frame { fill: none; stroke: var(--back-line); stroke-width: 1; }
+.back-medal { fill: var(--back); stroke: var(--back-line); stroke-width: 1.2; }
+.lattice { stroke: var(--back-line); opacity: 0.55; }
+
+/* Win panel */
+.win { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6, 18, 13, 0.55); }
+.win-card { background: var(--card); color: var(--ink); padding: 22px 30px; border-radius: 12px; text-align: center; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4); }
+.win-card h2 { margin: 0 0 4px; font: 700 34px/1.1 var(--font-display); }
+.win-card p { margin: 0 0 14px; }
+.win-card button { background: var(--ink); color: var(--card); border-color: var(--ink); }
+
+.notes { margin: 0; color: var(--muted); font-size: 13px; max-width: 70ch; }
+
+@media (max-width: 520px) {
+  h1 { font-size: 26px; }
+  .table { padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card.ready { transition: none; }
+}
+</style>
+
+<!-- Shared artwork definitions. Zero-sized rather than display:none so patterns still resolve. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="s-hearts" viewBox="-12 -12 24 24"><path fill="currentColor" d="M0 9.5 C-3 7 -11 2 -11 -4.5 C-11 -8.5 -8 -10.5 -5.2 -10.5 C-2.8 -10.5 -0.9 -9.2 0 -7.2 C0.9 -9.2 2.8 -10.5 5.2 -10.5 C8 -10.5 11 -8.5 11 -4.5 C11 2 3 7 0 9.5 Z"/></symbol>
+    <symbol id="s-diamonds" viewBox="-12 -12 24 24"><path fill="currentColor" d="M0 -11 C2.5 -6 6 -2.5 9 0 C6 2.5 2.5 6 0 11 C-2.5 6 -6 2.5 -9 0 C-6 -2.5 -2.5 -6 0 -11 Z"/></symbol>
+    <symbol id="s-spades" viewBox="-12 -12 24 24"><path fill="currentColor" d="M0 -11 C3 -6 11 -3 11 3 C11 7 7 9 4 6.5 C4.5 8.5 5 9.5 7 11 L-7 11 C-5 9.5 -4.5 8.5 -4 6.5 C-7 9 -11 7 -11 3 C-11 -3 -3 -6 0 -11 Z"/></symbol>
+    <symbol id="s-clubs" viewBox="-12 -12 24 24"><g fill="currentColor"><circle cx="0" cy="-5.5" r="5.2"/><circle cx="-5.8" cy="3" r="5.2"/><circle cx="5.8" cy="3" r="5.2"/><path d="M0 0 C0 6 -1 8.5 -3.5 11 L3.5 11 C1 8.5 0 6 0 0 Z"/></g></symbol>
+    <pattern id="lattice" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path class="lattice" d="M0 0H8M0 0V8" fill="none" stroke-width="0.7"/></pattern>
+  </defs>
+</svg>
+
+<div class="app">
+  <header class="bar">
+    <div class="brand">
+      <h1>Baize</h1>
+      <span id="game-name" class="game-name"></span>
+      <select id="game" aria-label="Game" hidden></select>
+    </div>
+    <div class="controls">
+      <div id="options" class="controls"></div>
+      <button id="undo" type="button">Undo</button>
+      <button id="finish" type="button" hidden>Auto-finish</button>
+      <button id="restart" type="button">Restart deal</button>
+      <button id="new" type="button" class="primary">New deal</button>
+    </div>
+  </header>
+
+  <p id="status" class="status" aria-live="polite"></p>
+
+  <main id="table" class="table">
+    <div id="board" class="board"></div>
+    <div id="win" class="win" hidden role="status">
+      <div class="win-card">
+        <h2>Cleared</h2>
+        <p id="win-text"></p>
+        <button id="win-new" type="button">New deal</button>
+      </div>
+    </div>
+  </main>
+
+  <p class="notes">Drag a card or a run of cards to move it, or tap a card and then tap where it should go. Double-tap sends a card to a foundation. Ctrl or ⌘ with Z undoes. The card artwork was drawn for this page and is released under CC0.</p>
+</div>
+
+<!-- ============================================================
+     Engine and rules. No DOM access, so it can be tested in Node.
+
+     A game is a ruleset with this shape:
+       id, name
+       options          [{ id, label, choices: [{ value, label }], default }]
+       setup(options, rng)                     -> state  ({ piles: { [pileId]: [{ card, up }] } })
+       layout(options)                         -> slots  [{ id, col, row, fan, visible, limit, glyph }]
+       faceUp(state, pileId, entry, viewer)    -> boolean (viewer is null in solo play)
+       canPickUp(state, pileId, index)         -> boolean
+       reduce(state, action, options)          -> { state } | { error }
+       onTap(state, pileId, index)             -> action | null
+       onActivate(state, pileId, index)        -> action | null  (double tap)
+       autoAction(state)                       -> action | null
+       isWon(state), status(state)             -> boolean, [{ label, value }]
+     Dragging produces { type: 'move', from, index, to }; any other action type reaches
+     the ruleset through onTap or onActivate. Hanabi would add per-player hand piles,
+     a faceUp that hides the viewer's own hand, and play, discard and hint actions.
+     ============================================================ -->
+<script id="engine">
+const CardSim = (() => {
+  'use strict';
+
+  /* ---------- Random numbers ---------- */
+
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function shuffle(items, rng) {
+    const out = items.slice();
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
+  /* ---------- A game in progress ----------
+     A game is stored as (ruleset, options, seed, actions) and the current position is
+     replayed from that, so a saved game can never hold an illegal position. */
+
+  class Session {
+    constructor(rules, options, seed, actions = []) {
+      this.rules = rules;
+      this.options = options;
+      this.seed = seed;
+      this.actions = [];
+      this.states = [rules.setup(options, mulberry32(seed))];
+      for (const action of actions) {
+        if (!this.apply(action)) throw new Error(`Saved action cannot be replayed: ${JSON.stringify(action)}`);
+      }
+    }
+    get state() { return this.states[this.states.length - 1]; }
+    get won() { return this.rules.isWon(this.state); }
+    apply(action) {
+      const result = this.rules.reduce(this.state, action, this.options);
+      if (result.error) return false;
+      this.actions.push(action);
+      this.states.push(result.state);
+      return true;
+    }
+    undo() {
+      if (!this.actions.length) return false;
+      this.actions.pop();
+      this.states.pop();
+      return true;
+    }
+  }
+
+  /* ---------- Fanned piles ----------
+     Offsets are measured in card heights (fan 'down') or card widths (fan 'right').
+     Only the last `visible` cards of a pile are fanned; the rest sit at the base.
+     If the fan is longer than `limit` card lengths it is squeezed to fit. */
+
+  const FAN_STEP = { down: { up: 0.26, down: 0.1 }, right: { up: 0.22, down: 0.22 } };
+
+  function fanOffsets(slot, entries, isUp) {
+    const n = entries.length;
+    const offsets = new Array(n).fill(0);
+    if (slot.fan === 'none') return offsets;
+    const step = FAN_STEP[slot.fan];
+    const firstFanned = Math.max(0, n - (slot.visible ?? Infinity));
+    for (let i = firstFanned + 1; i < n; i++) {
+      offsets[i] = offsets[i - 1] + (isUp(entries[i - 1]) ? step.up : step.down);
+    }
+    const room = (slot.limit ?? Infinity) - 1;
+    const used = offsets[n - 1] ?? 0;
+    return used > room ? offsets.map(o => (o * room) / used) : offsets;
+  }
+
+  /* ---------- Klondike ---------- */
+
+  const SUITS = ['spades', 'hearts', 'diamonds', 'clubs'];
+  const RANKS = Array.from({ length: 13 }, (_, i) => i + 1);
+  const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
+  const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
+
+  const isRed = suit => suit === 'hearts' || suit === 'diamonds';
+  const top = pile => pile[pile.length - 1];
+  const faceDown = card => ({ card, up: false });
+
+  /** Face-up cards in descending rank, alternating colour. */
+  function isRun(entries) {
+    return entries.every((entry, i) => entry.up && (i === 0 ||
+      (entries[i - 1].card.rank === entry.card.rank + 1 &&
+       isRed(entries[i - 1].card.suit) !== isRed(entry.card.suit))));
+  }
+
+  /* Each handler mutates a private copy of the piles and returns an error message, or nothing. */
+  const klondikeActions = {
+    draw(piles, _action, options) {
+      if (!piles.stock.length) return 'The stock is empty';
+      for (let i = 0; i < options.draw && piles.stock.length; i++) {
+        const entry = piles.stock.pop();
+        entry.up = true;
+        piles.waste.push(entry);
+      }
+    },
+
+    recycle(piles) {
+      if (piles.stock.length || !piles.waste.length) return 'There is nothing to turn over';
+      piles.stock = piles.waste.reverse().map(({ card }) => faceDown(card));
+      piles.waste = [];
+    },
+
+    move(piles, { from, index, to }) {
+      if (!Object.hasOwn(piles, from) || !Object.hasOwn(piles, to)) return 'Unknown pile';
+      if (from === to || from === 'stock' || to === 'stock' || to === 'waste') return 'Cards cannot move there';
+      const source = piles[from];
+      const target = piles[to];
+      if (!Number.isInteger(index) || index < 0 || index >= source.length) return 'No such card';
+
+      const moving = source.slice(index);
+      const lead = moving[0].card;
+      const landing = top(target);
+      if (!isRun(moving)) return 'Only a face-up run can move';
+      if (!TABLEAU.includes(from) && moving.length > 1) return 'Only one card can leave here at a time';
+
+      if (FOUNDATIONS.includes(to)) {
+        if (FOUNDATIONS.includes(from) || moving.length > 1) return 'Only one card can go to a foundation';
+        const fits = landing
+          ? landing.card.suit === lead.suit && lead.rank === landing.card.rank + 1
+          : lead.rank === 1;
+        if (!fits) return 'That card does not build on this foundation';
+      } else {
+        const fits = landing
+          ? landing.up && isRed(landing.card.suit) !== isRed(lead.suit) && landing.card.rank === lead.rank + 1
+          : lead.rank === 13;
+        if (!fits) return 'That card does not build on this column';
+      }
+
+      source.splice(index);
+      target.push(...moving);
+      if (TABLEAU.includes(from) && top(source)) top(source).up = true;
+    },
+  };
+
+  /** The first foundation move available for the top card of a pile. */
+  function homeMove(state, from) {
+    const index = state.piles[from].length - 1;
+    if (index < 0) return null;
+    for (const to of FOUNDATIONS) {
+      const action = { type: 'move', from, index, to };
+      if (klondike.reduce(state, action).state) return action;
+    }
+    return null;
+  }
+
+  const klondike = {
+    id: 'klondike',
+    name: 'Klondike',
+
+    options: [
+      { id: 'draw', label: 'Draw', default: 1, choices: [{ value: 1, label: 'One' }, { value: 3, label: 'Three' }] },
+    ],
+
+    setup(_options, rng) {
+      const deck = shuffle(
+        SUITS.flatMap(suit => RANKS.map(rank => ({ id: `${suit[0]}${rank}`, suit, rank }))),
+        rng,
+      );
+      const piles = { stock: [], waste: [] };
+      for (const id of FOUNDATIONS) piles[id] = [];
+      let next = 0;
+      TABLEAU.forEach((id, i) => {
+        piles[id] = deck.slice(next, next + i + 1).map((card, j, row) => ({ card, up: j === row.length - 1 }));
+        next += i + 1;
+      });
+      piles.stock = deck.slice(next).map(faceDown);
+      return { piles };
+    },
+
+    layout(options) {
+      return [
+        { id: 'stock', col: 0, row: 0, glyph: '↻' },
+        { id: 'waste', col: 1, row: 0, fan: 'right', visible: options.draw },
+        ...FOUNDATIONS.map((id, i) => ({ id, col: 3 + i, row: 0, glyph: 'A' })),
+        ...TABLEAU.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 3.8, glyph: 'K' })),
+      ];
+    },
+
+    faceUp: (_state, _pileId, entry) => entry.up,
+
+    canPickUp(state, pileId, index) {
+      const pile = state.piles[pileId];
+      const entry = pile?.[index];
+      if (!entry || !entry.up || pileId === 'stock') return false;
+      return TABLEAU.includes(pileId) || index === pile.length - 1;
+    },
+
+    reduce(state, action, options) {
+      const handler = Object.hasOwn(klondikeActions, action.type) ? klondikeActions[action.type] : null;
+      if (!handler) return { error: `Unknown action ${action.type}` };
+      const next = structuredClone(state);
+      const error = handler(next.piles, action, options);
+      return error ? { error } : { state: next };
+    },
+
+    onTap(state, pileId) {
+      if (pileId !== 'stock') return null;
+      if (state.piles.stock.length) return { type: 'draw' };
+      return state.piles.waste.length ? { type: 'recycle' } : null;
+    },
+
+    onActivate(state, pileId, index) {
+      if (pileId === 'stock' || FOUNDATIONS.includes(pileId)) return null;
+      return index === state.piles[pileId].length - 1 ? homeMove(state, pileId) : null;
+    },
+
+    /** Offered only once nothing is hidden and the stock is spent: from there the game is won. */
+    autoAction(state) {
+      const { piles } = state;
+      const settled = !piles.stock.length && !piles.waste.length &&
+        TABLEAU.every(id => piles[id].every(entry => entry.up));
+      if (!settled) return null;
+      for (const id of TABLEAU) {
+        const action = homeMove(state, id);
+        if (action) return action;
+      }
+      return null;
+    },
+
+    isWon: state => FOUNDATIONS.every(id => state.piles[id].length === 13),
+
+    status: state => [
+      { label: 'Home', value: `${FOUNDATIONS.reduce((n, id) => n + state.piles[id].length, 0)} / 52` },
+      { label: 'Stock', value: state.piles.stock.length },
+    ],
+  };
+
+  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, klondike };
+})();
+</script>
+
+<!-- ============================================================
+     Card artwork: a standard 52-card deck, drawn as inline SVG for this page.
+     A deck is { face(card), back(), label(card) }; each game pairs its rules with a deck,
+     so Hanabi would bring its own coloured-number deck.
+     ============================================================ -->
+<script id="deck">
+const StandardDeck = (() => {
+  'use strict';
+
+  const LETTER = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+  const NAME = { 1: 'Ace', 11: 'Jack', 12: 'Queen', 13: 'King' };
+  const L = 32, C = 50, R = 68;
+  const PIPS = {
+    1: [[C, 70]],
+    2: [[C, 32], [C, 108]],
+    3: [[C, 32], [C, 70], [C, 108]],
+    4: [[L, 32], [R, 32], [L, 108], [R, 108]],
+    5: [[L, 32], [R, 32], [C, 70], [L, 108], [R, 108]],
+    6: [[L, 32], [R, 32], [L, 70], [R, 70], [L, 108], [R, 108]],
+    7: [[L, 32], [R, 32], [C, 51], [L, 70], [R, 70], [L, 108], [R, 108]],
+    8: [[L, 32], [R, 32], [C, 51], [L, 70], [R, 70], [C, 89], [L, 108], [R, 108]],
+    9: [[L, 32], [R, 32], [L, 57], [R, 57], [C, 70], [L, 83], [R, 83], [L, 108], [R, 108]],
+    10: [[L, 32], [R, 32], [C, 44.5], [L, 57], [R, 57], [L, 83], [R, 83], [C, 95.5], [L, 108], [R, 108]],
+  };
+
+  const pip = (suit, cx, cy, size) => {
+    const mark = `<use href="#s-${suit}" x="${cx - size / 2}" y="${cy - size / 2}" width="${size}" height="${size}"/>`;
+    return cy > 70 ? `<g transform="rotate(180 ${cx} ${cy})">${mark}</g>` : mark;
+  };
+
+  function centre(card) {
+    if (card.rank === 1) return pip(card.suit, 50, 70, 44);
+    if (card.rank <= 10) return PIPS[card.rank].map(([x, y]) => pip(card.suit, x, y, 20)).join('');
+    return `<rect class="panel" x="23" y="22" width="54" height="96" rx="3"/>` +
+      `<text class="rank" x="50" y="86" font-size="48" text-anchor="middle">${LETTER[card.rank]}</text>` +
+      pip(card.suit, 50, 40, 18) + pip(card.suit, 50, 100, 18);
+  }
+
+  function face(card) {
+    const colour = card.suit === 'hearts' || card.suit === 'diamonds' ? 'red' : 'black';
+    const letter = LETTER[card.rank] ?? String(card.rank);
+    const corner = `<text class="rank" x="11" y="22" font-size="${letter.length > 1 ? 14 : 17}" text-anchor="middle">${letter}</text>` +
+      `<use href="#s-${card.suit}" x="4" y="26" width="14" height="14"/>`;
+    return `<svg viewBox="0 0 100 140" class="${colour}" aria-hidden="true">` +
+      `<rect class="paper" x=".5" y=".5" width="99" height="139" rx="7"/>` +
+      corner + `<g transform="rotate(180 50 70)">${corner}</g>` + centre(card) + `</svg>`;
+  }
+
+  const BACK = `<svg viewBox="0 0 100 140" aria-hidden="true">` +
+    `<rect class="back-base" x=".5" y=".5" width="99" height="139" rx="7"/>` +
+    `<rect class="back-frame" x="7" y="7" width="86" height="126" rx="3"/>` +
+    `<rect x="7" y="7" width="86" height="126" rx="3" fill="url(#lattice)"/>` +
+    `<path class="back-medal" d="M50 50 L68 70 L50 90 L32 70 Z"/></svg>`;
+
+  return {
+    face,
+    back: () => BACK,
+    label: card => `${NAME[card.rank] ?? card.rank} of ${card.suit}`,
+  };
+})();
+</script>
+
+<!-- ============================================================
+     Table, input and page controls. Everything game-specific comes from the ruleset and deck.
+     ============================================================ -->
+<script id="app">
+(() => {
+  'use strict';
+
+  const { Session, FAN_STEP, fanOffsets } = CardSim;
+  const GAMES = [{ rules: CardSim.klondike, deck: StandardDeck }];
+
+  const STORE_KEY = 'baize.v1';
+  const COL_GAP = 0.16;       // gap between columns, in card widths
+  const ROW_GAP = 1.3;        // distance between rows, in card heights
+  const MAX_CARD_W = 96;      // px
+  const ASPECT = 1.4;
+  const DRAG_SLOP = 5;        // px before a press becomes a drag
+  const DOUBLE_TAP_MS = 350;
+  const VIEWER = null;        // solo play: nothing is hidden from this player
+
+  const $ = id => document.getElementById(id);
+  const els = {
+    table: $('table'), board: $('board'), status: $('status'), options: $('options'),
+    game: $('game'), gameName: $('game-name'),
+    undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
+    win: $('win'), winText: $('win-text'), winNew: $('win-new'),
+  };
+
+  let game;                   // { rules, deck }
+  let session;
+  let selection = null;       // { pile, index } picked by tapping
+  let lastTap = null;
+  let press = null;           // pointer currently down
+  let busy = false;           // auto-finish is running
+  let dealing = false;
+  let geometry = { cw: 0, ch: 0, pos: new Map(), areas: [] };
+  const cardEls = new Map();
+  const slotEls = new Map();
+
+  function h(tag, props = {}, ...children) {
+    const el = document.createElement(tag);
+    for (const [key, value] of Object.entries(props)) el.setAttribute(key, value);
+    el.append(...children);
+    return el;
+  }
+
+  /* ---------- Starting, saving, restoring ---------- */
+
+  const newSeed = () => Math.floor(Math.random() * 1_000_000);
+  const defaultOptions = rules => Object.fromEntries(rules.options.map(o => [o.id, o.default]));
+
+  function startGame(nextGame, options, seed, actions = []) {
+    const next = new Session(nextGame.rules, options, seed, actions);  // throws if it cannot replay
+    if (nextGame !== game) resetBoard();
+    game = nextGame;
+    session = next;
+    selection = null;
+    lastTap = null;
+    press = null;
+    els.gameName.textContent = game.rules.name;
+    buildOptions();
+    dealing = actions.length === 0;
+    render();
+    dealing = false;
+  }
+
+  function resetBoard() {
+    for (const el of [...cardEls.values(), ...slotEls.values()]) el.remove();
+    cardEls.clear();
+    slotEls.clear();
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        game: game.rules.id, options: session.options, seed: session.seed, actions: session.actions,
+      }));
+    } catch { /* storage is a convenience only */ }
+  }
+
+  function restore() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+      const found = GAMES.find(g => g.rules.id === saved?.game);
+      if (!found || !Number.isInteger(saved.seed)) return false;
+      startGame(found, { ...defaultOptions(found.rules), ...saved.options }, saved.seed, saved.actions);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /* ---------- Geometry ---------- */
+
+  const extentOf = slot => (Number.isFinite(slot.limit) ? slot.limit : 4);
+  const normaliseSlot = slot => ({ fan: 'none', visible: Infinity, limit: Infinity, ...slot });
+
+  function measure(slots) {
+    const cols = Math.max(...slots.map(s => s.col)) + 1;
+    const boardW = els.board.clientWidth || 320;
+    const cw = Math.min(MAX_CARD_W, boardW / (cols + (cols - 1) * COL_GAP));
+    const ch = cw * ASPECT;
+    const gridW = cols * cw + (cols - 1) * cw * COL_GAP;
+    const height = Math.max(...slots.map(s => s.row * ROW_GAP * ch + (s.fan === 'down' ? extentOf(s) : 1) * ch));
+    return { cw, ch, left: (boardW - gridW) / 2, height };
+  }
+
+  function place(state, slots, g) {
+    const pos = new Map();
+    const areas = [];
+    for (const slot of slots) {
+      const entries = state.piles[slot.id];
+      const x0 = g.left + slot.col * g.cw * (1 + COL_GAP);
+      const y0 = slot.row * ROW_GAP * g.ch;
+      const isUp = entry => game.rules.faceUp(state, slot.id, entry, VIEWER);
+      const offsets = fanOffsets(slot, entries, isUp);
+      entries.forEach((entry, i) => {
+        pos.set(entry.card.id, {
+          card: entry.card, pile: slot.id, index: i, up: isUp(entry), z: i + 1,
+          x: x0 + (slot.fan === 'right' ? offsets[i] * g.cw : 0),
+          y: y0 + (slot.fan === 'down' ? offsets[i] * g.ch : 0),
+          covered: i < entries.length - 1 && offsets[i + 1] === offsets[i],
+        });
+      });
+      areas.push({
+        id: slot.id, glyph: slot.glyph, x: x0, y: y0,
+        w: g.cw * (slot.fan === 'right' ? 1 + (Math.min(slot.visible, 5) - 1) * FAN_STEP.right.up : 1),
+        h: g.ch * (slot.fan === 'down' ? extentOf(slot) : 1),
+      });
+    }
+    return { ...g, pos, areas };
+  }
+
+  /* ---------- Drawing ---------- */
+
+  function render() {
+    const state = session.state;
+    const slots = game.rules.layout(session.options).map(normaliseSlot);
+    const g = measure(slots);
+    els.board.style.height = `${g.height}px`;
+    els.board.style.setProperty('--cw', `${g.cw}px`);
+    els.board.style.setProperty('--ch', `${g.ch}px`);
+    geometry = place(state, slots, g);
+    syncSlots();
+    syncCards();
+    syncChrome(state);
+    save();
+  }
+
+  function syncSlots() {
+    const live = new Set();
+    for (const area of geometry.areas) {
+      live.add(area.id);
+      let el = slotEls.get(area.id);
+      if (!el) {
+        el = h('div', { class: 'slot' }, area.glyph ?? '');
+        el.dataset.pile = area.id;
+        els.board.prepend(el);
+        slotEls.set(area.id, el);
+      }
+      el.style.transform = `translate(${area.x}px, ${area.y}px)`;
+    }
+    for (const [id, el] of slotEls) {
+      if (!live.has(id)) { el.remove(); slotEls.delete(id); }
+    }
+  }
+
+  function syncCards() {
+    const { deck } = game;
+    let order = 0;
+    for (const [id, p] of geometry.pos) {
+      let el = cardEls.get(id);
+      if (!el) {
+        el = h('div', { class: 'card', role: 'img' });
+        el.dataset.id = id;
+        els.board.append(el);
+        cardEls.set(id, el);
+      }
+      if (el.dataset.up !== String(p.up)) {
+        el.dataset.up = String(p.up);
+        el.innerHTML = p.up ? deck.face(p.card) : deck.back();
+        el.setAttribute('aria-label', p.up ? deck.label(p.card) : 'Face-down card');
+      }
+      el.style.transitionDelay = dealing ? `${order++ * 14}ms` : '';
+      el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+      el.style.zIndex = p.z;
+      el.classList.toggle('covered', p.covered);
+      el.classList.toggle('selected', selection?.pile === p.pile && p.index >= selection.index);
+    }
+    for (const [id, el] of cardEls) {
+      if (!geometry.pos.has(id)) { el.remove(); cardEls.delete(id); }
+    }
+    // Cards created this frame take their first position without sliding in.
+    requestAnimationFrame(() => cardEls.forEach(el => el.classList.add('ready')));
+  }
+
+  function syncChrome(state) {
+    const { rules } = game;
+    const items = [
+      ['Deal', `#${String(session.seed).padStart(6, '0')}`],
+      ['Moves', session.actions.length],
+      ...rules.status(state).map(s => [s.label, s.value]),
+    ];
+    els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))));
+    els.undo.disabled = busy || session.actions.length === 0;
+    els.finish.hidden = busy || !rules.autoAction(state);
+    els.options.querySelectorAll('button').forEach(button => {
+      const pressed = String(session.options[button.dataset.option]) === button.dataset.value;
+      button.setAttribute('aria-pressed', String(pressed));
+    });
+    els.win.hidden = !session.won;
+    if (session.won) els.winText.textContent = `${rules.name}, deal #${String(session.seed).padStart(6, '0')}, in ${session.actions.length} moves.`;
+    if (GAMES.length > 1) els.game.value = String(GAMES.indexOf(game));
+  }
+
+  function buildOptions() {
+    els.options.replaceChildren(...game.rules.options.map(option =>
+      h('div', { class: 'seg', role: 'group', 'aria-label': option.label },
+        h('span', { class: 'seg-label' }, option.label),
+        ...option.choices.map(choice => {
+          const button = h('button', { type: 'button', 'data-option': option.id, 'data-value': String(choice.value) }, choice.label);
+          button.addEventListener('click', () => {
+            if (!busy) startGame(game, { ...session.options, [option.id]: choice.value }, newSeed());
+          });
+          return button;
+        }),
+      )));
+  }
+
+  /* ---------- Playing ---------- */
+
+  function perform(action) {
+    if (!session.apply(action)) return false;
+    selection = null;
+    render();
+    return true;
+  }
+
+  function undo() {
+    if (busy || !session.undo()) return;
+    selection = null;
+    render();
+  }
+
+  function autoFinish() {
+    if (busy) return;
+    busy = true;
+    const step = () => {
+      const action = game.rules.autoAction(session.state);
+      if (action && session.apply(action)) {
+        render();
+        setTimeout(step, 120);
+      } else {
+        busy = false;
+        render();
+      }
+    };
+    step();
+  }
+
+  function handleTap({ pile, index }) {
+    const { rules } = game;
+    const state = session.state;
+
+    if (selection && selection.pile !== pile) {
+      const moved = perform({ type: 'move', from: selection.pile, index: selection.index, to: pile });
+      selection = null;
+      if (moved) return;
+    }
+
+    const now = performance.now();
+    const double = lastTap && lastTap.pile === pile && lastTap.index === index && now - lastTap.time < DOUBLE_TAP_MS;
+    lastTap = { pile, index, time: now };
+
+    const action = double ? rules.onActivate(state, pile, index) : rules.onTap(state, pile, index);
+    if (action && perform(action)) return;
+
+    const same = selection && selection.pile === pile && selection.index === index;
+    selection = !same && index >= 0 && rules.canPickUp(state, pile, index) ? { pile, index } : null;
+    render();
+  }
+
+  /* ---------- Pointer input ---------- */
+
+  function hitTest(target) {
+    const card = target.closest('.card');
+    if (card) {
+      const p = geometry.pos.get(card.dataset.id);
+      return p ? { pile: p.pile, index: p.index } : null;
+    }
+    const slot = target.closest('.slot');
+    return slot ? { pile: slot.dataset.pile, index: -1 } : null;
+  }
+
+  els.table.addEventListener('pointerdown', e => {
+    if (busy || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const hit = hitTest(e.target);
+    if (!hit) {
+      if (selection) { selection = null; render(); }
+      return;
+    }
+    press = { ...hit, startX: e.clientX, startY: e.clientY, dragging: false, cards: [] };
+    els.table.setPointerCapture(e.pointerId);
+  });
+
+  els.table.addEventListener('pointermove', e => {
+    if (!press) return;
+    const dx = e.clientX - press.startX;
+    const dy = e.clientY - press.startY;
+    if (!press.dragging) {
+      if (Math.hypot(dx, dy) < DRAG_SLOP) return;
+      if (press.index < 0 || !game.rules.canPickUp(session.state, press.pile, press.index)) { press = null; return; }
+      beginDrag();
+    }
+    press.cards.forEach(el => {
+      const p = geometry.pos.get(el.dataset.id);
+      el.style.transform = `translate(${p.x + dx}px, ${p.y + dy}px)`;
+    });
+    press.dx = dx;
+    press.dy = dy;
+  });
+
+  function beginDrag() {
+    press.dragging = true;
+    selection = null;
+    const entries = session.state.piles[press.pile].slice(press.index);
+    press.cards = entries.map((entry, i) => {
+      const el = cardEls.get(entry.card.id);
+      el.classList.remove('selected');
+      el.classList.add('dragging');
+      el.style.zIndex = 1000 + i;
+      return el;
+    });
+  }
+
+  els.table.addEventListener('pointerup', () => {
+    if (!press) return;
+    const p = press;
+    press = null;
+    if (!p.dragging) { handleTap(p); return; }
+
+    p.cards.forEach(el => el.classList.remove('dragging'));
+    const lead = geometry.pos.get(p.cards[0].dataset.id);
+    const rect = { x: lead.x + (p.dx ?? 0), y: lead.y + (p.dy ?? 0), w: geometry.cw, h: geometry.ch };
+    for (const to of dropCandidates(rect, p.pile)) {
+      if (perform({ type: 'move', from: p.pile, index: p.index, to })) return;
+    }
+    render();   // nothing accepted the cards: they slide back
+  });
+
+  els.table.addEventListener('pointercancel', () => {
+    if (!press) return;
+    const wasDragging = press.dragging;
+    press = null;
+    if (wasDragging) { cardEls.forEach(el => el.classList.remove('dragging')); render(); }
+  });
+
+  els.table.addEventListener('contextmenu', e => e.preventDefault());
+
+  /** Piles the dragged card overlaps enough to count, most overlap first. */
+  function dropCandidates(rect, fromPile) {
+    const overlap = (a, b) =>
+      Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) *
+      Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+    const threshold = rect.w * rect.h * 0.2;
+    return geometry.areas
+      .filter(area => area.id !== fromPile)
+      .map(area => ({ id: area.id, amount: overlap(rect, area) }))
+      .filter(c => c.amount > threshold)
+      .sort((a, b) => b.amount - a.amount)
+      .map(c => c.id);
+  }
+
+  /* ---------- Page controls ---------- */
+
+  els.undo.addEventListener('click', undo);
+  els.finish.addEventListener('click', autoFinish);
+  els.restart.addEventListener('click', () => { if (!busy) startGame(game, session.options, session.seed); });
+  const newDeal = () => { if (!busy) startGame(game, session.options, newSeed()); };
+  els.fresh.addEventListener('click', newDeal);
+  els.winNew.addEventListener('click', newDeal);
+
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      undo();
+    }
+  });
+
+  if (GAMES.length > 1) {
+    els.game.hidden = false;
+    els.gameName.hidden = true;
+    GAMES.forEach((g, i) => els.game.append(h('option', { value: String(i) }, g.rules.name)));
+    els.game.addEventListener('change', () => {
+      const next = GAMES[Number(els.game.value)];
+      if (!busy) startGame(next, defaultOptions(next.rules), newSeed());
+    });
+  }
+
+  let lastWidth = 0;
+  new ResizeObserver(() => {
+    const width = els.board.clientWidth;
+    if (!session || width === lastWidth) return;
+    lastWidth = width;
+    els.board.classList.add('instant');
+    render();
+    requestAnimationFrame(() => els.board.classList.remove('instant'));
+  }).observe(els.board);
+
+  if (!restore()) startGame(GAMES[0], defaultOptions(GAMES[0].rules), newSeed());
+})();
+</script>
