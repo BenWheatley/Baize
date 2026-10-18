@@ -17,6 +17,7 @@
   --btn-fg: #e7ece8;
   --accent: #e6b94c;
   --hint: #fff6cf;
+  --dim: rgba(8, 20, 14, 0.55);
   --card: #fdfcf8;
   --card-edge: #bfb9a8;
   --ink: #18212b;
@@ -140,12 +141,16 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
 .card svg { display: block; width: 100%; height: 100%; }
 .card.covered { box-shadow: none; }
 .card.selected { box-shadow: 0 0 0 2.5px var(--accent), 0 3px 8px rgba(0, 0, 0, 0.35); }
-.card { transition: filter 0.15s; }
-.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.15s; }
+.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1); }
 .board.instant .card { transition: none; }
 .card.hint { box-shadow: 0 0 0 2px var(--hint), 0 0 14px 2px var(--hint); }
 .card.hint.covered { box-shadow: 0 0 0 2px var(--hint); }
-.board.hints .card.dim:not(.dragging) { filter: brightness(0.5) saturate(0.6); box-shadow: none; }
+/* Dimming is a flat overlay and changes instantly. A CSS filter would make the browser
+   re-render every card's SVG each time a key is pressed or released. */
+.board.hints .card.dim:not(.dragging) { box-shadow: none; }
+.board.hints .card.dim:not(.dragging)::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--dim); pointer-events: none;
+}
 .card.dragging { transition: none; cursor: grabbing; box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4); }
 
 /* Card back (inline SVG, drawn for this page, released under CC0) */
@@ -957,8 +962,10 @@ const StandardDeck = (() => {
   function syncHints() {
     const active = Boolean(game.rules.showsMovable) && (hintsOn || shiftHeld || heldRanks.size > 0);
     els.board.classList.toggle('hints', active);
-    cardEls.forEach(el => el.classList.remove('hint', 'dim'));
-    if (!active) return;
+    if (!active) {
+      cardEls.forEach(el => el.classList.remove('hint', 'dim'));
+      return;
+    }
     // A rank key alone lights every face-up card of that rank. Shift or Show moves limits it to movable cards.
     const ranks = new Set(heldRanks.values());
     const movableOnly = hintsOn || shiftHeld || !ranks.size;
@@ -971,7 +978,11 @@ const StandardDeck = (() => {
       const rankMatches = !ranks.size || (p?.up && ranks.has(p.card.rank));   // face-down cards stay secret
       return rankMatches && (!movableOnly || hintCache.ids.has(id));
     };
-    cardEls.forEach((el, id) => el.classList.add(lit(id) ? 'hint' : 'dim'));
+    cardEls.forEach((el, id) => {
+      const on = lit(id);
+      el.classList.toggle('hint', on);
+      el.classList.toggle('dim', !on);
+    });
   }
 
   function setShift(held) {
