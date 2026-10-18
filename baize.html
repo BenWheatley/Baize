@@ -16,6 +16,7 @@
   --btn-bg: #14211b;
   --btn-fg: #e7ece8;
   --accent: #e6b94c;
+  --hint: #fff6cf;
   --card: #fdfcf8;
   --card-edge: #bfb9a8;
   --ink: #18212b;
@@ -81,6 +82,7 @@ button {
 button:hover:not(:disabled) { border-color: var(--fg); }
 button:disabled { opacity: 0.4; cursor: default; }
 button:focus-visible, #game:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"].toggle { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
 
 .seg { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
@@ -136,10 +138,14 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
   will-change: transform;
 }
 .card svg { display: block; width: 100%; height: 100%; }
-.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1); }
-.board.instant .card { transition: none; }
 .card.covered { box-shadow: none; }
 .card.selected { box-shadow: 0 0 0 2.5px var(--accent), 0 3px 8px rgba(0, 0, 0, 0.35); }
+.card { transition: filter 0.15s; }
+.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.15s; }
+.board.instant .card { transition: none; }
+.card.hint { box-shadow: 0 0 0 2px var(--hint), 0 0 14px 2px var(--hint); }
+.card.hint.covered { box-shadow: 0 0 0 2px var(--hint); }
+.board.hints .card.dim:not(.dragging) { filter: brightness(0.5) saturate(0.6); box-shadow: none; }
 .card.dragging { transition: none; cursor: grabbing; box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4); }
 
 /* Card back (inline SVG, drawn for this page, released under CC0) */
@@ -181,6 +187,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
     </div>
     <div class="controls">
       <div id="options" class="controls"></div>
+      <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same." hidden>Show moves</button>
       <button id="undo" type="button">Undo</button>
       <button id="finish" type="button" hidden>Auto-finish</button>
       <button id="restart" type="button">Restart deal</button>
@@ -201,7 +208,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
     </div>
   </main>
 
-  <p class="notes">Drag a card or a run of cards to move it, or tap a card and then tap where it should go. Double-tap sends a card to a foundation. Ctrl or ⌘ with Z undoes. Card faces are Adrian Kennard’s public-domain (CC0) deck from me.uk/cards; the card back is drawn for this page, also CC0.</p>
+  <p class="notes">Drag a card or a run of cards to move it, or tap a card and then tap where it should go. Double-tap sends a card to a foundation. Hold Shift, or use Show moves, to highlight the cards that can move. Ctrl or ⌘ with Z undoes. Card faces are Adrian Kennard’s public-domain (CC0) deck from me.uk/cards; the card back is drawn for this page, also CC0.</p>
 </div>
 
 <!-- ============================================================
@@ -219,6 +226,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
        onActivate(state, pileId, index)        -> action | null  (double tap)
        autoAction(state)                       -> action | null
        isWon(state), status(state)             -> boolean, [{ label, value }]
+       showsMovable                            -> true if the game supports highlighting movable cards
      Dragging produces { type: 'move', from, index, to }; any other action type reaches
      the ruleset through onTap or onActivate. Hanabi would add per-player hand piles,
      a faceUp that hides the viewer's own hand, and play, discard and hint actions.
@@ -300,6 +308,30 @@ const CardSim = (() => {
     const room = (slot.limit ?? Infinity) - 1;
     const used = offsets[n - 1] ?? 0;
     return used > room ? offsets.map(o => (o * room) / used) : offsets;
+  }
+
+  /* ---------- Movable cards ----------
+     A card is movable if some legal action involves it: a drag that carries it (with the
+     cards below it in the pile), or a tap on the top card of its pile. */
+
+  function movableCards(rules, state, options) {
+    const ids = new Set();
+    const piles = Object.entries(state.piles);
+    const mark = (pile, index) => state.piles[pile].slice(index).forEach(e => ids.add(e.card.id));
+    for (const [from, entries] of piles) {
+      entries.forEach((entry, index) => {
+        if (ids.has(entry.card.id)) return;
+        if (rules.canPickUp(state, from, index) &&
+            piles.some(([to]) => to !== from &&
+              rules.reduce(state, { type: 'move', from, index, to }, options).state)) {
+          mark(from, index);
+          return;
+        }
+        const tap = index === entries.length - 1 && rules.onTap(state, from, index);
+        if (tap && rules.reduce(state, tap, options).state) ids.add(entry.card.id);
+      });
+    }
+    return ids;
   }
 
   /* ---------- Standard 52-card deck, shared by the solitaire games ---------- */
@@ -402,6 +434,7 @@ const CardSim = (() => {
   const klondike = {
     id: 'klondike',
     name: 'Klondike',
+    showsMovable: true,
 
     options: [
       { id: 'draw', label: 'Draw', default: 1, choices: [{ value: 1, label: 'One' }, { value: 3, label: 'Three' }] },
@@ -514,6 +547,7 @@ const CardSim = (() => {
   const freecell = {
     id: 'freecell',
     name: 'FreeCell',
+    showsMovable: true,
     options: [],
 
     setup(_options, rng) {
@@ -571,7 +605,7 @@ const CardSim = (() => {
     ],
   };
 
-  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, klondike, freecell };
+  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell };
 })();
 </script>
 
@@ -621,6 +655,7 @@ const StandardDeck = (() => {
   ];
 
   const STORE_KEY = 'baize.v2';
+  const HINTS_KEY = 'baize.hints';
   const COL_GAP = 0.16;       // gap between columns, in card widths
   const ROW_GAP = 1.3;        // distance between rows, in card heights
   const MAX_CARD_W = 96;      // px
@@ -633,7 +668,7 @@ const StandardDeck = (() => {
   const els = {
     table: $('table'), board: $('board'), status: $('status'), options: $('options'),
     game: $('game'),
-    undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
+    hints: $('hints'), undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
     win: $('win'), winText: $('win-text'), winNew: $('win-new'),
   };
 
@@ -643,6 +678,9 @@ const StandardDeck = (() => {
   let lastTap = null;
   let press = null;           // pointer currently down
   let busy = false;           // auto-finish is running
+  let hintsOn = false;        // the Show moves toggle
+  let shiftHeld = false;
+  let hintCache = { key: null, ids: new Set() };
   let dealing = false;
   let geometry = { cw: 0, ch: 0, pos: new Map(), areas: [] };
   const cardEls = new Map();
@@ -766,6 +804,7 @@ const StandardDeck = (() => {
     syncSlots();
     syncCards();
     syncChrome(state);
+    syncHints();
     save();
   }
 
@@ -826,6 +865,8 @@ const StandardDeck = (() => {
     els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))));
     els.undo.disabled = busy || session.actions.length === 0;
     els.finish.hidden = busy || !rules.autoAction(state);
+    els.hints.hidden = !rules.showsMovable;
+    els.hints.setAttribute('aria-pressed', String(hintsOn));
     els.options.querySelectorAll('button').forEach(button => {
       const pressed = String(session.options[button.dataset.option]) === button.dataset.value;
       button.setAttribute('aria-pressed', String(pressed));
@@ -833,6 +874,23 @@ const StandardDeck = (() => {
     els.win.hidden = !session.won;
     if (session.won) els.winText.textContent = `${rules.name}, deal #${String(session.seed).padStart(6, '0')}, in ${session.actions.length} moves.`;
     els.game.value = String(GAMES.indexOf(game));
+  }
+
+  /** Highlight the movable cards and dim the rest, for games that support it. */
+  function syncHints() {
+    const active = Boolean(game.rules.showsMovable) && (hintsOn || shiftHeld);
+    els.board.classList.toggle('hints', active);
+    cardEls.forEach(el => el.classList.remove('hint', 'dim'));
+    if (!active) return;
+    const key = `${game.rules.id}:${session.seed}:${session.actions.length}`;
+    if (hintCache.key !== key) hintCache = { key, ids: CardSim.movableCards(game.rules, session.state, session.options) };
+    cardEls.forEach((el, id) => el.classList.add(hintCache.ids.has(id) ? 'hint' : 'dim'));
+  }
+
+  function setShift(held) {
+    if (!session || shiftHeld === held) return;
+    shiftHeld = held;
+    syncHints();
   }
 
   function buildOptions() {
@@ -1002,7 +1060,17 @@ const StandardDeck = (() => {
   els.fresh.addEventListener('click', newDeal);
   els.winNew.addEventListener('click', newDeal);
 
+  els.hints.addEventListener('click', () => {
+    hintsOn = !hintsOn;
+    try { localStorage.setItem(HINTS_KEY, hintsOn ? '1' : '0'); } catch { /* optional */ }
+    syncChrome(session.state);
+    syncHints();
+  });
+  document.addEventListener('keyup', e => { if (e.key === 'Shift') setShift(false); });
+  window.addEventListener('blur', () => setShift(false));
+
   document.addEventListener('keydown', e => {
+    if (e.key === 'Shift') setShift(true);
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       undo();
@@ -1025,6 +1093,7 @@ const StandardDeck = (() => {
     requestAnimationFrame(() => els.board.classList.remove('instant'));
   }).observe(els.board);
 
+  try { hintsOn = localStorage.getItem(HINTS_KEY) === '1'; } catch { /* optional */ }
   open(GAMES.find(g => g.rules.id === readStore().current) ?? GAMES[0]);
 })();
 </script>
