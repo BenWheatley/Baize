@@ -25,6 +25,12 @@ npm test
 
 Runs the engine, rulesets and deck art in Node (about 45 seconds, mostly random playouts). There are no dependencies to install.
 
+```sh
+python3 test/ui.test.py
+```
+
+Drives the page in Chromium with Python Playwright: the game menu and saves, highlighting with Shift and rank keys, the Show moves toggle, Golf taps, and FreeCell drag and double-tap. Deals are fixed by seed. One check fails if cards ever get a CSS filter (or a transition on one) again, which is what made highlighting slow.
+
 ## Card art
 
 The faces are Adrian Kennard's playing cards (<https://www.me.uk/cards/>), dedicated to the public domain under CC0 1.0, taken from `@letele/playing-cards` 0.1.0 (CC0-1.0). The card back is drawn for this page and is also CC0. To regenerate the embedded faces, run `tools/art/build.sh`.
