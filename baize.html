@@ -208,7 +208,9 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
     </div>
   </main>
 
-  <p class="notes">Drag a card or a run of cards to move it, or tap a card and then tap where it should go. Double-tap sends a card to a foundation. Hold Shift, or use Show moves, to highlight the cards that can move. Hold a rank key (A, 2 to 9, 0 or T for ten, J, Q, K) to highlight every card of that rank, or add Shift to see only the ones that can move. Ctrl or ⌘ with Z undoes. Card faces are Adrian Kennard’s public-domain (CC0) deck from me.uk/cards; the card back is drawn for this page, also CC0.</p>
+  <p id="help" class="notes"></p>
+
+  <p class="notes">In Klondike and FreeCell, drag a card or a run of cards to move it, or tap a card and then tap where it should go. Double-tap sends a card to a foundation (or, in FreeCell, a free cell). Hold Shift, or use Show moves, to highlight the cards that can move. Hold a rank key (A, 2 to 9, 0 or T for ten, J, Q, K) to highlight every card of that rank, or add Shift to see only the ones that can move. Ctrl or ⌘ with Z undoes. Card faces are Adrian Kennard’s public-domain (CC0) deck from me.uk/cards; the card back is drawn for this page, also CC0.</p>
 </div>
 
 <!-- ============================================================
@@ -227,6 +229,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
        autoAction(state)                       -> action | null
        isWon(state), status(state)             -> boolean, [{ label, value }]
        showsMovable                            -> true if the game supports highlighting movable cards
+       help                                    -> one or two sentences of rules, shown under the table
      Dragging produces { type: 'move', from, index, to }; any other action type reaches
      the ruleset through onTap or onActivate. Hanabi would add per-player hand piles,
      a faceUp that hides the viewer's own hand, and play, discard and hint actions.
@@ -435,6 +438,7 @@ const CardSim = (() => {
     id: 'klondike',
     name: 'Klondike',
     showsMovable: true,
+    help: 'Build the four foundations from ace to king in suit. Build columns downward in alternating colours, and move a king to an empty column.',
 
     options: [
       { id: 'draw', label: 'Draw', default: 1, choices: [{ value: 1, label: 'One' }, { value: 3, label: 'Three' }] },
@@ -548,6 +552,7 @@ const CardSim = (() => {
     id: 'freecell',
     name: 'FreeCell',
     showsMovable: true,
+    help: 'Everything is face up. Each of the four free cells holds one card. Build columns downward in alternating colours and the foundations upward in suit.',
     options: [],
 
     setup(_options, rng) {
@@ -605,7 +610,75 @@ const CardSim = (() => {
     ],
   };
 
-  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell };
+  /* ---------- Golf ----------
+     Seven columns of five face-up cards, one card showing on the waste. Tap the last card of
+     a column to play it when it is one rank above or below the waste card. Draw from the stock
+     when stuck. There is no redeal. Clear every column to win. */
+
+  const golfActions = {
+    draw(piles) {
+      if (!piles.stock.length) return 'The stock is empty';
+      const entry = piles.stock.pop();
+      entry.up = true;
+      piles.waste.push(entry);
+    },
+
+    play(piles, { from }, options) {
+      if (!TABLEAU.includes(from)) return 'Only a column card can be played';
+      const card = top(piles[from])?.card;
+      if (!card) return 'That column is empty';
+      const gap = Math.abs(card.rank - top(piles.waste).card.rank);
+      if (gap !== 1 && !(options.wrap && gap === 12)) return 'That card is not next in rank to the one showing';
+      piles.waste.push(piles[from].pop());
+    },
+  };
+
+  const golf = {
+    id: 'golf',
+    name: 'Golf',
+    showsMovable: true,
+    help: 'Tap the last card of a column to play it onto the waste when it is one rank higher or lower than the card showing. Draw from the stock when stuck. Clear all seven columns to win.',
+
+    options: [
+      { id: 'wrap', label: 'Wrap', default: 0, choices: [{ value: 0, label: 'Off' }, { value: 1, label: 'Kings and aces' }] },
+    ],
+
+    setup(_options, rng) {
+      const deck = dealDeck(rng);
+      const piles = {};
+      TABLEAU.forEach((id, i) => { piles[id] = deck.slice(i * 5, i * 5 + 5).map(card => ({ card, up: true })); });
+      piles.waste = [{ card: deck[35], up: true }];
+      piles.stock = deck.slice(36).map(faceDown);
+      return { piles };
+    },
+
+    layout: () => [
+      { id: 'stock', col: 2.5, row: 0 },
+      { id: 'waste', col: 3.5, row: 0 },
+      ...TABLEAU.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 2.2 })),
+    ],
+
+    faceUp: (_state, _pileId, entry) => entry.up,
+    canPickUp: () => false,
+    reduce: (state, action, options) => reduceWith(golfActions, state, action, options),
+
+    onTap(state, pileId, index) {
+      if (pileId === 'stock') return state.piles.stock.length ? { type: 'draw' } : null;
+      const last = index >= 0 && TABLEAU.includes(pileId) && index === state.piles[pileId].length - 1;
+      return last ? { type: 'play', from: pileId } : null;
+    },
+
+    onActivate: () => null,
+    autoAction: () => null,
+    isWon: state => TABLEAU.every(id => !state.piles[id].length),
+
+    status: state => [
+      { label: 'Left', value: `${TABLEAU.reduce((n, id) => n + state.piles[id].length, 0)} / 35` },
+      { label: 'Stock', value: state.piles.stock.length },
+    ],
+  };
+
+  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf };
 })();
 </script>
 
@@ -652,6 +725,7 @@ const StandardDeck = (() => {
   const GAMES = [
     { rules: CardSim.klondike, deck: StandardDeck },
     { rules: CardSim.freecell, deck: StandardDeck },
+    { rules: CardSim.golf, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';
@@ -667,7 +741,7 @@ const StandardDeck = (() => {
   const $ = id => document.getElementById(id);
   const els = {
     table: $('table'), board: $('board'), status: $('status'), options: $('options'),
-    game: $('game'),
+    game: $('game'), help: $('help'),
     hints: $('hints'), undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
     win: $('win'), winText: $('win-text'), winNew: $('win-new'),
   };
@@ -708,6 +782,8 @@ const StandardDeck = (() => {
     lastTap = null;
     press = null;
     buildOptions();
+    els.help.textContent = game.rules.help ?? '';
+    els.help.hidden = !game.rules.help;
     dealing = actions.length === 0;
     render();
     dealing = false;
