@@ -29,7 +29,7 @@ Runs the engine, rulesets and deck art in Node (about 45 seconds, mostly random 
 python3 test/ui.test.py
 ```
 
-Drives the page in Chromium with Python Playwright: the game menu and saves, highlighting with Shift and rank keys, the Show moves toggle, Golf taps, and FreeCell drag and double-tap. Deals are fixed by seed. One check fails if cards ever get a CSS filter (or a transition on one) again, which is what made highlighting slow.
+Drives the page in Chromium with Python Playwright: the game menu and saves, highlighting with Shift and rank keys, the Show moves toggle, Golf taps, FreeCell drag and double-tap, and the rules card (opening, closing, stacking order). Deals are fixed by seed. One check fails if cards ever get a CSS filter (or a transition on one) again, which is what made highlighting slow.
 
 ## Card art
 

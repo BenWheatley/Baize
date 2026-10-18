@@ -154,8 +154,55 @@ def check_freecell_drag_and_double_tap(pg):
     assert 'Moves 2' in status(pg), status(pg)
 
 
+def check_rules_card(pg):
+    start(pg, 'klondike')
+    assert pg.locator('.notes').count() == 0, 'the old bottom notes are gone'
+    assert not pg.is_visible('#rules')
+    pg.click('#rules-btn')
+    assert pg.is_visible('#rules') and pg.get_attribute('#rules-btn', 'aria-expanded') == 'true'
+    assert pg.inner_text('#rules-title') == 'Klondike' and 'foundations' in pg.inner_text('#rules-text')
+    assert pg.evaluate("document.activeElement.id") == 'rules-close', 'focus moves into the card'
+    # nothing from the table may paint over the card: sample points across it
+    covered = pg.evaluate("""() => { const r = document.getElementById('rules').getBoundingClientRect(); const bad = [];
+        for (const fx of [0.1, 0.3, 0.5, 0.7, 0.9]) for (const fy of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+          const el = document.elementFromPoint(r.left + r.width * fx, r.top + Math.min(r.height, 500) * fy);
+          if (!el || !el.closest('#rules')) bad.push([fx, fy, el && (el.className || el.tagName)]); }
+        return bad }""")
+    assert not covered, f'something paints over the rules card: {covered}'
+    # rank keys must not light cards behind the open card
+    pg.keyboard.down('a')
+    pg.wait_for_timeout(100)
+    assert count(pg, 'hint') == 0, 'rank keys are ignored while the rules are open'
+    pg.keyboard.up('a')
+    # the card is fully inside the viewport and does not overflow the page
+    box = pg.locator('#rules').bounding_box()
+    assert box['x'] >= 0 and box['x'] + box['width'] <= 1000, box
+    # Escape closes it and returns focus to the button
+    pg.keyboard.press('Escape')
+    assert not pg.is_visible('#rules') and pg.evaluate("document.activeElement.id") == 'rules-btn'
+    # the close button works
+    pg.click('#rules-btn')
+    pg.click('#rules-close')
+    assert not pg.is_visible('#rules')
+    # a click outside closes it
+    pg.click('#rules-btn')
+    pg.mouse.click(900, 700)
+    assert not pg.is_visible('#rules'), 'clicking elsewhere closes the card'
+    # it follows the game while open
+    pg.click('#rules-btn')
+    pg.select_option('#game', GAMES['golf'])
+    pg.wait_for_timeout(500)
+    assert pg.inner_text('#rules-title') == 'Golf' and 'column' in pg.inner_text('#rules-text')
+    # on a phone it stays inside the screen
+    pg.set_viewport_size({'width': 400, 'height': 760})
+    pg.wait_for_timeout(300)
+    box = pg.locator('#rules').bounding_box()
+    assert box['x'] >= 0 and box['x'] + box['width'] <= 400, box
+    assert not pg.evaluate('document.documentElement.scrollWidth > innerWidth'), 'no sideways scroll'
+
+
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

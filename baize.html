@@ -21,6 +21,7 @@
   --card: #fdfcf8;
   --card-edge: #bfb9a8;
   --ink: #18212b;
+  --ink-soft: #55606b;
   --red: #b42a33;
   --back: #7b2231;
   --back-line: #d8b45a;
@@ -55,7 +56,7 @@ body {
 .app { max-width: 920px; margin-inline: auto; display: grid; gap: 10px; }
 
 /* Header */
-.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
+.bar { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
 .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 h1 { margin: 0; font: 700 30px/1 var(--font-display); letter-spacing: 0.01em; }
 .pick { position: relative; display: inline-block; }
@@ -102,6 +103,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
   background: radial-gradient(120% 90% at 50% 15%, var(--felt) 0%, var(--felt-deep) 100%);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2), inset 0 0 70px rgba(0, 0, 0, 0.28);
   overflow: hidden;
+  isolation: isolate;   /* card z-indexes stay inside the table, below the rules card */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -166,7 +168,54 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
 .win-card p { margin: 0 0 14px; }
 .win-card button { background: var(--ink); color: var(--card); border-color: var(--ink); }
 
-.notes { margin: 0; color: var(--muted); font-size: 13px; max-width: 70ch; }
+/* Rules card: a popover styled as an ivory playing card with a brass inner frame. */
+.rules {
+  position: absolute; z-index: 20; left: 0; top: calc(100% + 8px);
+  box-sizing: border-box;
+  width: min(27rem, 100%);
+  max-height: min(75vh, 34rem);
+  overflow-y: auto;
+  padding: 30px 32px 22px;
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--card-edge), 0 18px 44px rgba(0, 0, 0, 0.35);
+  transform-origin: 24px -8px;
+  animation: rules-in 0.18s ease-out;
+}
+.rules::before {
+  content: ""; position: absolute; inset: 7px;
+  border: 1px solid var(--back-line); border-radius: 7px;
+  pointer-events: none;
+}
+.rules-index { position: absolute; display: grid; justify-items: center; font: 700 15px/1 var(--font-display); }
+.rules-index.top { top: 14px; left: 15px; }
+.rules-index.bottom { bottom: 14px; right: 15px; transform: rotate(180deg); }
+.rules-close {
+  position: absolute; top: 12px; right: 14px;
+  width: 28px; height: 28px; padding: 0;
+  display: grid; place-items: center;
+  border-radius: 50%; border-color: var(--card-edge);
+  color: var(--ink); background: transparent;
+  font-size: 18px; line-height: 1;
+}
+.rules h2 { margin: 0 0 8px; font: 700 28px/1.1 var(--font-display); text-align: center; text-wrap: balance; }
+.rules h3 { margin: 16px 0 6px; font: 600 11px var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
+.rules p, .rules li { margin: 0; font-size: 14px; line-height: 1.5; }
+.rules ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.rules-divider { margin-top: 14px; text-align: center; color: var(--back-line); font-size: 11px; letter-spacing: 0.7em; }
+.rules kbd {
+  font: 600 12px var(--font-ui);
+  padding: 0 5px;
+  border: 1px solid var(--card-edge); border-bottom-width: 2px; border-radius: 4px;
+  background: #fff; color: var(--ink);
+}
+.rules .credit { margin-top: 16px; font-size: 12px; color: var(--ink-soft); }
+.rules .credit a { color: inherit; }
+.rules .suit-red { color: var(--red); }
+@keyframes rules-in {
+  from { opacity: 0; transform: translateY(-6px) rotate(-1.2deg) scale(0.97); }
+}
 
 @media (max-width: 520px) {
   h1 { font-size: 26px; }
@@ -174,6 +223,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
 }
 @media (prefers-reduced-motion: reduce) {
   .card.ready { transition: none; }
+  .rules { animation: none; }
 }
 </style>
 
@@ -189,6 +239,26 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
     <div class="brand">
       <h1>Baize</h1>
       <span class="pick"><select id="game" aria-label="Game rules"></select></span>
+      <button id="rules-btn" type="button" aria-expanded="false" aria-controls="rules">Rules</button>
+    </div>
+    <div id="rules" class="rules" role="dialog" aria-labelledby="rules-title" hidden>
+      <span class="rules-index top" aria-hidden="true"><span>A</span><span>♠</span></span>
+      <span class="rules-index bottom" aria-hidden="true"><span>A</span><span>♠</span></span>
+      <button id="rules-close" class="rules-close" type="button" aria-label="Close rules">×</button>
+      <h2 id="rules-title"></h2>
+      <p id="rules-text"></p>
+      <div class="rules-divider" aria-hidden="true">◆ ◆ ◆</div>
+      <h3>Highlighting</h3>
+      <ul>
+        <li>Hold <kbd>Shift</kbd>, or switch on Show moves, to light the cards that can move. Show moves is the way to do it on a touch screen.</li>
+        <li>Hold <kbd>A</kbd> <kbd>2</kbd> to <kbd>9</kbd> <kbd>0</kbd> (ten) <kbd>J</kbd> <kbd>Q</kbd> or <kbd>K</kbd> to light every card of that rank. Add <kbd>Shift</kbd> to light only those that can move.</li>
+      </ul>
+      <h3>Other controls</h3>
+      <ul>
+        <li>Double-tap a card to send it home where the game allows.</li>
+        <li><kbd>Ctrl</kbd> or <kbd>⌘</kbd> with <kbd>Z</kbd> undoes the last move.</li>
+      </ul>
+      <p class="credit">Card faces are Adrian Kennard’s public-domain (CC0) deck from <a href="https://www.me.uk/cards/">me.uk/cards</a>. The card back is drawn for this page, also CC0.</p>
     </div>
     <div class="controls">
       <div id="options" class="controls"></div>
@@ -212,10 +282,6 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
       </div>
     </div>
   </main>
-
-  <p id="help" class="notes"></p>
-
-  <p class="notes">In Klondike and FreeCell, drag a card or a run of cards to move it, or tap a card and then tap where it should go. Double-tap sends a card to a foundation (or, in FreeCell, a free cell). Hold Shift, or use Show moves, to highlight the cards that can move. Hold a rank key (A, 2 to 9, 0 or T for ten, J, Q, K) to highlight every card of that rank, or add Shift to see only the ones that can move. Ctrl or ⌘ with Z undoes. Card faces are Adrian Kennard’s public-domain (CC0) deck from me.uk/cards; the card back is drawn for this page, also CC0.</p>
 </div>
 
 <!-- ============================================================
@@ -443,7 +509,7 @@ const CardSim = (() => {
     id: 'klondike',
     name: 'Klondike',
     showsMovable: true,
-    help: 'Build the four foundations from ace to king in suit. Build columns downward in alternating colours, and move a king to an empty column.',
+    help: 'Build the four foundations from ace to king in suit. Build columns downward in alternating colours, and move only a king to an empty column. Drag a card or a run of cards, or tap it and then tap where it should go. Tap the stock to draw.',
 
     options: [
       { id: 'draw', label: 'Draw', default: 1, choices: [{ value: 1, label: 'One' }, { value: 3, label: 'Three' }] },
@@ -557,7 +623,7 @@ const CardSim = (() => {
     id: 'freecell',
     name: 'FreeCell',
     showsMovable: true,
-    help: 'Everything is face up. Each of the four free cells holds one card. Build columns downward in alternating colours and the foundations upward in suit.',
+    help: 'Everything is face up. Each of the four free cells holds one card. Build columns downward in alternating colours and the foundations upward in suit, and any card may go to an empty column. A run moves only as far as the free cells and empty columns would allow if you carried the cards one at a time. Drag a card or a run, or tap it and then tap where it should go.',
     options: [],
 
     setup(_options, rng) {
@@ -746,7 +812,9 @@ const StandardDeck = (() => {
   const $ = id => document.getElementById(id);
   const els = {
     table: $('table'), board: $('board'), status: $('status'), options: $('options'),
-    game: $('game'), help: $('help'),
+    game: $('game'),
+    rules: $('rules'), rulesBtn: $('rules-btn'), rulesClose: $('rules-close'),
+    rulesTitle: $('rules-title'), rulesText: $('rules-text'),
     hints: $('hints'), undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
     win: $('win'), winText: $('win-text'), winNew: $('win-new'),
   };
@@ -787,8 +855,8 @@ const StandardDeck = (() => {
     lastTap = null;
     press = null;
     buildOptions();
-    els.help.textContent = game.rules.help ?? '';
-    els.help.hidden = !game.rules.help;
+    els.rulesTitle.textContent = game.rules.name;
+    els.rulesText.textContent = game.rules.help ?? '';
     dealing = actions.length === 0;
     render();
     dealing = false;
@@ -1188,9 +1256,28 @@ const StandardDeck = (() => {
     for (const code of [...heldRanks.keys()]) setRank(code, null);
   });
 
+  /* ---------- Rules card ---------- */
+
+  function setRulesOpen(open, { returnFocus = false } = {}) {
+    els.rules.hidden = !open;
+    els.rulesBtn.setAttribute('aria-expanded', String(open));
+    if (open) els.rulesClose.focus();
+    else if (returnFocus) els.rulesBtn.focus();
+  }
+
+  els.rulesBtn.addEventListener('click', () => setRulesOpen(els.rules.hidden));
+  els.rulesClose.addEventListener('click', () => setRulesOpen(false, { returnFocus: true }));
+  document.addEventListener('pointerdown', e => {
+    if (!els.rules.hidden && !e.target.closest('#rules, #rules-btn')) setRulesOpen(false);
+  });
+
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !els.rules.hidden) {
+      setRulesOpen(false, { returnFocus: true });
+      return;
+    }
     if (e.key === 'Shift') setShift(true);
-    const typing = e.target.closest?.('select, input, textarea');
+    const typing = e.target.closest?.('select, input, textarea') || !els.rules.hidden;
     const rank = e.ctrlKey || e.metaKey || e.altKey || typing ? null : rankOfKey(e);
     if (rank !== null) setRank(e.code, rank);
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
