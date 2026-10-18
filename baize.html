@@ -187,7 +187,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
     </div>
     <div class="controls">
       <div id="options" class="controls"></div>
-      <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same." hidden>Show moves</button>
+      <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same; hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to show only that rank." hidden>Show moves</button>
       <button id="undo" type="button">Undo</button>
       <button id="finish" type="button" hidden>Auto-finish</button>
       <button id="restart" type="button">Restart deal</button>
@@ -208,7 +208,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
     </div>
   </main>
 
-  <p class="notes">Drag a card or a run of cards to move it, or tap a card and then tap where it should go. Double-tap sends a card to a foundation. Hold Shift, or use Show moves, to highlight the cards that can move. Ctrl or ⌘ with Z undoes. Card faces are Adrian Kennard’s public-domain (CC0) deck from me.uk/cards; the card back is drawn for this page, also CC0.</p>
+  <p class="notes">Drag a card or a run of cards to move it, or tap a card and then tap where it should go. Double-tap sends a card to a foundation. Hold Shift, or use Show moves, to highlight the cards that can move. Hold a rank key (A, 2 to 9, 0 or T for ten, J, Q, K) to show only the movable cards of that rank. Ctrl or ⌘ with Z undoes. Card faces are Adrian Kennard’s public-domain (CC0) deck from me.uk/cards; the card back is drawn for this page, also CC0.</p>
 </div>
 
 <!-- ============================================================
@@ -680,6 +680,7 @@ const StandardDeck = (() => {
   let busy = false;           // auto-finish is running
   let hintsOn = false;        // the Show moves toggle
   let shiftHeld = false;
+  const heldRanks = new Map();  // key code -> rank, for rank keys currently down
   let hintCache = { key: null, ids: new Set() };
   let dealing = false;
   let geometry = { cw: 0, ch: 0, pos: new Map(), areas: [] };
@@ -878,18 +879,35 @@ const StandardDeck = (() => {
 
   /** Highlight the movable cards and dim the rest, for games that support it. */
   function syncHints() {
-    const active = Boolean(game.rules.showsMovable) && (hintsOn || shiftHeld);
+    const active = Boolean(game.rules.showsMovable) && (hintsOn || shiftHeld || heldRanks.size > 0);
     els.board.classList.toggle('hints', active);
     cardEls.forEach(el => el.classList.remove('hint', 'dim'));
     if (!active) return;
     const key = `${game.rules.id}:${session.seed}:${session.actions.length}`;
     if (hintCache.key !== key) hintCache = { key, ids: CardSim.movableCards(game.rules, session.state, session.options) };
-    cardEls.forEach((el, id) => el.classList.add(hintCache.ids.has(id) ? 'hint' : 'dim'));
+    const ranks = new Set(heldRanks.values());
+    const lit = id => hintCache.ids.has(id) && (!ranks.size || ranks.has(geometry.pos.get(id)?.card.rank));
+    cardEls.forEach((el, id) => el.classList.add(lit(id) ? 'hint' : 'dim'));
   }
 
   function setShift(held) {
     if (!session || shiftHeld === held) return;
     shiftHeld = held;
+    syncHints();
+  }
+
+  const FACE_RANKS = { a: 1, j: 11, q: 12, k: 13, t: 10 };
+
+  /** 1-9 and 0, or A, J, Q, K and T. Digits go by key position so Shift cannot change them. */
+  function rankOfKey(e) {
+    const digit = /^(?:Digit|Numpad)(\d)$/.exec(e.code);
+    if (digit) return digit[1] === '0' ? 10 : Number(digit[1]);
+    return FACE_RANKS[e.key.toLowerCase()] ?? null;
+  }
+
+  function setRank(code, rank) {
+    if (!session || heldRanks.get(code) === (rank ?? undefined)) return;
+    if (rank === null) heldRanks.delete(code); else heldRanks.set(code, rank);
     syncHints();
   }
 
@@ -1066,11 +1084,20 @@ const StandardDeck = (() => {
     syncChrome(session.state);
     syncHints();
   });
-  document.addEventListener('keyup', e => { if (e.key === 'Shift') setShift(false); });
-  window.addEventListener('blur', () => setShift(false));
+  document.addEventListener('keyup', e => {
+    if (e.key === 'Shift') setShift(false);
+    setRank(e.code, null);
+  });
+  window.addEventListener('blur', () => {
+    setShift(false);
+    for (const code of [...heldRanks.keys()]) setRank(code, null);
+  });
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Shift') setShift(true);
+    const typing = e.target.closest?.('select, input, textarea');
+    const rank = e.ctrlKey || e.metaKey || e.altKey || typing ? null : rankOfKey(e);
+    if (rank !== null) setRank(e.code, rank);
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       undo();
