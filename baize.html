@@ -447,10 +447,16 @@ const CardSim = (() => {
     landing.up && isRed(landing.card.suit) !== isRed(lead.suit) && landing.card.rank === lead.rank + 1;
 
   /** Run a handler on a private copy of the state. A handler returns an error message, or nothing. */
+  /** Entries are copied, cards are shared: a handler may turn an entry over but never edits a card. */
+  const cloneState = ({ piles, ...rest }) => ({
+    ...structuredClone(rest),
+    piles: Object.fromEntries(Object.entries(piles).map(([id, pile]) => [id, pile.map(entry => ({ ...entry }))])),
+  });
+
   function reduceWith(handlers, state, action, options) {
     const handler = Object.hasOwn(handlers, action.type) ? handlers[action.type] : null;
     if (!handler) return { error: `Unknown action ${action.type}` };
-    const next = structuredClone(state);
+    const next = cloneState(state);
     const error = handler(next.piles, action, options, next);
     return error ? { error } : { state: next };
   }
