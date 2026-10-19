@@ -285,6 +285,14 @@ def check_pyramid_stacking(pg):
         assert not problems, f'after undo {step + 1}: {problems[:3]}'
 
 
+def check_stacking_every_game(pg):
+    for name in GAMES:
+        start(pg, name)
+        pg.wait_for_timeout(1300)
+        problems = pg.evaluate(STACKING_PROBLEMS)
+        assert not problems, f'{name}: {problems[:3]}'
+
+
 def check_spider(pg):
     start(pg, 'spider')
     assert 'Runs 0 / 8' in status(pg) and 'Deals left 5' in status(pg), status(pg)
@@ -313,7 +321,7 @@ def check_spider(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_spider]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

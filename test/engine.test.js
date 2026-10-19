@@ -627,7 +627,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 {
   const COLS = Array.from({ length: 10 }, (_, i) => `t${i}`);
   const HOME = Array.from({ length: 8 }, (_, i) => `f${i}`);
-  const blankSp = (o = { suits: 1 }) => {
+  const blankSp = (o = { suits: 1, gaps: 0 }) => {
     const st = spider.setup(o, mulberry32(1));
     for (const id of Object.keys(st.piles)) st.piles[id] = [];
     return st;
@@ -638,11 +638,11 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   const idsOf = col => col.map(e => e.card.id);
   const mv = (from, index, to) => ({ type: 'move', from, index, to });
   const run = (suit, from, to) => Array.from({ length: from - to + 1 }, (_, k) => e2(suit, from - k));
-  const o1 = { suits: 1 }, o2 = { suits: 2 };
+  const o1 = { suits: 1, gaps: 0 }, o2 = { suits: 2, gaps: 0 };
 
   // deals: 104 unique cards in one, two or four suits
   for (const suits of [1, 2, 4]) {
-    const o = { suits };
+    const o = { suits, gaps: 0 };
     const st = spider.setup(o, mulberry32(11));
     const cards = Object.values(st.piles).flat();
     assert.strictEqual(cards.length, 104, `${suits} suits`);
@@ -707,6 +707,14 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   gap.piles.t5 = [];
   sbad(gap, { type: 'deal' }, 'an empty column blocks dealing', o1);
   assert.strictEqual(spider.onTap(gap, 'stock', 0).type, 'deal', 'the tap still offers the deal');
+  const og = { suits: 1, gaps: 1 };
+  const gapDealt = sok(gap, { type: 'deal' }, og);
+  assert.strictEqual(gapDealt.piles.t5.length, 1, 'with gaps allowed an empty column is dealt to');
+  assert(gapDealt.piles.t5[0].up);
+  assert.strictEqual(gapDealt.piles.stock.length, 10);
+  assert(movableCards(spider, gap, og).has(gap.piles.stock.at(-1).card.id), 'the stock lights when gaps are allowed');
+  assert(!movableCards(spider, gap, o1).has(gap.piles.stock.at(-1).card.id), 'and not when they are not');
+  same([...movableCards(spider, gap, og)].sort(), [...movableCards({ ...spider, movable: undefined }, gap, og)].sort(), 'gap position, gaps allowed');
   assert.strictEqual(spider.onTap(d, 'stock', 0).type, 'deal');
   assert.strictEqual(spider.onTap(d, 't0', 0), null);
   assert.strictEqual(spider.onTap(blankSp(o1), 'stock', -1), null);
@@ -788,7 +796,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   // random playouts: invariants, replay, undo, and the highlight check on the way
   let wins = 0, checked = 0;
   for (let seed = 0; seed < 24; seed++) {
-    const o = { suits: [1, 2, 4][seed % 3] };
+    const o = { suits: [1, 2, 4][seed % 3], gaps: seed % 2 };
     const session = new Session(spider, o, seed);
     const rng = mulberry32(seed + 31);
     for (let step = 0; step < 140 && !session.won; step++) {

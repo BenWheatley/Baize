@@ -899,9 +899,9 @@ const CardSim = (() => {
   }
 
   const spiderActions = {
-    deal(piles) {
+    deal(piles, _action, options) {
       if (piles.stock.length < SPIDER_COLUMNS.length) return 'The stock is empty';
-      if (SPIDER_COLUMNS.some(id => !piles[id].length)) return 'Every column needs a card before you deal';
+      if (!options.gaps && SPIDER_COLUMNS.some(id => !piles[id].length)) return 'Every column needs a card before you deal';
       for (const id of SPIDER_COLUMNS) {
         const entry = piles.stock.pop();
         entry.up = true;
@@ -929,10 +929,11 @@ const CardSim = (() => {
     id: 'spider',
     name: 'Spider',
     showsMovable: true,
-    help: 'Clear eight runs, each a whole suit from king down to ace; a finished run leaves the table. A card may go on any card one rank higher, whatever the suit, but only a run of one suit moves as a unit. Any card or run may go to an empty column. Tap the stock to deal a card onto every column, which needs every column to hold a card. Drag a card or run, or tap it and then tap where it should go. More suits make the game harder.',
+    help: 'Clear eight runs, each a whole suit from king down to ace; a finished run leaves the table. A card may go on any card one rank higher, whatever the suit, but only a run of one suit moves as a unit. Any card or run may go to an empty column. Tap the stock to deal a card onto every column; with Deal into gaps off, every column must hold a card first. Drag a card or run, or tap it and then tap where it should go. More suits make the game harder.',
 
     options: [
       { id: 'suits', label: 'Suits', default: 1, choices: [{ value: 1, label: 'One' }, { value: 2, label: 'Two' }, { value: 4, label: 'Four' }] },
+      { id: 'gaps', label: 'Deal into gaps', default: 1, choices: [{ value: 1, label: 'Allowed' }, { value: 0, label: 'Not allowed' }] },
     ],
 
     setup(options, rng) {
@@ -966,7 +967,7 @@ const CardSim = (() => {
     reduce: (state, action, options) => reduceWith(spiderActions, state, action, options),
 
     /** Same answer as the generic search, without copying the state for every candidate move. */
-    movable(state) {
+    movable(state, options) {
       const { piles } = state;
       const ids = new Set();
       for (const from of SPIDER_COLUMNS) {
@@ -977,7 +978,7 @@ const CardSim = (() => {
           if (fits) piles[from].slice(index).forEach(e => ids.add(e.card.id));
         });
       }
-      if (piles.stock.length >= SPIDER_COLUMNS.length && SPIDER_COLUMNS.every(id => piles[id].length)) ids.add(top(piles.stock).card.id);
+      if (piles.stock.length >= SPIDER_COLUMNS.length && (options.gaps || SPIDER_COLUMNS.every(id => piles[id].length))) ids.add(top(piles.stock).card.id);
       return ids;
     },
     onTap: (state, pileId) => (pileId === 'stock' && state.piles.stock.length >= SPIDER_COLUMNS.length ? { type: 'deal' } : null),
