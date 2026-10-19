@@ -386,8 +386,39 @@ def check_redeal_order(pg):
         assert pg.evaluate("document.querySelectorAll('.card').length") == len(before)
 
 
+def check_winnable_deals(pg):
+    start(pg, 'freecell')
+    pg.click('button[data-option="winnable"][data-value="1"]')
+    wait_for_deal(pg)
+    stored = pg.evaluate("JSON.parse(localStorage.getItem('baize.v2')).games.freecell")
+    assert stored['options']['winnable'] == 1, stored
+    assert 'No winnable' not in status(pg), status(pg)
+    solved = pg.evaluate("""({ seed, options }) => {
+        const rules = CardSim.freecell;
+        return Boolean(CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 }));
+    }""", stored)
+    assert solved, 'the dealt game can be won'
+    pg.click('#new')
+    wait_for_deal(pg)
+    again = pg.evaluate("JSON.parse(localStorage.getItem('baize.v2')).games.freecell")
+    assert again['seed'] != stored['seed'] and again['options']['winnable'] == 1, 'New deal keeps the setting and picks another'
+    pg.evaluate('window.Worker = undefined')            # where workers are blocked the search runs on the page
+    pg.click('#new')
+    wait_for_deal(pg)
+    last = pg.evaluate("JSON.parse(localStorage.getItem('baize.v2')).games.freecell")
+    assert last['seed'] != again['seed'] and 'No winnable' not in status(pg), status(pg)
+    assert pg.evaluate("""({ seed, options }) => Boolean(CardSim.solve(CardSim.freecell, options,
+        CardSim.freecell.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 }))""", last), 'fallback deal can be won'
+    # Spider can only promise winnable deals with one suit, so the setting is not offered otherwise.
+    start(pg, 'spider')
+    assert pg.locator('[data-option-group="winnable"]').is_visible()
+    pg.click('button[data-option="suits"][data-value="2"]')
+    wait_for_deal(pg)
+    assert not pg.locator('[data-option-group="winnable"]').is_visible()
+
+
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

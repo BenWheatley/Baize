@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, solve, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -963,6 +963,35 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     same(session.state, forty.setup({}, mulberry32(seed)), 'undo restores the deal');
   }
   console.log(`forty thieves playouts: ${wins} wins of 30, ${checked} highlight comparisons`);
+}
+
+/* Solver */
+{
+  // Every game that offers winnable deals must be able to find one, and what it finds must really win.
+  const cases = [
+    ['klondike', klondike, { draw: 1 }, 40], ['klondike', klondike, { draw: 3 }, 60], ['freecell', freecell, {}, 20],
+    ['golf', golf, { wrap: 1 }, 80], ['golf', golf, { wrap: 0 }, 400], ['pyramid', pyramid, { redeals: 2 }, 30],
+    ['pyramid', pyramid, { redeals: 99 }, 30], ['spider', spider, { suits: 1, gaps: 1 }, 10],
+  ];
+  for (const [name, rules, base, tries] of cases) {
+    const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };
+    assert(rules.canSolve(options), `${name} says it can solve`);
+    let found = null;
+    for (let seed = 0; seed < tries && !found; seed++) {
+      const solution = solve(rules, options, rules.setup(options, mulberry32(seed)), { nodes: 3000 });
+      if (solution) found = { seed, solution };
+    }
+    assert(found, `${name} ${JSON.stringify(base)}: no deal solved in ${tries} seeds`);
+    const session = new Session(rules, options, found.seed);
+    for (const action of found.solution) assert(session.apply(action), `${name}: solution step ${JSON.stringify(action)} is legal`);
+    assert(session.won, `${name}: the solution wins`);
+    same(new Session(rules, options, found.seed, session.actions).state, session.state, `${name}: a saved solution replays`);
+  }
+  assert(spider.canSolve({ suits: 1 }) && !spider.canSolve({ suits: 2 }) && !spider.canSolve({ suits: 4 }), 'Spider solves one suit only');
+  assert(!forty.canSolve, 'Forty Thieves does not offer winnable deals');
+  assert.strictEqual(solve(klondike, { draw: 1 }, klondike.setup({ draw: 1 }, mulberry32(0)), { nodes: 1 }), null, 'a tiny budget gives up quietly');
+  assert.deepStrictEqual(solve(golf, { wrap: 0 }, { piles: { ...golf.setup({}, mulberry32(1)).piles, ...Object.fromEntries(['t0','t1','t2','t3','t4','t5','t6'].map(id => [id, []])) } }, {}).length, 0, 'a won position needs no moves');
+  console.log('solver: every supported game solved a deal');
 }
 
 /* Deck artwork */

@@ -94,6 +94,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
 
 .status { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
 .status b { color: var(--fg); font-weight: 600; }
+.status .note { color: var(--accent); }
 
 /* Table */
 .table {
@@ -304,6 +305,12 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
        isWon(state), status(state, options)    -> boolean, [{ label, value }]
        showsMovable                            -> true if the game supports highlighting movable cards
        movable(state, options)                 -> Set of card ids (optional: replaces the generic search for movable cards)
+       moves(state, options)                   -> candidate actions, most promising first (optional: lets solve() play the game;
+                                                 each is checked with reduce, so a superset is fine)
+       key(state)                              -> string naming a position, equal for equivalent ones (optional, for solve())
+       progress(state)                         -> number, higher when closer to winning (optional: solve() then searches best first)
+       canSolve(options)                       -> boolean (optional): can solve() find winnable deals under these options?
+                                                 A ruleset that says so also lists WINNABLE_OPTION among its options.
        help                                    -> a few sentences of rules, shown in the rules card
      Dragging produces { type: 'move', from, index, to }; any other action type reaches
      the ruleset through onTap or onActivate. Hanabi would add per-player hand piles,
@@ -461,6 +468,12 @@ const CardSim = (() => {
     return error ? { error } : { state: next };
   }
 
+  /** Offered by the games the solver can handle. The app searches for a deal it can win when this is on. */
+  const WINNABLE_OPTION = {
+    id: 'winnable', label: 'Deals', default: 0,
+    choices: [{ value: 0, label: 'Random' }, { value: 1, label: 'Winnable' }],
+  };
+
   /** The first foundation move available for the top card of a pile. */
   function homeMove(rules, state, from) {
     const index = state.piles[from].length - 1;
@@ -527,7 +540,9 @@ const CardSim = (() => {
 
     options: [
       { id: 'draw', label: 'Draw', default: 1, choices: [{ value: 1, label: 'One' }, { value: 3, label: 'Three' }] },
+      WINNABLE_OPTION,
     ],
+    canSolve: () => true,
 
     setup(_options, rng) {
       const deck = dealDeck(rng);
@@ -586,6 +601,52 @@ const CardSim = (() => {
       return null;
     },
 
+    /** Home first, then moves that turn a card over, then the rest; the stock last. */
+    moves(state) {
+      const { piles } = state;
+      const home = [], flips = [], others = [];
+      const goHome = (from) => {
+        const entry = top(piles[from]);
+        const to = entry && FOUNDATIONS.find(id => fitsFoundation(top(piles[id]), entry.card));
+        if (to) home.push({ type: 'move', from, index: piles[from].length - 1, to });
+      };
+      for (const from of [...TABLEAU, 'waste']) goHome(from);
+      for (const from of TABLEAU) {
+        const column = piles[from];
+        const firstUp = column.findIndex(entry => entry.up);
+        if (firstUp < 0) continue;
+        for (let index = firstUp; index < column.length; index++) {
+          const lead = column[index].card;
+          for (const to of TABLEAU) {
+            const landing = top(piles[to]);
+            if (to === from || !(landing ? buildsDown(landing, lead) : lead.rank === 13 && index > 0)) continue;
+            (index === firstUp && index > 0 ? flips : others).push({ type: 'move', from, index, to });
+          }
+        }
+      }
+      const wasteCard = top(piles.waste);
+      if (wasteCard) for (const to of TABLEAU) {
+        const landing = top(piles[to]);
+        if (landing ? buildsDown(landing, wasteCard.card) : wasteCard.card.rank === 13) {
+          flips.push({ type: 'move', from: 'waste', index: piles.waste.length - 1, to });
+        }
+      }
+      const turn = piles.stock.length ? [{ type: 'draw' }] : piles.waste.length ? [{ type: 'recycle' }] : [];
+      return [...home, ...flips, ...others, ...turn];
+    },
+
+    /** Cards home, cards turned over and empty columns are good; cards still face down are bad. */
+    progress(state) {
+      const { piles } = state;
+      let score = 0;
+      for (const id of FOUNDATIONS) score += 10 * piles[id].length;
+      for (const id of TABLEAU) {
+        score -= 8 * piles[id].filter(entry => !entry.up).length;
+        if (!piles[id].length) score += 4;
+      }
+      return score;
+    },
+
     isWon: state => FOUNDATIONS.every(id => state.piles[id].length === 13),
 
     status: state => [
@@ -638,7 +699,8 @@ const CardSim = (() => {
     name: 'FreeCell',
     showsMovable: true,
     help: 'Everything is face up. Each of the four free cells holds one card. Build columns downward in alternating colours and the foundations upward in suit, and any card may go to an empty column. A run moves only as far as the free cells and empty columns would allow if you carried the cards one at a time. Drag a card or a run, or tap it and then tap where it should go.',
-    options: [],
+    options: [WINNABLE_OPTION],
+    canSolve: () => true,
 
     setup(_options, rng) {
       const piles = {};
@@ -687,6 +749,58 @@ const CardSim = (() => {
       return null;
     },
 
+    /** Home first, then out of the cells, then between columns, and last into a free cell. */
+    moves(state) {
+      const { piles } = state;
+      const home = [], uncell = [], between = [], park = [];
+      const freeCell = emptyIds(piles, CELLS)[0];
+      for (const from of [...CELLS, ...COLUMNS]) {
+        const entry = top(piles[from]);
+        if (!entry) continue;
+        const index = piles[from].length - 1;
+        const to = FOUNDATIONS.find(id => fitsFoundation(top(piles[id]), entry.card));
+        if (to) home.push({ type: 'move', from, index, to });
+        if (freeCell && !CELLS.includes(from)) park.push({ type: 'move', from, index, to: freeCell });
+      }
+      const emptyColumn = emptyIds(piles, COLUMNS)[0];
+      for (const from of [...CELLS, ...COLUMNS]) {
+        const column = piles[from];
+        const first = CELLS.includes(from) ? column.length - 1 : 0;
+        for (let index = Math.max(first, 0); index < column.length; index++) {
+          if (!isRun(column.slice(index))) continue;
+          const lead = column[index].card;
+          const targets = COLUMNS.filter(to => to !== from && piles[to].length && buildsDown(top(piles[to]), lead));
+          if (emptyColumn && (CELLS.includes(from) || index > 0)) targets.push(emptyColumn);
+          for (const to of targets) (CELLS.includes(from) ? uncell : between).push({ type: 'move', from, index, to });
+        }
+      }
+      return [...home, ...uncell, ...between, ...park];
+    },
+
+    /** Cards home count most; then cards sitting on something they cannot stay on, and cards on top of the next card a foundation needs. */
+    progress(state) {
+      const { piles } = state;
+      let score = 0;
+      for (const id of FOUNDATIONS) score += 20 * piles[id].length;
+      const next = new Map(SUITS.map(suit => [suit, 1]));
+      for (const id of FOUNDATIONS) { const t = top(piles[id]); if (t) next.set(t.card.suit, t.card.rank + 1); }
+      for (const id of COLUMNS) {
+        const column = piles[id];
+        let base = column.length;
+        while (base > 1 && buildsDown(column[base - 2], column[base - 1].card)) base--;
+        score -= base > 0 ? base - 1 : 0;                       // cards under the ordered tail at the end of the column
+        column.forEach((entry, i) => {
+          if (entry.card.rank === next.get(entry.card.suit)) score -= 2 * (column.length - 1 - i);
+        });
+      }
+      score -= 2 * (CELLS.length - emptyIds(piles, CELLS).length);
+      score += 3 * emptyIds(piles, COLUMNS).length;
+      return score;
+    },
+
+    /** The free cells are interchangeable, so a position names them in sorted order. */
+    key: state => positionKey(state, CELLS),
+
     isWon: state => FOUNDATIONS.every(id => state.piles[id].length === 13),
 
     status: state => [
@@ -726,7 +840,9 @@ const CardSim = (() => {
 
     options: [
       { id: 'wrap', label: 'Wrap', default: 0, choices: [{ value: 0, label: 'Off' }, { value: 1, label: 'Kings and aces' }] },
+      WINNABLE_OPTION,
     ],
+    canSolve: () => true,
 
     setup(_options, rng) {
       const deck = dealDeck(rng);
@@ -755,6 +871,19 @@ const CardSim = (() => {
 
     onActivate: () => null,
     autoAction: () => null,
+
+    moves(state, options) {
+      const { piles } = state;
+      const showing = top(piles.waste).card.rank;
+      const plays = TABLEAU.filter(id => piles[id].length).map(id => ({ id, gap: Math.abs(top(piles[id]).card.rank - showing) }))
+        .filter(({ gap }) => gap === 1 || (options.wrap && gap === 12))
+        .map(({ id }) => ({ type: 'play', from: id }));
+      return piles.stock.length ? [...plays, { type: 'draw' }] : plays;
+    },
+
+    /** Fewer cards left is better; a column nearly cleared counts for a little more. */
+    progress: state => -10 * TABLEAU.reduce((n, id) => n + state.piles[id].length, 0) + TABLEAU.filter(id => !state.piles[id].length).length,
+
     isWon: state => TABLEAU.every(id => !state.piles[id].length),
 
     status: state => [
@@ -818,7 +947,9 @@ const CardSim = (() => {
 
     options: [
       { id: 'redeals', label: 'Redeals', default: 2, choices: [{ value: 2, label: 'Two' }, { value: UNLIMITED_REDEALS, label: 'Unlimited' }] },
+      WINNABLE_OPTION,
     ],
+    canSolve: () => true,
 
     setup(_options, rng) {
       const deck = dealDeck(rng);
@@ -851,6 +982,24 @@ const CardSim = (() => {
 
     onActivate: () => null,
     autoAction: () => null,
+
+    /** Kings, then pairs that add up to 13, then drawing and turning the waste over. */
+    moves(state) {
+      const { piles } = state;
+      const open = takeable(piles);
+      const rankOf = id => top(piles[id]).card.rank;
+      const takes = [];
+      open.forEach((a, i) => {
+        if (rankOf(a) === 13) takes.push({ type: 'take', from: [a] });
+        for (const b of open.slice(i + 1)) if (rankOf(a) + rankOf(b) === 13) takes.push({ type: 'take', from: [a, b] });
+      });
+      const turn = piles.stock.length ? [{ type: 'draw' }] : piles.waste.length ? [{ type: 'recycle' }] : [];
+      return [...takes, ...turn];
+    },
+
+    /** Removed cards go to `out` in the order they left, which does not matter to the position. */
+    key: state => `${positionKey({ piles: { ...state.piles, out: [] } })}#${state.redeals}`,
+    progress: state => -10 * PYRAMID_IDS.filter(id => state.piles[id].length).length - state.redeals,
 
     /** Free kings, free pairs that add up to 13, and the top of the stock (a tap draws). */
     movable(state) {
@@ -940,7 +1089,9 @@ const CardSim = (() => {
     options: [
       { id: 'suits', label: 'Suits', default: 1, choices: [{ value: 1, label: 'One' }, { value: 2, label: 'Two' }, { value: 4, label: 'Four' }] },
       { id: 'gaps', label: 'Deal into gaps', default: 1, choices: [{ value: 1, label: 'Allowed' }, { value: 0, label: 'Not allowed' }] },
+      { ...WINNABLE_OPTION, when: options => options.suits === 1 },
     ],
+    canSolve: options => options.suits === 1,
 
     setup(options, rng) {
       const suits = SUITS.slice(0, options.suits);
@@ -990,6 +1141,48 @@ const CardSim = (() => {
     onTap: (state, pileId) => (pileId === 'stock' && state.piles.stock.length >= SPIDER_COLUMNS.length ? { type: 'deal' } : null),
     onActivate: () => null,
     autoAction: () => null,
+
+    /** Moves that build within a suit first, then moves that turn a card over, then the rest; the deal last. */
+    moves(state, options) {
+      const { piles } = state;
+      const best = [], flips = [], others = [];
+      for (const from of SPIDER_COLUMNS) {
+        const column = piles[from];
+        for (let index = column.length - 1; index >= 0 && column[index].up; index--) {
+          if (!isSuitRun(column.slice(index))) break;
+          const lead = column[index].card;
+          let spare = false;
+          for (const to of SPIDER_COLUMNS) {
+            const landing = top(piles[to]);
+            if (to === from) continue;
+            if (landing ? landing.card.rank !== lead.rank + 1 : index === 0 || spare) continue;
+            if (!landing) spare = true;                            // one empty column is as good as another
+            const action = { type: 'move', from, index, to };
+            if (landing && landing.card.suit === lead.suit) best.push(action);
+            else (index > 0 && !column[index - 1].up ? flips : others).push(action);
+          }
+        }
+      }
+      const deal = piles.stock.length >= SPIDER_COLUMNS.length && (options.gaps || SPIDER_COLUMNS.every(id => piles[id].length));
+      return [...best, ...flips, ...others, ...(deal ? [{ type: 'deal' }] : [])];
+    },
+
+    /** Finished runs count most; then one-suit links between neighbouring cards, empty columns, and turned-over cards. */
+    progress(state) {
+      const { piles } = state;
+      let score = 0;
+      for (const id of SPIDER_HOME) score += 100 * Math.floor(piles[id].length / 13);
+      for (const id of SPIDER_COLUMNS) {
+        const column = piles[id];
+        if (!column.length) score += 6;
+        column.forEach((entry, i) => {
+          if (!entry.up) score -= 6;
+          else if (i && column[i - 1].up && column[i - 1].card.suit === entry.card.suit && column[i - 1].card.rank === entry.card.rank + 1) score += 4;
+        });
+      }
+      return score - piles.stock.length / 10;
+    },
+
     isWon: state => SPIDER_HOME.every(id => state.piles[id].length === 13),
 
     status: state => [
@@ -1092,6 +1285,44 @@ const CardSim = (() => {
     onActivate: (state, pileId, index) => (index === state.piles[pileId].length - 1 && pileId !== 'stock' && !THIEF_HOME.includes(pileId)
       ? thiefHome(state, pileId) : null),
     autoAction: () => null,
+
+    /** Home first, then column to column, then from the waste, and the stock last. */
+    moves(state) {
+      const { piles } = state;
+      const home = [], between = [];
+      let emptyTaken = false;
+      for (const from of [...THIEF_COLUMNS, 'waste']) {
+        const entry = top(piles[from]);
+        if (!entry) continue;
+        const index = piles[from].length - 1;
+        const to = THIEF_HOME.find(id => fitsFoundation(top(piles[id]), entry.card));
+        if (to) home.push({ type: 'move', from, index, to });
+        for (const column of THIEF_COLUMNS) {
+          if (column === from) continue;
+          const landing = top(piles[column]);
+          if (landing ? !thiefFits(landing, entry.card) : (index === 0 && from !== 'waste') || emptyTaken) continue;
+          if (!landing) emptyTaken = true;
+          between.push({ type: 'move', from, index, to: column });
+        }
+        emptyTaken = false;
+      }
+      return [...home, ...between, ...(piles.stock.length ? [{ type: 'draw' }] : [])];
+    },
+
+    /** Cards home count most; then in-suit links in the columns; empty columns help. */
+    progress(state) {
+      const { piles } = state;
+      let score = 0;
+      for (const id of THIEF_HOME) score += 10 * piles[id].length;
+      for (const id of THIEF_COLUMNS) {
+        const column = piles[id];
+        if (!column.length) score += 5;
+        column.forEach((entry, i) => {
+          if (i && column[i - 1].card.suit === entry.card.suit && column[i - 1].card.rank === entry.card.rank + 1) score += 2;
+        });
+      }
+      return score - piles.stock.length / 8;
+    },
     isWon: state => THIEF_HOME.every(id => state.piles[id].length === 13),
 
     status: state => [
@@ -1100,7 +1331,93 @@ const CardSim = (() => {
     ],
   };
 
-  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty };
+  /* ---------- Solving ----------
+     A depth-first search over a ruleset's own candidate moves, remembering every position it has
+     seen. It is a way to find winnable deals, not to prove that a deal is lost: when it runs out of
+     its node budget it simply says nothing. A solution it does return is a list of actions that
+     reduce() accepts one after another and that ends in a win. */
+
+  function positionKey(state, interchangeable = []) {
+    const text = id => state.piles[id].map(entry => entry.card.id + (entry.up ? '' : '*')).join(',');
+    const rest = Object.keys(state.piles).filter(id => !interchangeable.includes(id)).map(id => `${id}:${text(id)}`);
+    return [...rest, ...interchangeable.map(text).sort()].join('|');
+  }
+
+  /** Always expand the most promising position seen so far. */
+  function bestFirst(rules, options, state, { nodes, key }) {
+    const heap = [];
+    const push = node => {
+      heap.push(node);
+      for (let i = heap.length - 1; i > 0;) {
+        const parent = (i - 1) >> 1;
+        if (heap[parent].score >= heap[i].score) break;
+        [heap[parent], heap[i]] = [heap[i], heap[parent]];
+        i = parent;
+      }
+    };
+    const pop = () => {
+      const best = heap[0];
+      const last = heap.pop();
+      if (heap.length) {
+        heap[0] = last;
+        for (let i = 0; ;) {
+          let big = i;
+          for (const child of [2 * i + 1, 2 * i + 2]) if (child < heap.length && heap[child].score > heap[big].score) big = child;
+          if (big === i) break;
+          [heap[big], heap[i]] = [heap[i], heap[big]];
+          i = big;
+        }
+      }
+      return best;
+    };
+    const seen = new Set([key(state)]);
+    push({ state, parent: null, action: null, score: rules.progress(state) });
+    for (let budget = nodes; heap.length && budget > 0; budget--) {
+      const node = pop();
+      if (rules.isWon(node.state)) {
+        const path = [];
+        for (let at = node; at.parent; at = at.parent) path.push(at.action);
+        return path.reverse();
+      }
+      for (const action of rules.moves(node.state, options)) {
+        const next = rules.reduce(node.state, action, options);
+        if (!next.state) continue;
+        const name = key(next.state);
+        if (seen.has(name)) continue;
+        seen.add(name);
+        push({ state: next.state, parent: node, action, score: rules.progress(next.state) });
+      }
+    }
+    return null;
+  }
+
+  function solve(rules, options, state, { nodes = 20000, depth = 800 } = {}) {
+    const seen = new Set();
+    const path = [];
+    let budget = nodes;
+    const key = rules.key ?? positionKey;
+    if (rules.progress) return bestFirst(rules, options, state, { nodes, key });
+    const search = (position, level) => {
+      if (rules.isWon(position)) return true;
+      if (level >= depth) return false;
+      const name = key(position);
+      if (seen.has(name)) return false;
+      seen.add(name);
+      if (--budget < 0) return false;
+      for (const action of rules.moves(position, options)) {
+        const next = rules.reduce(position, action, options);
+        if (!next.state) continue;
+        path.push(action);
+        if (search(next.state, level + 1)) return true;
+        path.pop();
+        if (budget < 0) return false;
+      }
+      return false;
+    };
+    return search(state, 0) ? path : null;
+  }
+
+  return { mulberry32, shuffle, Session, solve, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty };
 })();
 </script>
 
@@ -1191,6 +1508,7 @@ const StandardDeck = (() => {
   let hintCache = { key: null, ids: new Set() };
   let dealing = false;        // true only while a redeal lays the new cards out
   let dealMs = 0;             // how long that layout takes
+  let notice = '';            // a line of status text that outlives one render, such as "Finding a winnable deal…"
   let geometry = { cw: 0, ch: 0, pos: new Map(), areas: [] };
   const cardEls = new Map();
   const slotEls = new Map();
@@ -1215,6 +1533,7 @@ const StandardDeck = (() => {
     selection = null;
     lastTap = null;
     press = null;
+    notice = '';
     buildOptions();
     els.rulesTitle.textContent = game.rules.name;
     els.rulesText.textContent = game.rules.help ?? '';
@@ -1243,15 +1562,69 @@ const StandardDeck = (() => {
     await pause(Math.max(0, n - 1) * GATHER_STEP + FLIGHT_MS + 60);
   }
 
-  /** Clear the table, and only then deal the new cards out. */
+  /* ---------- Winnable deals ----------
+     The solver runs in a worker built from the engine's own source, trying seeds one after another
+     until it proves one winnable. Where workers are not allowed it runs here, one deal at a time,
+     yielding to the page in between. Either way it gives up after SEARCH_MS. */
+
+  const SEARCH_MS = 20000;
+  const SEARCH_NODES = 3000;
+  const wantsWinnable = (rules, options) => Boolean(options.winnable) && Boolean(rules.canSolve?.(options));
+
+  function searchInWorker(rules, options, from) {
+    const body = `${document.getElementById('engine').textContent}
+      self.onmessage = ({ data: { id, options, from, until, nodes } }) => {
+        const rules = CardSim[id];
+        for (let k = 0; Date.now() < until; k++) {
+          const seed = (from + k) % 1000000;
+          if (CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes })) { self.postMessage({ seed }); return; }
+        }
+        self.postMessage({ seed: null });
+      };`;
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(new Blob([body], { type: 'text/javascript' }));
+      const worker = new Worker(url);
+      const done = (result, fail) => { worker.terminate(); URL.revokeObjectURL(url); fail ? reject(result) : resolve(result); };
+      worker.onmessage = ({ data }) => done(data.seed);
+      worker.onerror = event => done(event, true);
+      worker.postMessage({ id: rules.id, options, from, until: Date.now() + SEARCH_MS, nodes: SEARCH_NODES });
+    });
+  }
+
+  async function searchHere(rules, options, from) {
+    for (let k = 0, until = Date.now() + SEARCH_MS; Date.now() < until; k++) {
+      const seed = (from + k) % 1000000;
+      const state = rules.setup(options, CardSim.mulberry32(seed));
+      if (CardSim.solve(rules, options, state, { nodes: SEARCH_NODES })) return seed;
+      await pause(0);
+    }
+    return null;
+  }
+
+  /** A seed whose deal the solver wins, or null if it gave up. */
+  async function findWinnableSeed(rules, options) {
+    const from = newSeed();
+    try {
+      return await searchInWorker(rules, options, from);
+    } catch {
+      return searchHere(rules, options, from);
+    }
+  }
+
+  /** Clear the table, and only then deal the new cards out. With no seed, choose one. */
   async function redeal(options, seed) {
-    if (!cardEls.size || reducedMotion()) { startGame(game, options, seed); return; }
     busy = true;
     els.board.dataset.dealing = 'true';
+    const animate = cardEls.size > 0 && !reducedMotion();
     try {
-      await gather();
-      startGame(game, options, seed, [], true);
-      await pause(dealMs + 60);
+      let missed = false;
+      const picking = seed === undefined && wantsWinnable(game.rules, options);
+      if (picking) { notice = 'Finding a winnable deal…'; syncChrome(session.state); }
+      const [found] = await Promise.all([picking ? findWinnableSeed(game.rules, options) : seed, animate ? gather() : null]);
+      if (found === null) missed = true;
+      startGame(game, options, found ?? seed ?? newSeed(), [], animate);
+      if (missed) notice = 'No winnable deal turned up in time, so this one is random.';
+      if (animate) await pause(dealMs + 60);
     } finally {
       delete els.board.dataset.dealing;
       busy = false;
@@ -1437,11 +1810,15 @@ const StandardDeck = (() => {
       ['Moves', session.actions.length],
       ...rules.status(state, session.options).map(s => [s.label, s.value]),
     ];
-    els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))));
+    els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))),
+      ...(notice ? [h('span', { class: 'note' }, notice)] : []));
     els.undo.disabled = busy || session.actions.length === 0;
     els.finish.hidden = busy || !rules.autoAction(state);
     els.hints.hidden = !rules.showsMovable;
     els.hints.setAttribute('aria-pressed', String(hintsOn));
+    for (const option of rules.options) {
+      els.options.querySelector(`[data-option-group="${option.id}"]`).hidden = option.when ? !option.when(session.options) : false;
+    }
     els.options.querySelectorAll('button').forEach(button => {
       const pressed = String(session.options[button.dataset.option]) === button.dataset.value;
       button.setAttribute('aria-pressed', String(pressed));
@@ -1501,12 +1878,12 @@ const StandardDeck = (() => {
 
   function buildOptions() {
     els.options.replaceChildren(...game.rules.options.map(option =>
-      h('div', { class: 'seg', role: 'group', 'aria-label': option.label },
+      h('div', { class: 'seg', role: 'group', 'aria-label': option.label, 'data-option-group': option.id },
         h('span', { class: 'seg-label' }, option.label),
         ...option.choices.map(choice => {
           const button = h('button', { type: 'button', 'data-option': option.id, 'data-value': String(choice.value) }, choice.label);
           button.addEventListener('click', () => {
-            if (!busy) redeal({ ...session.options, [option.id]: choice.value }, newSeed());
+            if (!busy) redeal({ ...session.options, [option.id]: choice.value });
           });
           return button;
         }),
@@ -1666,7 +2043,7 @@ const StandardDeck = (() => {
   els.undo.addEventListener('click', undo);
   els.finish.addEventListener('click', autoFinish);
   els.restart.addEventListener('click', () => { if (!busy) redeal(session.options, session.seed); });
-  const newDeal = () => { if (!busy) redeal(session.options, newSeed()); };
+  const newDeal = () => { if (!busy) redeal(session.options); };
   els.fresh.addEventListener('click', newDeal);
   els.winNew.addEventListener('click', newDeal);
 
