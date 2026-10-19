@@ -47,6 +47,13 @@ def shift(pg, down):
     pg.wait_for_timeout(120)
 
 
+def wait_for_deal(pg):
+    """Wait until a redeal (cards gathered, then dealt out) has finished."""
+    pg.wait_for_timeout(100)
+    pg.wait_for_function("!document.getElementById('board').dataset.dealing", timeout=10000)
+    pg.wait_for_timeout(300)
+
+
 def check_menu_and_saves(pg):
     names = pg.eval_on_selector_all('#game option', 'o => o.map(x => x.textContent)')
     assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid', 'Spider', 'Forty Thieves'], names
@@ -270,7 +277,7 @@ def check_pyramid_stacking(pg):
     # A new deal reuses the card elements, so stacking must not depend on their order in the page.
     for n in range(3):
         pg.click('#new')
-        pg.wait_for_timeout(1300)                       # the deal animation staggers by up to 0.7 s
+        wait_for_deal(pg)
         problems = pg.evaluate(STACKING_PROBLEMS)
         assert not problems, f'after new deal {n + 1}: {problems[:3]}'
     # Undo re-creates cards that were taken off the table.
@@ -289,7 +296,7 @@ def check_pyramid_stacking(pg):
 def check_stacking_every_game(pg):
     for name in GAMES:
         start(pg, name)
-        pg.wait_for_timeout(1300)
+        wait_for_deal(pg)
         problems = pg.evaluate(STACKING_PROBLEMS)
         assert not problems, f'{name}: {problems[:3]}'
 
@@ -344,8 +351,43 @@ def check_forty_thieves(pg):
     assert not problems, problems[:3]
 
 
+def check_redeal_order(pg):
+    """A new deal picks the cards up top first, clears the whole table, and only then deals."""
+    for name in ('klondike', 'pyramid'):
+        start(pg, name)
+        pg.wait_for_timeout(300)
+        before = pg.evaluate("""() => Object.fromEntries([...document.querySelectorAll('.card')].map(
+            c => [c.dataset.id, { z: +c.style.zIndex, at: c.style.transform }]))""")
+        pg.evaluate("""() => {
+            window.__departures = [];
+            const stock = document.querySelector('.slot[data-pile="stock"]');
+            window.__anchor = stock.style.transform;
+            window.__t0 = performance.now();
+            new MutationObserver(() => {
+                const moved = [...document.querySelectorAll('.card')].some(c => c.style.transform !== window.__anchor);
+                if (moved) window.__departures.push(performance.now() - window.__t0);
+            }).observe(document.getElementById('board'), { subtree: true, attributes: true, attributeFilter: ['style'] });
+        }""")
+        pg.click('#new')
+        gathering = pg.evaluate("""() => [...document.querySelectorAll('.card')].map(c => (
+            { id: c.dataset.id, delay: parseFloat(c.style.transitionDelay) || 0, at: c.style.transform }))""")
+        anchor = pg.evaluate('window.__anchor')
+        moving = sorted((c for c in gathering if before[c['id']]['at'] != anchor), key=lambda c: c['delay'])
+        assert moving and all(c['at'] == anchor for c in moving), f'{name}: every card heads for the deck'
+        zs = [before[c['id']]['z'] for c in moving]
+        assert zs == sorted(zs, reverse=True), f'{name}: cards are picked up from the top of the stacking order down'
+        wait_for_deal(pg)
+        assert not pg.evaluate(STACKING_PROBLEMS), f'{name}: stacking after the redeal'
+        gather_ms = moving[-1]['delay'] + 220
+        # Every card has left in the gather phase; the first move away from the deck after that is the deal.
+        later = pg.evaluate('window.__departures')
+        assert later, f'{name}: the new deal was laid out'
+        assert later[0] >= gather_ms, f'{name}: dealing began at {later[0]:.0f} ms, before the table was clear ({gather_ms:.0f} ms)'
+        assert pg.evaluate("document.querySelectorAll('.card').length") == len(before)
+
+
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

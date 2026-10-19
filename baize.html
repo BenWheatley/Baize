@@ -1157,6 +1157,10 @@ const StandardDeck = (() => {
   const DOUBLE_TAP_MS = 350;
   const Z_PER_PILE = 256;     // stacking: pile n sits above pile n-1, and each card above the one beneath it
   const DRAG_Z = 100000;      // dragged cards float above every pile
+  const FLY_Z = 60000;        // cards in flight during a redeal, in the order they travel
+  const FLIGHT_MS = 220;      // matches the transition on .card.ready
+  const GATHER_STEP = 6;      // ms between cards being picked up
+  const DEAL_STEP = 14;       // ms between cards being dealt
   const VIEWER = null;        // solo play: nothing is hidden from this player
 
   const $ = id => document.getElementById(id);
@@ -1174,12 +1178,13 @@ const StandardDeck = (() => {
   let selection = null;       // { pile, index } picked by tapping
   let lastTap = null;
   let press = null;           // pointer currently down
-  let busy = false;           // auto-finish is running
+  let busy = false;           // auto-finish or a redeal is running; input is ignored
   let hintsOn = false;        // the Show moves toggle
   let shiftHeld = false;
   const heldRanks = new Map();  // key code -> rank, for rank keys currently down
   let hintCache = { key: null, ids: new Set() };
-  let dealing = false;
+  let dealing = false;        // true only while a redeal lays the new cards out
+  let dealMs = 0;             // how long that layout takes
   let geometry = { cw: 0, ch: 0, pos: new Map(), areas: [] };
   const cardEls = new Map();
   const slotEls = new Map();
@@ -1196,7 +1201,7 @@ const StandardDeck = (() => {
   const newSeed = () => Math.floor(Math.random() * 1_000_000);
   const defaultOptions = rules => Object.fromEntries(rules.options.map(o => [o.id, o.default]));
 
-  function startGame(nextGame, options, seed, actions = []) {
+  function startGame(nextGame, options, seed, actions = [], animateDeal = false) {
     const next = new Session(nextGame.rules, options, seed, actions);  // throws if it cannot replay
     if (nextGame !== game) resetBoard();
     game = nextGame;
@@ -1207,9 +1212,46 @@ const StandardDeck = (() => {
     buildOptions();
     els.rulesTitle.textContent = game.rules.name;
     els.rulesText.textContent = game.rules.help ?? '';
-    dealing = actions.length === 0;
+    dealing = animateDeal;
     render();
     dealing = false;
+  }
+
+  const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /** Pick every card up, top of each pile first, and stack them face down where the stock sits. */
+  async function gather() {
+    const anchor = geometry.areas.find(area => area.id === 'stock') ?? geometry.areas[0];
+    const target = `translate(${anchor.x}px, ${anchor.y}px)`;
+    const topFirst = [...cardEls.values()].sort((a, b) => b.style.zIndex - a.style.zIndex);
+    let n = 0;
+    for (const el of topFirst) {
+      if (el.style.transform === target) continue;
+      const at = n++ * GATHER_STEP;
+      el.style.transitionDelay = `${at}ms`;
+      el.style.zIndex = FLY_Z + n;
+      el.style.transform = target;
+      setTimeout(() => setFace(el, null), at + FLIGHT_MS);
+    }
+    await pause(Math.max(0, n - 1) * GATHER_STEP + FLIGHT_MS + 60);
+  }
+
+  /** Clear the table, and only then deal the new cards out. */
+  async function redeal(options, seed) {
+    if (!cardEls.size || reducedMotion()) { startGame(game, options, seed); return; }
+    busy = true;
+    els.board.dataset.dealing = 'true';
+    try {
+      await gather();
+      startGame(game, options, seed, [], true);
+      await pause(dealMs + 60);
+    } finally {
+      delete els.board.dataset.dealing;
+      busy = false;
+      settleZ();
+      syncChrome(session.state);
+    }
   }
 
   function resetBoard() {
@@ -1328,9 +1370,32 @@ const StandardDeck = (() => {
     }
   }
 
+  /** Show a card's face (or, with null, its back). */
+  function setFace(el, card) {
+    const up = card !== null;
+    if (el.dataset.up === String(up)) return;
+    el.dataset.up = String(up);
+    el.innerHTML = up ? game.deck.face(card) : game.deck.back();
+    el.setAttribute('aria-label', up ? game.deck.label(card) : 'Face-down card');
+  }
+
+  /** Cards that must travel to be dealt, in dealing order: row by row across the piles. */
+  function dealOrder() {
+    const anchor = geometry.areas.find(area => area.id === 'stock') ?? geometry.areas[0];
+    const home = `translate(${anchor.x}px, ${anchor.y}px)`;
+    const travelling = [...geometry.pos.values()].filter(p => `translate(${p.x}px, ${p.y}px)` !== home);
+    travelling.sort((a, b) => a.index - b.index || a.z - b.z);
+    return new Map(travelling.map((p, rank) => [p.card.id, rank]));
+  }
+
+  /** After a redeal every card takes its proper place in the stacking order. */
+  function settleZ() {
+    for (const [id, p] of geometry.pos) cardEls.get(id).style.zIndex = p.z;
+  }
+
   function syncCards() {
-    const { deck } = game;
-    let order = 0;
+    const flights = dealing ? dealOrder() : new Map();
+    dealMs = flights.size ? (flights.size - 1) * DEAL_STEP + FLIGHT_MS : 0;
     for (const [id, p] of geometry.pos) {
       let el = cardEls.get(id);
       if (!el) {
@@ -1339,14 +1404,16 @@ const StandardDeck = (() => {
         els.board.append(el);
         cardEls.set(id, el);
       }
-      if (el.dataset.up !== String(p.up)) {
-        el.dataset.up = String(p.up);
-        el.innerHTML = p.up ? deck.face(p.card) : deck.back();
-        el.setAttribute('aria-label', p.up ? deck.label(p.card) : 'Face-down card');
+      const rank = flights.get(id);
+      if (rank === undefined) {
+        setFace(el, p.up ? p.card : null);
+      } else {
+        // A card shows its face only once it starts to move, and flies above everything already dealt.
+        setTimeout(() => { const now = geometry.pos.get(id); if (now) setFace(el, now.up ? now.card : null); }, rank * DEAL_STEP);
       }
-      el.style.transitionDelay = dealing ? `${order++ * 14}ms` : '';
+      el.style.transitionDelay = rank === undefined ? '' : `${rank * DEAL_STEP}ms`;
       el.style.transform = `translate(${p.x}px, ${p.y}px)`;
-      el.style.zIndex = p.z;
+      el.style.zIndex = rank === undefined ? p.z : FLY_Z + rank;
       el.classList.toggle('covered', p.covered);
       el.classList.toggle('selected', selection?.pile === p.pile && p.index >= selection.index);
     }
@@ -1433,7 +1500,7 @@ const StandardDeck = (() => {
         ...option.choices.map(choice => {
           const button = h('button', { type: 'button', 'data-option': option.id, 'data-value': String(choice.value) }, choice.label);
           button.addEventListener('click', () => {
-            if (!busy) startGame(game, { ...session.options, [option.id]: choice.value }, newSeed());
+            if (!busy) redeal({ ...session.options, [option.id]: choice.value }, newSeed());
           });
           return button;
         }),
@@ -1592,8 +1659,8 @@ const StandardDeck = (() => {
 
   els.undo.addEventListener('click', undo);
   els.finish.addEventListener('click', autoFinish);
-  els.restart.addEventListener('click', () => { if (!busy) startGame(game, session.options, session.seed); });
-  const newDeal = () => { if (!busy) startGame(game, session.options, newSeed()); };
+  els.restart.addEventListener('click', () => { if (!busy) redeal(session.options, session.seed); });
+  const newDeal = () => { if (!busy) redeal(session.options, newSeed()); };
   els.fresh.addEventListener('click', newDeal);
   els.winNew.addEventListener('click', newDeal);
 
