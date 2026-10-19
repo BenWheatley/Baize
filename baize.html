@@ -992,7 +992,109 @@ const CardSim = (() => {
     ],
   };
 
-  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider };
+  /* ---------- Forty Thieves ----------
+     Two decks. Ten columns of four, all face up; eight foundations built up by suit from the ace.
+     Columns build down in suit, one card at a time. Tap the stock to turn a card onto the waste;
+     there is no redeal. */
+
+  const THIEF_COLUMNS = Array.from({ length: 10 }, (_, i) => `t${i}`);
+  const THIEF_HOME = Array.from({ length: 8 }, (_, i) => `f${i}`);
+  const thiefFits = (landing, lead) => !landing || (landing.card.suit === lead.suit && landing.card.rank === lead.rank + 1);
+
+  const thievesActions = {
+    draw(piles) {
+      if (!piles.stock.length) return 'The stock is empty';
+      const entry = piles.stock.pop();
+      entry.up = true;
+      piles.waste.push(entry);
+    },
+
+    move(piles, { from, index, to }) {
+      if (!THIEF_COLUMNS.includes(from) && from !== 'waste') return 'Cards cannot leave there';
+      if (!THIEF_COLUMNS.includes(to) && !THIEF_HOME.includes(to)) return 'Cards cannot move there';
+      if (from === to) return 'Cards cannot move there';
+      const source = piles[from];
+      if (!Number.isInteger(index) || index !== source.length - 1) return 'Only the top card can move';
+      const lead = source[index].card;
+      const target = piles[to];
+      if (THIEF_HOME.includes(to)) {
+        if (!fitsFoundation(top(target), lead)) return 'That card does not build on this foundation';
+      } else if (!thiefFits(top(target), lead)) {
+        return 'That card does not build on this column';
+      }
+      target.push(source.pop());
+    },
+  };
+
+  const thiefHome = (state, from) => {
+    const index = state.piles[from].length - 1;
+    if (index < 0) return null;
+    for (const to of THIEF_HOME) {
+      const action = { type: 'move', from, index, to };
+      if (forty.reduce(state, action).state) return action;
+    }
+    return null;
+  };
+
+  const forty = {
+    id: 'forty',
+    name: 'Forty Thieves',
+    showsMovable: true,
+    help: 'Build the eight foundations from ace to king in suit, using two decks. Build columns downward in suit, moving one card at a time; any card may go to an empty column. Tap the stock to turn a card onto the waste, whose top card is in play. There is no redeal. Tap a card and then where it should go, drag it, or double-tap it to send it home.',
+    options: [],
+
+    setup(_options, rng) {
+      const deck = dealDeck(rng, SUITS, 2);
+      const piles = { stock: deck.slice(40).map(faceDown), waste: [] };
+      for (const id of THIEF_HOME) piles[id] = [];
+      THIEF_COLUMNS.forEach((id, i) => { piles[id] = deck.slice(i * 4, i * 4 + 4).map(card => ({ card, up: true })); });
+      return { piles };
+    },
+
+    layout: () => [
+      { id: 'stock', col: 0, row: 0 },
+      { id: 'waste', col: 1, row: 0 },
+      ...THIEF_HOME.map((id, i) => ({ id, col: 2 + i, row: 0, glyph: 'A' })),
+      ...THIEF_COLUMNS.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 5.5 })),
+    ],
+
+    faceUp: (_state, _pileId, entry) => entry.up,
+
+    canPickUp(state, pileId, index) {
+      const pile = state.piles[pileId];
+      return (THIEF_COLUMNS.includes(pileId) || pileId === 'waste') && index === pile.length - 1;
+    },
+
+    reduce: (state, action, options) => reduceWith(thievesActions, state, action, options),
+
+    /** Same answer as the generic search, without copying the state for every candidate move. */
+    movable(state) {
+      const { piles } = state;
+      const ids = new Set();
+      for (const from of [...THIEF_COLUMNS, 'waste']) {
+        const lead = piles[from].length && top(piles[from]).card;
+        if (!lead) continue;
+        const home = THIEF_HOME.some(to => fitsFoundation(top(piles[to]), lead));
+        const column = THIEF_COLUMNS.some(to => to !== from && thiefFits(top(piles[to]), lead));
+        if (home || column) ids.add(lead.id);
+      }
+      if (piles.stock.length) ids.add(top(piles.stock).card.id);
+      return ids;
+    },
+
+    onTap: (state, pileId) => (pileId === 'stock' && state.piles.stock.length ? { type: 'draw' } : null),
+    onActivate: (state, pileId, index) => (index === state.piles[pileId].length - 1 && pileId !== 'stock' && !THIEF_HOME.includes(pileId)
+      ? thiefHome(state, pileId) : null),
+    autoAction: () => null,
+    isWon: state => THIEF_HOME.every(id => state.piles[id].length === 13),
+
+    status: state => [
+      { label: 'Home', value: `${THIEF_HOME.reduce((n, id) => n + state.piles[id].length, 0)} / 104` },
+      { label: 'Stock', value: state.piles.stock.length },
+    ],
+  };
+
+  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty };
 })();
 </script>
 
@@ -1042,6 +1144,7 @@ const StandardDeck = (() => {
     { rules: CardSim.golf, deck: StandardDeck },
     { rules: CardSim.pyramid, deck: StandardDeck },
     { rules: CardSim.spider, deck: StandardDeck },
+    { rules: CardSim.forty, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';

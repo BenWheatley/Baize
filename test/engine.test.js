@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -830,6 +830,139 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     same(session.state, spider.setup(o, mulberry32(seed)), 'undo restores the deal');
   }
   console.log(`spider playouts: ${wins} wins of 24, ${checked} highlight comparisons`);
+}
+
+/* Forty Thieves */
+{
+  const COLS = Array.from({ length: 10 }, (_, i) => `t${i}`);
+  const HOME = Array.from({ length: 8 }, (_, i) => `f${i}`);
+  const blankF = () => {
+    const st = forty.setup({}, mulberry32(1));
+    for (const id of Object.keys(st.piles)) st.piles[id] = [];
+    return st;
+  };
+  const card = (suit, rank, n = 0) => ({ card: { id: `${suit[0]}${rank}${n ? '.' + n : ''}`, suit, rank }, up: true });
+  const ok = (state, action) => { const r = forty.reduce(state, action, {}); assert(r.state, `expected legal: ${JSON.stringify(action)} (${r.error})`); return r.state; };
+  const bad = (state, action, why) => assert(forty.reduce(state, action, {}).error, `expected illegal: ${why}`);
+  const mv = (from, index, to) => ({ type: 'move', from, index, to });
+  const ids = col => col.map(e => e.card.id);
+
+  // the deal
+  const st = forty.setup({}, mulberry32(5));
+  const all = Object.values(st.piles).flat();
+  assert.strictEqual(all.length, 104);
+  assert.strictEqual(new Set(all.map(e => e.card.id)).size, 104, 'ids are unique');
+  COLS.forEach(id => { assert.strictEqual(st.piles[id].length, 4); assert(st.piles[id].every(e => e.up)); });
+  assert.strictEqual(st.piles.stock.length, 64);
+  assert(st.piles.stock.every(e => !e.up));
+  same(forty.setup({}, mulberry32(5)), st);
+
+  // moves
+  const s = blankF();
+  s.piles.t0 = [card('spades', 9), card('spades', 5), card('spades', 4)];
+  s.piles.t1 = [card('spades', 6)];
+  s.piles.t2 = [card('hearts', 5)];
+  s.piles.t3 = [card('hearts', 1)];
+  s.piles.waste = [card('clubs', 2), card('spades', 3)];
+  bad(s, mv('t0', 1, 't1'), 'only one card moves at a time');
+  bad(s, mv('t0', 2, 't2'), 'a four of spades does not go on a heart');
+  bad(s, mv('t0', 2, 't0'), 'the same column');
+  bad(s, mv('t0', 2, 'stock'), 'to the stock');
+  bad(s, mv('t0', 2, 'waste'), 'to the waste');
+  bad(s, mv('stock', 0, 't1'), 'from the stock');
+  bad(s, mv('f0', 0, 't1'), 'from a foundation');
+  bad(s, mv('waste', 0, 't1'), 'not the top of the waste');
+  bad(s, mv('t0', 2, 'f0'), 'a four is not an ace');
+  bad(s, mv('__proto__', 0, 't1'), 'a prototype key');
+  bad(s, mv('t0', 1.5, 't1'), 'a fractional index');
+  bad(s, { type: 'nonsense' }, 'an unknown action');
+  let t = ok(s, mv('t0', 2, 't4'));                       // any card to an empty column
+  same(ids(t.piles.t4), ['s4']);
+  t = ok(s, mv('t3', 0, 'f0'));                           // the ace goes home
+  same(ids(t.piles.f0), ['h1']);
+  assert.strictEqual(t.piles.t3.length, 0);
+  t = ok(t, mv('waste', 1, 't0'));                        // 3S onto 4S, from the waste
+  same(ids(t.piles.t0), ['s9', 's5', 's4', 's3']);
+  same(ids(t.piles.waste), ['c2']);
+  const home = JSON.parse(JSON.stringify(s));
+  home.piles.f2 = [card('hearts', 1, 1)];
+  const two = ok(home, mv('t3', 0, 'f0'));
+  assert.strictEqual(two.piles.f0.length, 1, 'an ace may start any empty foundation');
+  home.piles.t5 = [card('hearts', 2)];
+  assert(forty.reduce(home, mv('t5', 0, 'f2'), {}).state, 'a two builds on the ace in its suit');
+  bad(home, mv('t5', 0, 'f1'), 'a two does not start a foundation');
+
+  // drawing
+  const d = blankF();
+  d.piles.stock = [card('clubs', 9), card('hearts', 7)].map(e => ({ ...e, up: false }));
+  t = ok(d, { type: 'draw' });
+  assert.strictEqual(t.piles.waste[0].card.id, 'h7');
+  assert(t.piles.waste[0].up);
+  bad(blankF(), { type: 'draw' }, 'an empty stock');
+  assert.strictEqual(forty.onTap(d, 'stock', 0).type, 'draw');
+  assert.strictEqual(forty.onTap(blankF(), 'stock', 0), null);
+  assert.strictEqual(forty.onTap(d, 't0', 0), null);
+
+  // double-tap sends a card home, and only the top card
+  same(forty.onActivate(s, 't3', 0), mv('t3', 0, 'f0'));
+  assert.strictEqual(forty.onActivate(s, 't0', 1), null);
+  assert.strictEqual(forty.onActivate(s, 't1', 0), null, 'a six cannot go home yet');
+
+  // winning
+  const w = blankF();
+  assert(!forty.isWon(w));
+  HOME.forEach((id, i) => { w.piles[id] = Array.from({ length: 13 }, (_, k) => card('spades', k + 1, i)); });
+  assert(forty.isWon(w));
+  same(forty.status(w).map(x => x.value), ['104 / 104', 0]);
+
+  // picking up
+  assert(forty.canPickUp(s, 't0', 2));
+  assert(!forty.canPickUp(s, 't0', 1));
+  assert(forty.canPickUp(s, 'waste', 1));
+  assert(!forty.canPickUp(s, 'waste', 0));
+  assert(!forty.canPickUp(s, 'stock', 0));
+  assert(!forty.canPickUp(s, 'f0', 0));
+
+  // highlights match the generic search
+  const generic = { ...forty, movable: undefined };
+  const sameLit = (state, why) => same([...movableCards(forty, state, {})].sort(), [...movableCards(generic, state, {})].sort(), why);
+  sameLit(s, 'hand-made position');
+  assert(movableCards(forty, s, {}).has('h1'), 'an ace can go home');
+  sameLit(st, 'a fresh deal');
+
+  // random playouts
+  let wins = 0, checked = 0;
+  for (let seed = 0; seed < 30; seed++) {
+    const session = new Session(forty, {}, seed);
+    const rng = mulberry32(seed + 77);
+    for (let step = 0; step < 200 && !session.won; step++) {
+      const state = session.state;
+      let acted = false;
+      if (rng() < 0.15 && state.piles.stock.length) acted = session.apply({ type: 'draw' });
+      for (let tries = 0; tries < 60 && !acted; tries++) {
+        const from = [...COLS, 'waste'][Math.floor(rng() * 11)];
+        const pile = state.piles[from];
+        if (!pile.length) continue;
+        const to = [...COLS, ...HOME][Math.floor(rng() * 18)];
+        acted = session.apply(mv(from, pile.length - 1, to));
+      }
+      if (!acted) break;
+      const after = session.state;
+      const cards = Object.values(after.piles).flat();
+      assert.strictEqual(cards.length, 104);
+      assert.strictEqual(new Set(cards.map(e => e.card.id)).size, 104);
+      for (const id of HOME) {
+        const h = after.piles[id];
+        assert(h.every((e, k) => e.card.rank === k + 1 && e.card.suit === h[0].card.suit), 'foundations build up in suit');
+      }
+      if (step % 20 === 0) { sameLit(after, `playout ${seed} step ${step}`); checked++; }
+    }
+    if (session.won) wins++;
+    same(new Session(forty, {}, seed, session.actions).state, session.state, 'replay matches');
+    while (session.undo());
+    same(session.state, forty.setup({}, mulberry32(seed)), 'undo restores the deal');
+  }
+  console.log(`forty thieves playouts: ${wins} wins of 30, ${checked} highlight comparisons`);
 }
 
 /* Deck artwork */
