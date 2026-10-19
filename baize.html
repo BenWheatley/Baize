@@ -422,8 +422,11 @@ const CardSim = (() => {
   const isRed = suit => suit === 'hearts' || suit === 'diamonds';
   const top = pile => pile[pile.length - 1];
   const faceDown = card => ({ card, up: false });
-  const dealDeck = rng => shuffle(
-    SUITS.flatMap(suit => RANKS.map(rank => ({ id: `${suit[0]}${rank}`, suit, rank }))),
+  /** Shuffled cards. Ids are unique across copies: the first copy is s13, later copies s13.1, s13.2 and so on. */
+  const dealDeck = (rng, suits = SUITS, copies = 1) => shuffle(
+    Array.from({ length: copies }, (_, copy) => suits.flatMap(suit => RANKS.map(rank => (
+      { id: `${suit[0]}${rank}${copy ? `.${copy}` : ''}`, suit, rank }
+    )))).flat(),
     rng,
   );
 
@@ -871,7 +874,124 @@ const CardSim = (() => {
     ],
   };
 
-  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid };
+  /* ---------- Spider ----------
+     Two decks (104 cards) in one, two or four suits, in ten columns. A card may go on any
+     card one rank higher, whatever its suit, but only a face-up run of one suit in descending
+     order moves together. Deal a row from the stock (one card face up on every column; no
+     column may be empty). A complete run of one suit from king to ace leaves the table at
+     once. Clear eight runs to win. */
+
+  const SPIDER_COLUMNS = Array.from({ length: 10 }, (_, i) => `t${i}`);
+  const SPIDER_HOME = Array.from({ length: 8 }, (_, i) => `f${i}`);
+
+  /** Face-up cards of one suit in descending rank, each one below the last. */
+  const isSuitRun = entries => entries.every((entry, i) => entry.up && (i === 0 ||
+    (entries[i - 1].card.suit === entry.card.suit && entries[i - 1].card.rank === entry.card.rank + 1)));
+
+  /** Move any complete king-to-ace run from the end of a column to a free home pile, and turn up the card beneath. */
+  function clearRuns(piles) {
+    for (const id of SPIDER_COLUMNS) {
+      const column = piles[id];
+      if (column.length < 13 || column.at(-13).card.rank !== 13 || !isSuitRun(column.slice(-13))) continue;
+      piles[SPIDER_HOME.find(home => !piles[home].length)].push(...column.splice(-13));
+      if (column.length) top(column).up = true;
+    }
+  }
+
+  const spiderActions = {
+    deal(piles) {
+      if (piles.stock.length < SPIDER_COLUMNS.length) return 'The stock is empty';
+      if (SPIDER_COLUMNS.some(id => !piles[id].length)) return 'Every column needs a card before you deal';
+      for (const id of SPIDER_COLUMNS) {
+        const entry = piles.stock.pop();
+        entry.up = true;
+        piles[id].push(entry);
+      }
+      clearRuns(piles);
+    },
+
+    move(piles, { from, index, to }) {
+      if (!SPIDER_COLUMNS.includes(from) || !SPIDER_COLUMNS.includes(to) || from === to) return 'Cards cannot move there';
+      const source = piles[from];
+      const target = piles[to];
+      if (!Number.isInteger(index) || index < 0 || index >= source.length) return 'No such card';
+      const moving = source.slice(index);
+      if (!isSuitRun(moving)) return 'Only a face-up run of one suit can move';
+      if (target.length && top(target).card.rank !== moving[0].card.rank + 1) return 'That card does not build on this column';
+      source.splice(index);
+      target.push(...moving);
+      if (source.length) top(source).up = true;
+      clearRuns(piles);
+    },
+  };
+
+  const spider = {
+    id: 'spider',
+    name: 'Spider',
+    showsMovable: true,
+    help: 'Clear eight runs, each a whole suit from king down to ace; a finished run leaves the table. A card may go on any card one rank higher, whatever the suit, but only a run of one suit moves as a unit. Any card or run may go to an empty column. Tap the stock to deal a card onto every column, which needs every column to hold a card. Drag a card or run, or tap it and then tap where it should go. More suits make the game harder.',
+
+    options: [
+      { id: 'suits', label: 'Suits', default: 1, choices: [{ value: 1, label: 'One' }, { value: 2, label: 'Two' }, { value: 4, label: 'Four' }] },
+    ],
+
+    setup(options, rng) {
+      const suits = SUITS.slice(0, options.suits);
+      const deck = dealDeck(rng, suits, 8 / suits.length);
+      const piles = {};
+      for (const id of SPIDER_HOME) piles[id] = [];
+      let next = 0;
+      SPIDER_COLUMNS.forEach((id, i) => {
+        const count = i < 4 ? 6 : 5;
+        piles[id] = deck.slice(next, next + count).map((card, j, row) => ({ card, up: j === row.length - 1 }));
+        next += count;
+      });
+      piles.stock = deck.slice(next).map(faceDown);
+      return { piles };
+    },
+
+    layout: () => [
+      { id: 'stock', col: 0, row: 0 },
+      ...SPIDER_HOME.map((id, i) => ({ id, col: 2 + i, row: 0 })),
+      ...SPIDER_COLUMNS.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 5.5 })),
+    ],
+
+    faceUp: (_state, _pileId, entry) => entry.up,
+
+    canPickUp(state, pileId, index) {
+      const pile = state.piles[pileId];
+      return SPIDER_COLUMNS.includes(pileId) && Boolean(pile[index]) && isSuitRun(pile.slice(index));
+    },
+
+    reduce: (state, action, options) => reduceWith(spiderActions, state, action, options),
+
+    /** Same answer as the generic search, without copying the state for every candidate move. */
+    movable(state) {
+      const { piles } = state;
+      const ids = new Set();
+      for (const from of SPIDER_COLUMNS) {
+        piles[from].forEach((entry, index) => {
+          if (ids.has(entry.card.id) || !spider.canPickUp(state, from, index)) return;
+          const fits = SPIDER_COLUMNS.some(to => to !== from &&
+            (!piles[to].length || top(piles[to]).card.rank === entry.card.rank + 1));
+          if (fits) piles[from].slice(index).forEach(e => ids.add(e.card.id));
+        });
+      }
+      if (piles.stock.length >= SPIDER_COLUMNS.length && SPIDER_COLUMNS.every(id => piles[id].length)) ids.add(top(piles.stock).card.id);
+      return ids;
+    },
+    onTap: (state, pileId) => (pileId === 'stock' && state.piles.stock.length >= SPIDER_COLUMNS.length ? { type: 'deal' } : null),
+    onActivate: () => null,
+    autoAction: () => null,
+    isWon: state => SPIDER_HOME.every(id => state.piles[id].length === 13),
+
+    status: state => [
+      { label: 'Runs', value: `${SPIDER_HOME.filter(id => state.piles[id].length).length} / ${SPIDER_HOME.length}` },
+      { label: 'Deals left', value: state.piles.stock.length / SPIDER_COLUMNS.length },
+    ],
+  };
+
+  return { mulberry32, shuffle, Session, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider };
 })();
 </script>
 
@@ -920,6 +1040,7 @@ const StandardDeck = (() => {
     { rules: CardSim.freecell, deck: StandardDeck },
     { rules: CardSim.golf, deck: StandardDeck },
     { rules: CardSim.pyramid, deck: StandardDeck },
+    { rules: CardSim.spider, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';

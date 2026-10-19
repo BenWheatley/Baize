@@ -6,13 +6,14 @@ import pathlib
 from playwright.sync_api import sync_playwright
 
 URL = (pathlib.Path(__file__).resolve().parent.parent / 'baize.html').as_uri()
-GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2', 'pyramid': '3'}
+GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2', 'pyramid': '3', 'spider': '4'}
 FACE_DOWN = 'Face-down card'
 
 # Deals are fixed so that the checks do not depend on luck. Seed 1 of FreeCell has three
 # movable aces; seed 14 of Golf has two playable column cards; seed 2 of Pyramid has exactly one
-# pair (queen and ace of spades) and one king (hearts) in the free bottom row.
-SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14, 'pyramid': 2}
+# pair (queen and ace of spades) and one king (hearts) in the free bottom row; seed 30 of Spider
+# (one suit) has exactly one tap-move: the six of spades onto the seven.
+SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14, 'pyramid': 2, 'spider': 30}
 
 
 def status(pg):
@@ -47,7 +48,7 @@ def shift(pg, down):
 
 def check_menu_and_saves(pg):
     names = pg.eval_on_selector_all('#game option', 'o => o.map(x => x.textContent)')
-    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid'], names
+    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid', 'Spider'], names
     start(pg, 'klondike')
     box = pg.locator('.slot[data-pile=stock]').bounding_box()
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
@@ -284,8 +285,35 @@ def check_pyramid_stacking(pg):
         assert not problems, f'after undo {step + 1}: {problems[:3]}'
 
 
+def check_spider(pg):
+    start(pg, 'spider')
+    assert 'Runs 0 / 8' in status(pg) and 'Deals left 5' in status(pg), status(pg)
+    assert pg.locator('.card').count() == 104, 'two decks are on the table'
+    shift(pg, True)
+    assert pg.locator('.card.hint').count() > 0, 'some card can move'
+    shift(pg, False)
+
+    def tap(card_id):
+        b = pg.locator(f'.card[data-id="{card_id}"]').bounding_box()
+        pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] * 0.2)
+        pg.wait_for_timeout(300)
+
+    tap('s6.2')
+    assert pg.locator('.card.selected').count() == 1, 'the first tap selects'
+    tap('s7.2')
+    assert 'Moves 1' in status(pg), status(pg)
+    pg.click('#undo')
+    pg.wait_for_timeout(300)
+    box = pg.locator('.slot[data-pile="stock"]').bounding_box()
+    pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    pg.wait_for_timeout(500)
+    assert 'Deals left 4' in status(pg) and 'Moves 1' in status(pg), status(pg)
+    problems = pg.evaluate(STACKING_PROBLEMS)
+    assert not problems, problems[:3]
+
+
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_spider]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

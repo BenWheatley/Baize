@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -621,6 +621,207 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     same(session.state, pyramid.setup(o, mulberry32(seed)), 'undo restores the deal');
   }
   console.log(`pyramid playouts: ${wins} wins of 40`);
+}
+
+/* Spider */
+{
+  const COLS = Array.from({ length: 10 }, (_, i) => `t${i}`);
+  const HOME = Array.from({ length: 8 }, (_, i) => `f${i}`);
+  const blankSp = (o = { suits: 1 }) => {
+    const st = spider.setup(o, mulberry32(1));
+    for (const id of Object.keys(st.piles)) st.piles[id] = [];
+    return st;
+  };
+  const sok = (state, action, o) => { const r = spider.reduce(state, action, o); assert(r.state, `expected legal: ${JSON.stringify(action)} (${r.error})`); return r.state; };
+  const sbad = (state, action, why, o) => assert(spider.reduce(state, action, o).error, `expected illegal: ${why}`);
+  const e2 = (suit, rank, up = true, n = 0) => ({ card: { id: `${suit[0]}${rank}${n ? '.' + n : ''}`, suit, rank }, up });
+  const idsOf = col => col.map(e => e.card.id);
+  const mv = (from, index, to) => ({ type: 'move', from, index, to });
+  const run = (suit, from, to) => Array.from({ length: from - to + 1 }, (_, k) => e2(suit, from - k));
+  const o1 = { suits: 1 }, o2 = { suits: 2 };
+
+  // deals: 104 unique cards in one, two or four suits
+  for (const suits of [1, 2, 4]) {
+    const o = { suits };
+    const st = spider.setup(o, mulberry32(11));
+    const cards = Object.values(st.piles).flat();
+    assert.strictEqual(cards.length, 104, `${suits} suits`);
+    assert.strictEqual(new Set(cards.map(e => e.card.id)).size, 104, 'ids are unique');
+    const used = new Set(cards.map(e => e.card.suit));
+    assert.strictEqual(used.size, suits);
+    for (const suit of used) for (let rank = 1; rank <= 13; rank++) {
+      assert.strictEqual(cards.filter(e => e.card.suit === suit && e.card.rank === rank).length, 8 / suits, `${suit} ${rank}`);
+    }
+    COLS.forEach((id, i) => {
+      assert.strictEqual(st.piles[id].length, i < 4 ? 6 : 5);
+      assert(st.piles[id].every((e, j, col) => e.up === (j === col.length - 1)), 'only the top card is face up');
+    });
+    assert.strictEqual(st.piles.stock.length, 50);
+    assert(st.piles.stock.every(e => !e.up));
+    HOME.forEach(id => assert.strictEqual(st.piles[id].length, 0));
+    same(spider.setup(o, mulberry32(11)), st);
+  }
+  assert.strictEqual(CardSim.klondike.setup({ draw: 1 }, mulberry32(3)).piles.t6[6].card.id.includes('.'), false, 'single decks keep their old ids');
+
+  // moves: any suit may be built on, but only a face-up run of one suit moves together
+  const s = blankSp(o2);
+  s.piles.t0 = [e2('spades', 9, false), e2('hearts', 5), e2('hearts', 4)];
+  s.piles.t1 = [e2('spades', 6)];
+  s.piles.t2 = [e2('spades', 8), e2('spades', 7), e2('hearts', 6), e2('hearts', 5, true, 1)];
+  s.piles.t3 = [e2('spades', 7, true, 1)];
+  sbad(s, mv('t0', 0, 't1'), 'a face-down card', o2);
+  sbad(s, mv('t2', 1, 't3'), '7S 6H 5H is not one suit', o2);
+  sbad(s, mv('t1', 0, 't1'), 'the same column', o2);
+  sbad(s, mv('t0', 1, 't2'), 'a five onto a five', o2);
+  sbad(s, mv('t0', 7, 't1'), 'no such card', o2);
+  sbad(s, mv('t0', -1, 't1'), 'negative index', o2);
+  sbad(s, mv('t0', 1.5, 't1'), 'fractional index', o2);
+  sbad(s, mv('stock', 0, 't1'), 'from the stock', o2);
+  sbad(s, mv('t0', 1, 'f0'), 'to a home pile', o2);
+  sbad(s, mv('__proto__', 0, 't1'), 'a prototype key', o2);
+  sbad(s, { type: 'deal' }, 'an empty stock', o2);
+  sbad(s, { type: 'nonsense' }, 'an unknown action', o2);
+  let t = sok(s, mv('t0', 1, 't1'), o2);                 // 5H 4H onto 6S: the suits may differ
+  same(idsOf(t.piles.t1), ['s6', 'h5', 'h4']);
+  assert.strictEqual(t.piles.t0.length, 1);
+  assert(t.piles.t0[0].up, 'the card beneath turns face up');
+  t = sok(s, mv('t2', 2, 't3'), o2);                     // 6H 5H onto 7S
+  same(idsOf(t.piles.t3), ['s7.1', 'h6', 'h5.1']);
+  same(idsOf(t.piles.t2), ['s8', 's7']);
+  t = sok(s, mv('t1', 0, 't4'), o2);                     // anything may go to an empty column
+  same(idsOf(t.piles.t4), ['s6']);
+
+  // dealing
+  const d = blankSp(o1);
+  COLS.forEach((id, i) => { d.piles[id] = [e2('spades', 1 + (i % 12), true, 0)]; });
+  d.piles.stock = Array.from({ length: 20 }, (_, k) => e2('hearts', 2 + (k % 11), false, k + 1));
+  const next = d.piles.stock.slice(-10).reverse().map(e => e.card.id);
+  const dealt = sok(d, { type: 'deal' }, o1);
+  assert.strictEqual(dealt.piles.stock.length, 10);
+  COLS.forEach((id, i) => {
+    assert.strictEqual(dealt.piles[id].length, 2);
+    assert.strictEqual(dealt.piles[id][1].card.id, next[i], 'the top of the stock goes to the first column');
+    assert(dealt.piles[id][1].up, 'dealt cards are face up');
+  });
+  const gap = JSON.parse(JSON.stringify(d));
+  gap.piles.t5 = [];
+  sbad(gap, { type: 'deal' }, 'an empty column blocks dealing', o1);
+  assert.strictEqual(spider.onTap(gap, 'stock', 0).type, 'deal', 'the tap still offers the deal');
+  assert.strictEqual(spider.onTap(d, 'stock', 0).type, 'deal');
+  assert.strictEqual(spider.onTap(d, 't0', 0), null);
+  assert.strictEqual(spider.onTap(blankSp(o1), 'stock', -1), null);
+
+  // a finished run leaves the table: by a move, then by a deal
+  const c = blankSp(o1);
+  c.piles.t0 = [e2('hearts', 7, false), ...run('spades', 13, 2)];
+  c.piles.t1 = [e2('spades', 1)];
+  c.piles.t2 = [e2('clubs', 4)];
+  const done = sok(c, mv('t1', 0, 't0'), o1);
+  assert.strictEqual(done.piles.f0.length, 13);
+  same(idsOf(done.piles.f0), ['s13', 's12', 's11', 's10', 's9', 's8', 's7', 's6', 's5', 's4', 's3', 's2', 's1']);
+  same(idsOf(done.piles.t0), ['h7']);
+  assert(done.piles.t0[0].up, 'the card beneath the run turns face up');
+  assert.strictEqual(done.piles.t1.length, 0);
+  const c2 = blankSp(o1);
+  c2.piles.t0 = run('spades', 13, 2);
+  COLS.slice(1).forEach(id => { c2.piles[id] = [e2('hearts', 9)]; });
+  c2.piles.stock = [...Array.from({ length: 9 }, (_, k) => e2('hearts', 3, false, k + 1)), e2('spades', 1, false, 0)];
+  const byDeal = sok(c2, { type: 'deal' }, o1);
+  assert.strictEqual(byDeal.piles.f0.length, 13, 'a deal can finish a run');
+  assert.strictEqual(byDeal.piles.t0.length, 0);
+  assert.strictEqual(byDeal.piles.t1.length, 2);
+  // a second run goes to the next home pile; a run with a stranger in it does not go at all
+  const c3 = JSON.parse(JSON.stringify(done));
+  c3.piles.t3 = [...run('spades', 13, 2).map(e => ({ ...e, card: { ...e.card, id: e.card.id + '.1' } }))];
+  c3.piles.t4 = [e2('spades', 1, true, 1)];
+  const two = sok(c3, mv('t4', 0, 't3'), o1);
+  assert.strictEqual(two.piles.f1.length, 13);
+  const mixed = blankSp(o2);
+  mixed.piles.t0 = [...run('spades', 13, 8), e2('hearts', 7), ...run('spades', 6, 2)];
+  mixed.piles.t1 = [e2('spades', 1)];
+  assert.strictEqual(sok(mixed, mv('t1', 0, 't0'), o2).piles.f0.length, 0, 'a run with a heart in it stays');
+  const wrongOrder = blankSp(o1);
+  wrongOrder.piles.t0 = run('spades', 12, 2);
+  wrongOrder.piles.t1 = [e2('spades', 1)];
+  assert.strictEqual(sok(wrongOrder, mv('t1', 0, 't0'), o1).piles.f0.length, 0, 'twelve cards are not a run');
+
+  // winning
+  const w = blankSp(o1);
+  assert(!spider.isWon(w));
+  HOME.forEach(id => { w.piles[id] = run('spades', 13, 1); });
+  assert(spider.isWon(w));
+  same(spider.status(w).map(x => x.value), ['8 / 8', 0]);
+  same(spider.status(d).map(x => x.value), ['0 / 8', 2]);
+
+  // picking up
+  const pk = blankSp(o2);
+  pk.piles.t0 = [e2('spades', 9, false), e2('hearts', 5), e2('hearts', 4), e2('spades', 3)];
+  assert(!spider.canPickUp(pk, 't0', 0));
+  assert(!spider.canPickUp(pk, 't0', 1), '5H 4H 3S is mixed');
+  assert(!spider.canPickUp(pk, 't0', 2), '4H 3S is mixed');
+  assert(spider.canPickUp(pk, 't0', 3));
+  pk.piles.t0[3] = e2('hearts', 3);
+  assert(spider.canPickUp(pk, 't0', 1), '5H 4H 3H is one suit');
+  assert(!spider.canPickUp(pk, 'stock', 0));
+  assert(!spider.canPickUp(pk, 't5', 0));
+
+  // highlights: the direct implementation matches the generic search
+  const same2 = (st, o, why) => {
+    const direct = [...movableCards(spider, st, o)].sort();
+    const generic = [...movableCards({ ...spider, movable: undefined }, st, o)].sort();
+    same(direct, generic, why);
+  };
+  const hl = blankSp(o1);
+  hl.piles.t0 = [e2('spades', 9, false), e2('spades', 5), e2('spades', 4)];
+  hl.piles.t1 = [e2('spades', 6)];
+  hl.piles.t2 = [e2('spades', 13)];
+  hl.piles.stock = Array.from({ length: 10 }, (_, k) => e2('hearts', 2, false, k + 1));
+  same([...movableCards(spider, hl, o1)].sort(), ['s13', 's4', 's5', 's6'], 'the run fits on the six, and empty columns take any top card; no deal while columns are empty');
+  same2(hl, o1, 'hand-made position');
+  hl.piles.t3 = [];
+  assert(movableCards(spider, hl, o1).has('s13'), 'anything can go to an empty column');
+  for (const id of COLS.slice(3)) hl.piles[id] = [e2('clubs', 9, true, COLS.indexOf(id))];
+  assert(movableCards(spider, hl, o1).has('h2.10'), 'the stock top lights when a deal is possible');
+  sbad({ ...hl, piles: { ...hl.piles, stock: hl.piles.stock.slice(0, 4) } }, { type: 'deal' }, 'a short stock', o1);
+  same2(hl, o1, 'hand-made position with a deal');
+
+  // random playouts: invariants, replay, undo, and the highlight check on the way
+  let wins = 0, checked = 0;
+  for (let seed = 0; seed < 24; seed++) {
+    const o = { suits: [1, 2, 4][seed % 3] };
+    const session = new Session(spider, o, seed);
+    const rng = mulberry32(seed + 31);
+    for (let step = 0; step < 140 && !session.won; step++) {
+      const state = session.state;
+      let acted = false;
+      if (rng() < 0.12 && spider.reduce(state, { type: 'deal' }, o).state) acted = session.apply({ type: 'deal' });
+      for (let tries = 0; tries < 80 && !acted; tries++) {
+        const from = COLS[Math.floor(rng() * 10)];
+        const pile = state.piles[from];
+        if (!pile.length) continue;
+        const index = Math.floor(rng() * pile.length);
+        if (!spider.canPickUp(state, from, index)) continue;
+        acted = session.apply(mv(from, index, COLS[Math.floor(rng() * 10)]));
+      }
+      if (!acted) break;
+      const after = session.state;
+      const cards = Object.values(after.piles).flat();
+      assert.strictEqual(cards.length, 104);
+      assert.strictEqual(new Set(cards.map(e => e.card.id)).size, 104);
+      for (const id of COLS) if (after.piles[id].length) assert(after.piles[id].at(-1).up, 'every column ends face up');
+      for (const id of HOME) {
+        const home = after.piles[id];
+        assert(home.length === 0 || home.length === 13, 'home piles hold whole runs');
+        if (home.length) assert(home.every((e, k) => e.card.rank === 13 - k && e.card.suit === home[0].card.suit && e.up));
+      }
+      if (step % 14 === 0) { same2(after, o, `playout ${seed} step ${step}`); checked++; }
+    }
+    if (session.won) wins++;
+    same(new Session(spider, o, seed, session.actions).state, session.state, 'replay matches');
+    while (session.undo());
+    same(session.state, spider.setup(o, mulberry32(seed)), 'undo restores the deal');
+  }
+  console.log(`spider playouts: ${wins} wins of 24, ${checked} highlight comparisons`);
 }
 
 /* Deck artwork */
