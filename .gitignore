@@ -1,3 +1,4 @@
 node_modules/
 tools/art/cards.mjs
 tools/art/art.json
+dist/
