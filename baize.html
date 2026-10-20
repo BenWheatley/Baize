@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2c6a54">
+<meta name="theme-color" content="#3a2415">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -13,20 +13,25 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@500;700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
 <style>
-/* Layout: one column. Header (name + controls), a status line, then the felt table.
-   Colours are a card-room palette: baize green, ivory cards, oxblood backs, brass for focus. */
+/* Layout: one column. Header (name + controls) and a status line on a wooden desk, then the felt
+   table in its wooden rail. The look is a card room: baize felt, walnut, brass fittings, ivory
+   cards, oxblood backs. Textures are small SVG tiles; nothing filters the cards themselves. */
 :root {
-  --bg: #e7ece8;
-  --fg: #14211b;
-  --muted: #52645a;
-  --rule: #c5d0c8;
-  --line: #8fa297;
+  --wood-dark: #1f130b;
+  --wood: #3a2415;
+  --wood-light: #6b4528;
+  --brass: #c9a24a;
+  --brass-hi: #f3dc98;
+  --brass-lo: #6f5218;
+  --cream: #f3e9d2;
+  --cream-dim: #dccfab;
+  --enamel-hi: #fdf9ec;
+  --enamel-lo: #e2d7b8;
+  --enamel-ink: #2a1d10;
   --felt: #2c6a54;
-  --felt-deep: #1f4f3e;
+  --felt-deep: #1b4535;
   --felt-line: rgba(255, 255, 255, 0.3);
-  --btn-bg: #14211b;
-  --btn-fg: #e7ece8;
-  --accent: #e6b94c;
+  --accent: #f0c85a;
   --hint: #fff6cf;
   --dim: rgba(8, 20, 14, 0.55);
   --card: #fdfcf8;
@@ -38,29 +43,27 @@
   --back-line: #d8b45a;
   --font-display: 'Bodoni Moda', 'Bodoni 72', Didot, Georgia, serif;
   --font-ui: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0d1612; --fg: #e2eae4; --muted: #8c9f93; --rule: #21322a; --line: #3d5348;
-    --felt: #154236; --felt-deep: #0b2b22; --felt-line: rgba(255, 255, 255, 0.22);
-    --btn-bg: #e2eae4; --btn-fg: #0d1612;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0d1612; --fg: #e2eae4; --muted: #8c9f93; --rule: #21322a; --line: #3d5348;
-  --felt: #154236; --felt-deep: #0b2b22; --felt-line: rgba(255, 255, 255, 0.22);
-  --btn-bg: #e2eae4; --btn-fg: #0d1612;
+  --tex-wood: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='260'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .16' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.4 0 0 0 .07  .26 0 0 0 .03  .14 0 0 0 .012  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+  --tex-wood-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='260'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.003 .2' numOctaves='4' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.7 0 0 0 .22  .46 0 0 0 .1  .24 0 0 0 .04  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+  --tex-felt-fine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.0 0 0 0 -.46'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --tex-felt-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='2' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .75  0 0 0 0 1  0 0 0 0 .85  1.1 0 0 0 -.66'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --tex-felt-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.006' numOctaves='3' seed='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .55 0 0 0 -.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   color-scheme: dark;
 }
 
 [hidden] { display: none !important; }
 
 body {
-  background: var(--bg);
-  color: var(--fg);
+  margin: 0;
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: var(--cream);
+  background:
+    radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%),
+    var(--tex-wood), var(--wood);
   font: 15px/1.45 var(--font-ui);
-  padding-block: max(14px, env(safe-area-inset-top, 0px)) max(28px, env(safe-area-inset-bottom, 0px));   /* clear the iPad status bar when installed */
+  padding-block: max(14px, env(safe-area-inset-top, 0px)) max(22px, env(safe-area-inset-bottom, 0px));   /* clear the iPad status bar when installed */
   overscroll-behavior: none;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -69,66 +72,118 @@ body {
 
 /* Header */
 .bar { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
-.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-h1 { margin: 0; font: 700 30px/1 var(--font-display); letter-spacing: 0.01em; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+h1 {
+  margin: 0; font: 700 34px/1 var(--font-display); letter-spacing: 0.02em;
+  /* gold leaf: a brass gradient inside the letters, with a pressed-in shadow below */
+  background: linear-gradient(180deg, #fbeeb4 8%, #e0bd5e 48%, #a8812c 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.85)) drop-shadow(0 0 6px rgba(240, 200, 90, 0.25));
+}
 .pick { position: relative; display: inline-block; }
-.pick::after { content: "▾"; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--muted); font-size: 12px; }
-#game {
-  appearance: none; -webkit-appearance: none;
-  font: 600 12px var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--fg); background: transparent;
-  border: 1px solid var(--line); border-radius: 6px;
-  padding: 5px 26px 5px 10px;
+.pick::after { content: "▾"; position: absolute; right: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--enamel-ink); font-size: 12px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; min-width: 0; }
+
+/* Enamel pushbuttons in brass bezels */
+button, #game {
+  font: 600 14px var(--font-ui);
+  color: var(--enamel-ink);
+  background: linear-gradient(180deg, var(--enamel-hi), var(--enamel-lo));
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 12px;
   cursor: pointer;
+  box-shadow:
+    0 0 0 1.5px var(--brass), 0 0 0 2.5px var(--brass-lo),                 /* bezel */
+    0 3px 5px 2px rgba(0, 0, 0, 0.5),                                       /* resting on the desk */
+    inset 0 1px 0 #fff, inset 0 -2px 3px rgba(80, 55, 15, 0.28);            /* enamel gloss and shade */
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  margin: 3px;
+  transition: transform 0.06s, box-shadow 0.06s;
 }
-#game:hover { border-color: var(--fg); }
-.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
-
-button {
-  font: 500 14px var(--font-ui);
-  color: var(--fg);
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 6px 11px;
-  cursor: pointer;
+button:hover:not(:disabled), #game:hover { background: linear-gradient(180deg, #fff, #ebe0c2); }
+button:active:not(:disabled) {
+  transform: translateY(1.5px);
+  box-shadow:
+    0 0 0 1.5px var(--brass), 0 0 0 2.5px var(--brass-lo),
+    0 1px 2px 1px rgba(0, 0, 0, 0.5),
+    inset 0 2px 4px rgba(80, 55, 15, 0.45);
 }
-button:hover:not(:disabled) { border-color: var(--fg); }
-button:disabled { opacity: 0.4; cursor: default; }
-button:focus-visible, #game:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-button[aria-pressed="true"].toggle { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+button:disabled { opacity: 0.45; cursor: default; box-shadow: 0 0 0 1.5px var(--brass-lo), 0 0 0 2.5px #3a2a0a, inset 0 -2px 3px rgba(80, 55, 15, 0.28); }
+button:focus-visible, #game:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 4px; }
+button.primary {
+  color: var(--cream); text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, #a63849, #6b1927);
+  box-shadow:
+    0 0 0 1.5px var(--brass), 0 0 0 2.5px var(--brass-lo),
+    0 3px 5px 2px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 190, 190, 0.45), inset 0 -2px 3px rgba(0, 0, 0, 0.4);
+}
+button.primary:hover:not(:disabled) { background: linear-gradient(180deg, #b8404f, #7a1f2f); }
+/* A toggle that is on glows like a lit lamp */
+button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
+  background: linear-gradient(180deg, #ffe9a2, #e3b13f);
+  box-shadow:
+    0 0 0 1.5px var(--brass-hi), 0 0 0 2.5px var(--brass-lo),
+    0 0 14px 3px rgba(255, 210, 100, 0.55),
+    inset 0 2px 4px rgba(120, 80, 10, 0.4);
+}
+#game { appearance: none; -webkit-appearance: none; letter-spacing: 0.12em; text-transform: uppercase; font-size: 12.5px; padding: 8px 30px 8px 12px; }
 
-.seg { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.seg-label { display: grid; place-items: center; padding: 0 9px; color: var(--muted); font-size: 13px; }
-.seg button { border: 0; border-left: 1px solid var(--line); border-radius: 0; }
-.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+/* Segmented choice: a recessed track with a raised brass plate on the chosen position */
+.seg {
+  display: inline-flex; align-items: stretch; margin: 3px; padding: 2px;
+  background: linear-gradient(180deg, #120a05, #2a1a0e);
+  border-radius: 9px;
+  box-shadow: 0 0 0 1.5px var(--brass-lo), inset 0 2px 5px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 235, 170, 0.25);
+}
+.seg-label { display: grid; place-items: center; padding: 0 9px 0 8px; color: var(--cream-dim); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; text-shadow: 0 1px 0 #000; }
+.seg button {
+  margin: 0; padding: 6px 11px; color: var(--cream-dim); font-weight: 500; text-shadow: 0 1px 0 #000;
+  background: transparent; box-shadow: none; border-radius: 7px;
+}
+.seg button:hover:not(:disabled) { background: rgba(255, 235, 170, 0.1); color: var(--cream); }
+.seg button:active:not(:disabled) { transform: none; box-shadow: none; }
+.seg button[aria-pressed="true"] {
+  color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.7);
+  background: linear-gradient(180deg, #f0d98c, #c19a3e);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 2px rgba(111, 82, 24, 0.5);
+}
 
-.status { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
-.status b { color: var(--fg); font-weight: 600; }
-.status .note { color: var(--accent); }
+.status {
+  display: flex; flex-wrap: wrap; gap: 2px 20px; margin: 2px 4px 0; color: var(--cream-dim);
+  font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
+}
+.status b { color: var(--cream); font-weight: 600; }
+.status .note { color: var(--brass-hi); }
 
-/* Table */
+/* Table: green felt let into a walnut rail with a brass inlay */
+.rail {
+  padding: 18px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 220, 160, 0.16), rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.3)),
+    var(--tex-wood-light), var(--wood-light);
+  box-shadow:
+    0 0 0 1px #0d0703,
+    inset 0 2px 0 rgba(255, 225, 170, 0.35), inset 0 -3px 5px rgba(0, 0, 0, 0.55),
+    0 18px 30px -6px rgba(0, 0, 0, 0.75), 0 4px 8px rgba(0, 0, 0, 0.5);
+}
 .table {
   position: relative;
   padding: 14px;
-  border-radius: 14px;
-  background: radial-gradient(120% 90% at 50% 15%, var(--felt) 0%, var(--felt-deep) 100%);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2), inset 0 0 70px rgba(0, 0, 0, 0.28);
+  border-radius: 10px;
+  background:
+    var(--tex-felt-light), var(--tex-felt-fine), var(--tex-felt-mottle),
+    radial-gradient(120% 90% at 50% 12%, var(--felt) 0%, var(--felt-deep) 100%);
+  box-shadow:
+    0 0 0 2px var(--brass), 0 0 0 3px var(--brass-lo), 0 0 0 4px #0d0703,       /* brass inlay round the felt */
+    inset 0 6px 14px rgba(0, 0, 0, 0.6), inset 0 0 70px rgba(0, 0, 0, 0.32);    /* felt tucked under the rail */
   overflow: hidden;
   isolation: isolate;   /* card z-indexes stay inside the table, below the rules card */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-}
-.table::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.07;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .board { position: relative; }
 
@@ -136,10 +191,12 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
   position: absolute; left: 0; top: 0; z-index: 0;
   width: var(--cw); height: var(--ch);
   box-sizing: border-box;
-  border: 1.5px dashed var(--felt-line);
+  border: 1.5px solid rgba(0, 0, 0, 0.28);            /* pressed into the felt: dark edge above, light edge below */
   border-radius: calc(var(--cw) * 0.05);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.13);
   display: grid; place-items: center;
-  color: var(--felt-line);
+  color: rgba(240, 215, 140, 0.4);                     /* gold-foil stamp */
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
   font: 600 calc(var(--cw) * 0.38) / 1 var(--font-display);
   touch-action: none;
 }
@@ -148,7 +205,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
   position: absolute; left: 0; top: 0;
   width: var(--cw); height: var(--ch);
   border-radius: calc(var(--cw) * 0.05);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 1px 1.5px rgba(0, 0, 0, 0.5), 0 3px 7px rgba(0, 0, 0, 0.32);
   touch-action: none;
   cursor: grab;
   will-change: transform;
@@ -166,7 +223,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
 .board.hints .card.dim:not(.dragging)::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--dim); pointer-events: none;
 }
-.card.dragging { transition: none; cursor: grabbing; box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4); }
+.card.dragging { transition: none; cursor: grabbing; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 14px 22px rgba(0, 0, 0, 0.45), 0 4px 6px rgba(0, 0, 0, 0.3); }
 
 /* Card back (inline SVG, drawn for this page, released under CC0) */
 .back-base { fill: var(--back); stroke: #000; stroke-width: 1; }
@@ -174,12 +231,21 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
 .back-medal { fill: var(--back); stroke: var(--back-line); stroke-width: 1.2; }
 .lattice { stroke: var(--back-line); opacity: 0.55; }
 
-/* Win panel */
-.win { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6, 18, 13, 0.55); }
-.win-card { background: var(--card); color: var(--ink); padding: 22px 30px; border-radius: 12px; text-align: center; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4); }
-.win-card h2 { margin: 0 0 4px; font: 700 34px/1.1 var(--font-display); }
-.win-card p { margin: 0 0 14px; }
-.win-card button { background: var(--ink); color: var(--card); border-color: var(--ink); }
+/* Win panel: a brass plaque, screwed down, on a darkened table */
+.win { position: absolute; inset: 0; z-index: 200000; display: grid; place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
+.win-card {
+  position: relative; padding: 26px 40px 24px; border-radius: 10px; text-align: center;
+  color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
+  background:
+    radial-gradient(circle at 12px 12px, #6f5218 0 2.5px, #f3dc98 3px 4.5px, transparent 5px),
+    radial-gradient(circle at calc(100% - 12px) 12px, #6f5218 0 2.5px, #f3dc98 3px 4.5px, transparent 5px),
+    radial-gradient(circle at 12px calc(100% - 12px), #6f5218 0 2.5px, #f3dc98 3px 4.5px, transparent 5px),
+    radial-gradient(circle at calc(100% - 12px) calc(100% - 12px), #6f5218 0 2.5px, #f3dc98 3px 4.5px, transparent 5px),
+    linear-gradient(160deg, #f1d98e 0%, #c9a24a 45%, #e2c57a 70%, #b48c36 100%);
+  box-shadow: 0 0 0 2px var(--brass-lo), 0 0 0 3px #0d0703, inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 4px rgba(111, 82, 24, 0.6), 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+.win-card h2 { margin: 0 0 4px; font: 700 36px/1.1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
+.win-card p { margin: 0 0 16px; }
 
 /* Rules card: a popover styled as an ivory playing card with a brass inner frame. */
 .rules {
@@ -206,6 +272,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
 .rules-index.bottom { bottom: 14px; right: 15px; transform: rotate(180deg); }
 .rules-close {
   position: absolute; top: 12px; right: 14px;
+  margin: 0; box-shadow: none; text-shadow: none; background: transparent; border: 1px solid var(--card-edge);
   width: 28px; height: 28px; padding: 0;
   display: grid; place-items: center;
   border-radius: 50%; border-color: var(--card-edge);
@@ -240,10 +307,10 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
 @media (max-width: 520px) {
   h1 { font-size: 26px; }
   body { padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+  .rail { padding: 9px; border-radius: 16px; }
   .table { padding: 6px; }
-  .controls { gap: 6px; }
-  .controls { gap: 6px 5px; }
-  .controls > button { padding: 6px 5px; font-size: 13.5px; flex: 1 1 auto; }
+  .controls { gap: 6px 4px; }
+  .controls > button { padding: 6px 4px; font-size: 13.5px; flex: 1 1 auto; }
 }
 /* Fingers need bigger targets than a mouse. */
 @media (pointer: coarse) {
@@ -302,6 +369,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
 
   <p id="status" class="status" aria-live="polite"></p>
 
+  <div class="rail">
   <main id="table" class="table">
     <div id="board" class="board"></div>
     <div id="win" class="win" hidden role="status">
@@ -312,6 +380,7 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
       </div>
     </div>
   </main>
+  </div>
 </div>
 
 <!-- ============================================================
@@ -1730,7 +1799,8 @@ const StandardDeck = (() => {
   function availableHeight() {
     const viewport = window.visualViewport?.height ?? window.innerHeight;
     const top = els.board.getBoundingClientRect().top + window.scrollY;
-    const below = parseFloat(getComputedStyle(els.table).paddingBottom) + parseFloat(getComputedStyle(document.body).paddingBottom);
+    const padding = element => parseFloat(getComputedStyle(element).paddingBottom);
+    const below = padding(els.table) + padding(els.table.parentElement) + padding(document.body) + 6;   // 6: the table's brass inlay and shadow
     return viewport - top - below;
   }
 
@@ -2046,7 +2116,7 @@ const StandardDeck = (() => {
     }
     press.cards.forEach(el => {
       const p = geometry.pos.get(el.dataset.id);
-      el.style.transform = `translate(${p.x + dx}px, ${p.y + dy}px)`;
+      el.style.transform = `translate(${p.x + dx}px, ${p.y + dy}px) scale(1.04)`;   // lifted off the felt
     });
     press.dx = dx;
     press.dy = dy;

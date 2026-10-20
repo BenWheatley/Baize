@@ -485,8 +485,21 @@ def check_game_menu_gives_up_focus(pg):
     pg.keyboard.up('Shift')
 
 
+def check_win_panel_is_on_top(pg):
+    """The plaque that announces a win must not be painted over by cards."""
+    for name in ('klondike', 'freecell', 'spider'):
+        start(pg, name)
+        pg.evaluate("() => { document.getElementById('win').hidden = false; }")
+        covered = pg.evaluate("""() => {
+            const r = document.querySelector('.win-card').getBoundingClientRect();
+            const points = [[.1, .1], [.5, .5], [.9, .9], [.1, .9], [.9, .1]];
+            return points.filter(([x, y]) => !document.elementFromPoint(r.left + r.width * x, r.top + r.height * y)?.closest('.win')).length;
+        }""")
+        assert covered == 0, f'{name}: cards paint over the win plaque at {covered} of 5 points'
+
+
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_game_menu_gives_up_focus]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
