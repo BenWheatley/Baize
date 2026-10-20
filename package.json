@@ -2,7 +2,6 @@
   "name": "baize",
   "private": true,
   "scripts": {
-    "test": "node test/engine.test.js",
-    "build:pwa": "node tools/pwa/build.mjs"
+    "test": "node test/engine.test.js"
   }
 }

@@ -33,9 +33,9 @@ Drives the page in Chromium with Python Playwright: the game menu and saves, hig
 
 ## Installing it (PWA)
 
-`npm run build:pwa` writes `dist/`: a complete page around `baize.html`, a web app manifest, a service worker that makes the game work offline, and the icons (`tools/pwa/icons`, drawn for this page and CC0; `tools/pwa/make-icons.py` redraws them from `icon.svg`). Put `dist/` on any HTTPS static host, for example GitHub Pages. On an iPad open the address in Safari, then Share and Add to Home Screen; Chrome and Edge offer Install. `python3 test/pwa.test.py` serves `dist/` locally and checks the manifest, icons, service worker and offline play.
+There is no build step: `baize.html` is already an installable app. Beside it are `manifest.webmanifest`, `sw.js` (a service worker that serves the game from its cache, so it works offline, and refreshes the cache in the background) and `icons/` (drawn for this page, CC0; `tools/pwa/make-icons.py` redraws them from `tools/pwa/icon.svg`). Serve the folder over HTTPS, for example with GitHub Pages, and open `baize.html` (the bare address forwards to it). On an iPad use Safari, then Share and Add to Home Screen; Chrome and Edge offer Install. `python3 test/pwa.test.py` serves the folder locally and checks the manifest, icons, service worker and offline play.
 
-The service worker caches the page by content hash, so a rebuilt page replaces the old one the next time the app is opened online. The web fonts come from Google Fonts and are cached only after the first online visit; without them the page uses system fonts.
+Because the cache is refreshed in the background, an edited page appears the second time the app is opened. The web fonts come from Google Fonts and are cached after the first online visit; without them the page uses system fonts.
 
 ## Winnable deals
 

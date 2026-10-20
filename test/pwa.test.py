@@ -1,6 +1,6 @@
-"""Checks that the built app (dist/) is installable and works offline.
+"""Checks that baize.html, served as it is, is installable and works offline.
 
-Run from anywhere:  node tools/pwa/build.mjs && python3 test/pwa.test.py
+Run from anywhere:  python3 test/pwa.test.py
 """
 import functools
 import http.server
@@ -9,8 +9,7 @@ import pathlib
 import threading
 from playwright.sync_api import sync_playwright
 
-DIST = pathlib.Path(__file__).resolve().parent.parent / 'dist'
-assert (DIST / 'index.html').exists(), 'run: node tools/pwa/build.mjs'
+DIST = pathlib.Path(__file__).resolve().parent.parent
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
@@ -20,7 +19,8 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
 handler = functools.partial(Quiet, directory=str(DIST))
 server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
-base = f'http://127.0.0.1:{server.server_port}/'
+base = f'http://127.0.0.1:{server.server_port}/baize.html'
+root = f'http://127.0.0.1:{server.server_port}/'
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
@@ -36,12 +36,17 @@ with sync_playwright() as p:
     assert page.evaluate('Boolean(navigator.serviceWorker.controller)'), 'the service worker controls the page'
 
     manifest = page.evaluate("fetch(document.querySelector('link[rel=manifest]').href).then(r => r.json())")
+    assert page.evaluate('document.compatMode') == 'CSS1Compat', 'the page is not in quirks mode'
+    assert manifest['start_url'] == 'baize.html'
     assert manifest['display'] == 'standalone' and manifest['name'] == 'Baize', manifest
     sizes = {icon['sizes'] for icon in manifest['icons']}
     assert {'192x192', '512x512'} <= sizes, sizes
     assert any(icon['purpose'] == 'maskable' for icon in manifest['icons'])
     for icon in manifest['icons']:
         assert page.evaluate(f"fetch('{icon['src']}').then(r => r.ok)"), icon['src']
+    page.goto(root)                                  # the bare address forwards to the game
+    page.wait_for_url('**/baize.html')
+    page.goto(base)
     assert page.evaluate("fetch(document.querySelector('link[rel=apple-touch-icon]').href).then(r => r.ok)")
     assert page.evaluate("document.querySelector('meta[name=apple-mobile-web-app-capable]').content") == 'yes'
 
@@ -56,4 +61,4 @@ with sync_playwright() as p:
     assert not errors, errors
     browser.close()
 server.shutdown()
-print('ok   pwa installs and runs offline')
+print('ok   baize.html installs and runs offline')

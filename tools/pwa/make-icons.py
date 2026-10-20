@@ -15,6 +15,6 @@ with sync_playwright() as p:
         page = browser.new_page(viewport={'width': size, 'height': size})
         sized = svg.replace('<svg ', f'<svg width="{size}" height="{size}" ', 1)
         page.set_content(f'<body style="margin:0">{sized}</body>')
-        page.screenshot(path=str(here / 'icons' / name))
+        page.screenshot(path=str(here.parent.parent / 'icons' / name))
         page.close()
     browser.close()
