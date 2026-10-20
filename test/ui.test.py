@@ -459,8 +459,34 @@ def check_responsive(pg):
         context.close()
 
 
+def check_search_can_be_cancelled(pg):
+    start(pg, 'freecell')
+    pg.click('button[data-option="winnable"][data-value="1"]')
+    wait_for_deal(pg)
+    # A worker that never answers stands in for a search that takes a long time.
+    pg.evaluate("() => { window.Worker = class { postMessage() {} terminate() {} }; }")
+    pg.click('#new')
+    pg.wait_for_timeout(500)
+    assert pg.locator('#new').inner_text() == 'Cancel', 'the button offers to cancel'
+    assert 'Finding a winnable deal' in status(pg), status(pg)
+    pg.click('#new')
+    wait_for_deal(pg)
+    assert pg.locator('#new').inner_text() == 'New deal'
+    assert 'Search cancelled' in status(pg), status(pg)
+    assert pg.locator('.card').count() == 52, 'a deal was made all the same'
+
+
+def check_game_menu_gives_up_focus(pg):
+    pg.focus('#game')
+    pg.select_option('#game', GAMES['golf'])
+    pg.wait_for_timeout(900)
+    assert pg.evaluate("document.activeElement.id") != 'game', 'rank keys would be typed into the menu'
+    pg.keyboard.press('Shift')                       # and the keys reach the game
+    pg.keyboard.up('Shift')
+
+
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_game_menu_gives_up_focus]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

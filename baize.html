@@ -1605,6 +1605,9 @@ const StandardDeck = (() => {
   const SEARCH_NODES = 3000;
   const wantsWinnable = (rules, options) => Boolean(options.winnable) && Boolean(rules.canSolve?.(options));
 
+  let cancelSearch = null;    // set while a search runs: stops it, and the deal is random
+  let cancelledByUser = false;
+
   function searchInWorker(rules, options, from) {
     const body = `${document.getElementById('engine').textContent}
       self.onmessage = ({ data: { id, options, from, until, nodes } }) => {
@@ -1619,6 +1622,7 @@ const StandardDeck = (() => {
       const url = URL.createObjectURL(new Blob([body], { type: 'text/javascript' }));
       const worker = new Worker(url);
       const done = (result, fail) => { worker.terminate(); URL.revokeObjectURL(url); fail ? reject(result) : resolve(result); };
+      cancelSearch = () => done(null);
       worker.onmessage = ({ data }) => done(data.seed);
       worker.onerror = event => done(event, true);
       worker.postMessage({ id: rules.id, options, from, until: Date.now() + SEARCH_MS, nodes: SEARCH_NODES });
@@ -1626,7 +1630,9 @@ const StandardDeck = (() => {
   }
 
   async function searchHere(rules, options, from) {
-    for (let k = 0, until = Date.now() + SEARCH_MS; Date.now() < until; k++) {
+    let cancelled = false;
+    cancelSearch = () => { cancelled = true; };
+    for (let k = 0, until = Date.now() + SEARCH_MS; Date.now() < until && !cancelled; k++) {
       const seed = (from + k) % 1000000;
       const state = rules.setup(options, CardSim.mulberry32(seed));
       if (CardSim.solve(rules, options, state, { nodes: SEARCH_NODES })) return seed;
@@ -1653,13 +1659,22 @@ const StandardDeck = (() => {
     try {
       let missed = false;
       const picking = seed === undefined && wantsWinnable(game.rules, options);
-      if (picking) { notice = 'Finding a winnable deal…'; syncChrome(session.state); }
+      let stopped = false;
+      if (picking) {
+        notice = 'Finding a winnable deal…';
+        els.fresh.textContent = 'Cancel';
+        syncChrome(session.state);
+      }
       const [found] = await Promise.all([picking ? findWinnableSeed(game.rules, options) : seed, animate ? gather() : null]);
+      stopped = picking && cancelledByUser;
       if (found === null) missed = true;
       startGame(game, options, found ?? seed ?? newSeed(), [], animate);
-      if (missed) notice = 'No winnable deal turned up in time, so this one is random.';
+      if (missed) notice = stopped ? 'Search cancelled, so this deal is random.' : 'No winnable deal turned up in time, so this one is random.';
       if (animate) await pause(dealMs + 60);
     } finally {
+      els.fresh.textContent = 'New deal';
+      cancelSearch = null;
+      cancelledByUser = false;
       delete els.board.dataset.dealing;
       busy = false;
       settleZ();
@@ -2099,7 +2114,10 @@ const StandardDeck = (() => {
   els.undo.addEventListener('click', undo);
   els.finish.addEventListener('click', autoFinish);
   els.restart.addEventListener('click', () => { if (!busy) redeal(session.options, session.seed); });
-  const newDeal = () => { if (!busy) redeal(session.options); };
+  const newDeal = () => {
+    if (cancelSearch) { cancelledByUser = true; cancelSearch(); return; }   // the button reads Cancel while searching
+    if (!busy) redeal(session.options);
+  };
   els.fresh.addEventListener('click', newDeal);
   els.winNew.addEventListener('click', newDeal);
 
@@ -2149,7 +2167,13 @@ const StandardDeck = (() => {
   });
 
   GAMES.forEach((g, i) => els.game.append(h('option', { value: String(i) }, g.rules.name)));
+  // A menu that keeps focus after a mouse or touch pick would swallow the rank keys, and letters typed
+  // into it would jump to another game. Keyboard users keep focus so they can go on with the arrow keys.
+  let menuUsedKeyboard = false;
+  els.game.addEventListener('keydown', () => { menuUsedKeyboard = true; });
+  els.game.addEventListener('blur', () => { menuUsedKeyboard = false; });
   els.game.addEventListener('change', () => {
+    if (!menuUsedKeyboard) els.game.blur();
     if (busy) { els.game.value = String(GAMES.indexOf(game)); return; }
     open(GAMES[Number(els.game.value)]);
   });
