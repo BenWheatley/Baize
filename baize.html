@@ -65,7 +65,7 @@ body {
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.app { max-width: 920px; margin-inline: auto; display: grid; gap: 10px; }
+.app { max-width: 1280px; margin-inline: auto; display: grid; gap: 10px; }
 
 /* Header */
 .bar { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
@@ -230,9 +230,25 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
   from { opacity: 0; transform: translateY(-6px) rotate(-1.2deg) scale(0.97); }
 }
 
+/* Narrow screens: the options fold away behind a button, and the page gives the table the width. */
+.options-btn { display: none; }
+@media (max-width: 720px) {
+  .options-btn { display: inline-block; }
+  #options { display: none; order: 5; flex-basis: 100%; }
+  .bar.options-open #options { display: flex; }
+}
 @media (max-width: 520px) {
   h1 { font-size: 26px; }
-  .table { padding: 10px; }
+  body { padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+  .table { padding: 6px; }
+  .controls { gap: 6px; }
+  .controls { gap: 6px 5px; }
+  .controls > button { padding: 6px 5px; font-size: 13.5px; flex: 1 1 auto; }
+}
+/* Fingers need bigger targets than a mouse. */
+@media (pointer: coarse) {
+  button, #game { min-height: 44px; touch-action: manipulation; }
+  .rules-close { min-height: 0; width: 36px; height: 36px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .card.ready { transition: none; }
@@ -274,11 +290,12 @@ button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: 
       <p class="credit">Card faces are Adrian Kennard’s public-domain (CC0) deck from <a href="https://www.me.uk/cards/">me.uk/cards</a>. The card back is drawn for this page, also CC0.</p>
     </div>
     <div class="controls">
+      <button id="options-btn" class="toggle options-btn" type="button" aria-expanded="false" aria-controls="options">Options</button>
       <div id="options" class="controls"></div>
       <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same. Hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to highlight every card of that rank; add Shift for only the movable ones." hidden>Show moves</button>
       <button id="undo" type="button">Undo</button>
       <button id="finish" type="button" hidden>Auto-finish</button>
-      <button id="restart" type="button">Restart deal</button>
+      <button id="restart" type="button">Restart</button>
       <button id="new" type="button" class="primary">New deal</button>
     </div>
   </header>
@@ -1484,9 +1501,13 @@ const StandardDeck = (() => {
 
   const STORE_KEY = 'baize.v2';
   const HINTS_KEY = 'baize.hints';
-  const COL_GAP = 0.16;       // gap between columns, in card widths
+  const COL_GAP = 0.16;       // gap between columns, in card widths (less on a narrow table)
+  const NARROW_GAP = 0.07;
+  const NARROW_BOARD = 520;   // px
   const ROW_GAP = 1.3;        // distance between rows, in card heights
-  const MAX_CARD_W = 96;      // px
+  const MAX_CARD_W = 130;     // px
+  const MAX_EXTRA_ROWS = 5;   // card heights that spare screen height may add to a column
+  const MIN_CARD_W = 34;      // px: for height alone; below this the page scrolls instead of shrinking the cards
   const ASPECT = 1.4;
   const DRAG_SLOP = 5;        // px before a press becomes a drag
   const DOUBLE_TAP_MS = 350;
@@ -1500,6 +1521,7 @@ const StandardDeck = (() => {
 
   const $ = id => document.getElementById(id);
   const els = {
+    bar: document.querySelector('.bar'), optionsBtn: $('options-btn'),
     table: $('table'), board: $('board'), status: $('status'), options: $('options'),
     game: $('game'),
     rules: $('rules'), rulesBtn: $('rules-btn'), rulesClose: $('rules-close'),
@@ -1689,14 +1711,28 @@ const StandardDeck = (() => {
   const yOf = slot => slot.y ?? slot.row * ROW_GAP;   // in card heights
   const normaliseSlot = slot => ({ fan: 'none', visible: Infinity, limit: Infinity, ...slot });
 
+  /** Room left on screen below the top of the board, which the whole layout should fit into. */
+  function availableHeight() {
+    const viewport = window.visualViewport?.height ?? window.innerHeight;
+    const top = els.board.getBoundingClientRect().top + window.scrollY;
+    const below = parseFloat(getComputedStyle(els.table).paddingBottom) + parseFloat(getComputedStyle(document.body).paddingBottom);
+    return viewport - top - below;
+  }
+
+  /** Card size: as large as fits both the width and the height of the screen, within limits. */
   function measure(slots) {
     const cols = Math.max(...slots.map(s => s.col)) + 1;
     const boardW = els.board.clientWidth || 320;
-    const cw = Math.min(MAX_CARD_W, boardW / (cols + (cols - 1) * COL_GAP));
+    const gap = boardW < NARROW_BOARD ? NARROW_GAP : COL_GAP;
+    const rows = Math.max(...slots.map(s => yOf(s) + (s.fan === 'down' ? extentOf(s) : 1)));   // in card heights
+    const fitWidth = boardW / (cols + (cols - 1) * gap);
+    const fitHeight = availableHeight() / (rows * ASPECT);
+    const cw = Math.min(MAX_CARD_W, fitWidth, Math.max(MIN_CARD_W, fitHeight));   // width is a hard limit, height is not
     const ch = cw * ASPECT;
-    const gridW = cols * cw + (cols - 1) * cw * COL_GAP;
-    const height = Math.max(...slots.map(s => (yOf(s) + (s.fan === 'down' ? extentOf(s) : 1)) * ch));
-    return { cw, ch, left: (boardW - gridW) / 2, height };
+    const gridW = cols * cw + (cols - 1) * cw * gap;
+    // Cards limited by width leave room below; the columns may use it, so they overlap less.
+    const extra = Math.min(MAX_EXTRA_ROWS, Math.max(0, availableHeight() / ch - rows));
+    return { cw, ch, gap, extra, left: (boardW - gridW) / 2, height: (rows + extra) * ch };
   }
 
   function place(state, slots, g) {
@@ -1704,7 +1740,7 @@ const StandardDeck = (() => {
     const areas = [];
     for (const [s, slot] of slots.entries()) {
       const entries = state.piles[slot.id];
-      const x0 = g.left + slot.col * g.cw * (1 + COL_GAP);
+      const x0 = g.left + slot.col * g.cw * (1 + g.gap);
       const y0 = yOf(slot) * g.ch;
       const isUp = entry => game.rules.faceUp(state, slot.id, entry, VIEWER);
       const offsets = fanOffsets(slot, entries, isUp);
@@ -1734,7 +1770,8 @@ const StandardDeck = (() => {
     els.board.style.height = `${g.height}px`;
     els.board.style.setProperty('--cw', `${g.cw}px`);
     els.board.style.setProperty('--ch', `${g.ch}px`);
-    geometry = place(state, slots, g);
+    const roomy = slots.map(slot => (slot.fan === 'down' && Number.isFinite(slot.limit) ? { ...slot, limit: slot.limit + g.extra } : slot));
+    geometry = place(state, roomy, g);
     syncSlots();
     syncCards();
     syncChrome(state);
@@ -1831,6 +1868,7 @@ const StandardDeck = (() => {
     for (const option of rules.options) {
       els.options.querySelector(`[data-option-group="${option.id}"]`).hidden = option.when ? !option.when(session.options) : false;
     }
+    els.optionsBtn.hidden = !rules.options.some(option => !option.when || option.when(session.options));
     els.options.querySelectorAll('button').forEach(button => {
       const pressed = String(session.options[button.dataset.option]) === button.dataset.value;
       button.setAttribute('aria-pressed', String(pressed));
@@ -2052,6 +2090,12 @@ const StandardDeck = (() => {
 
   /* ---------- Page controls ---------- */
 
+  els.optionsBtn.addEventListener('click', () => {
+    const open = els.bar.classList.toggle('options-open');
+    els.optionsBtn.setAttribute('aria-expanded', String(open));
+    lastFit = '';
+    relayout();                           // the header changed height, so the room for the table did too
+  });
   els.undo.addEventListener('click', undo);
   els.finish.addEventListener('click', autoFinish);
   els.restart.addEventListener('click', () => { if (!busy) redeal(session.options, session.seed); });
@@ -2110,15 +2154,21 @@ const StandardDeck = (() => {
     open(GAMES[Number(els.game.value)]);
   });
 
-  let lastWidth = 0;
-  new ResizeObserver(() => {
-    const width = els.board.clientWidth;
-    if (!session || width === lastWidth) return;
-    lastWidth = width;
+  /* Lay the cards out again when the room changes: the width, or the height beyond a small tolerance
+     (a phone's address bar sliding away changes the height by a few dozen pixels). */
+  let lastFit = '';
+  function relayout() {
+    if (!session) return;
+    const fit = `${els.board.clientWidth}x${Math.round((window.visualViewport?.height ?? window.innerHeight) / 24)}`;
+    if (fit === lastFit) return;
+    lastFit = fit;
     els.board.classList.add('instant');
     render();
     requestAnimationFrame(() => els.board.classList.remove('instant'));
-  }).observe(els.board);
+  }
+  new ResizeObserver(relayout).observe(els.board);
+  addEventListener('resize', relayout);
+  window.visualViewport?.addEventListener('resize', relayout);
 
   try { hintsOn = localStorage.getItem(HINTS_KEY) === '1'; } catch { /* optional */ }
   open(GAMES.find(g => g.rules.id === readStore().current) ?? GAMES[0]);

@@ -417,14 +417,58 @@ def check_winnable_deals(pg):
     assert not pg.locator('[data-option-group="winnable"]').is_visible()
 
 
+VIEWPORTS = {'phone': (390, 844, True), 'phone landscape': (844, 390, True), 'tablet': (820, 1180, True),
+             'tablet landscape': (1180, 820, True), 'desktop': (1280, 800, False)}
+
+
+def check_responsive(pg):
+    """Every game fits every screen: nothing hangs over the table or the page edge, buttons are
+    finger-sized on touch screens, and the options fold away on narrow ones."""
+    browser = pg.context.browser
+    for label, (w, h, touch) in VIEWPORTS.items():
+        context = browser.new_context(viewport={'width': w, 'height': h}, has_touch=touch, is_mobile=touch)
+        context.route('**/fonts.googleapis.com/**', lambda route: route.abort())     # keep the run offline-fast
+        page = context.new_page()
+        page.goto(URL)
+        for name in GAMES:
+            start(page, name)
+            fit = page.evaluate("""() => {
+                const board = document.getElementById('board').getBoundingClientRect();
+                const out = [...document.querySelectorAll('.card')].map(c => c.getBoundingClientRect())
+                    .filter(r => r.left < board.left - 1 || r.right > board.right + 1);
+                const root = document.documentElement;
+                return { outside: out.length, overflowX: root.scrollWidth - root.clientWidth,
+                         bottom: board.bottom, height: innerHeight };
+            }""")
+            assert fit['outside'] == 0, f'{label} {name}: {fit["outside"]} cards stick out of the table'
+            assert fit['overflowX'] <= 0, f'{label} {name}: the page scrolls sideways'
+            if label != 'phone landscape':       # a very short screen may scroll vertically instead of shrinking the cards
+                assert fit['bottom'] <= fit['height'] + 2, f'{label} {name}: the table runs off the bottom ({fit})'
+        if touch:
+            small = page.evaluate("""() => [...document.querySelectorAll('.bar button, .bar select')]
+                .filter(b => b.offsetParent !== null && b.getBoundingClientRect().height < 43).map(b => b.id || b.textContent)""")
+            assert not small, f'{label}: buttons under 44 px: {small}'
+        start(page, 'klondike')
+        if w <= 720:
+            assert not page.locator('#options').is_visible(), f'{label}: options start folded away'
+            page.click('#options-btn')
+            assert page.locator('#options').is_visible(), f'{label}: the Options button opens them'
+            assert page.evaluate("document.getElementById('board').getBoundingClientRect().bottom <= innerHeight + 2") or h < 500
+        else:
+            assert not page.locator('#options-btn').is_visible() and page.locator('#options').is_visible(), f'{label}: options are shown'
+        context.close()
+
+
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
     failures = 0
     for check in CHECKS:
-        page = browser.new_context(viewport={'width': 1000, 'height': 900}).new_page()
+        context = browser.new_context(viewport={'width': 1000, 'height': 900})
+        context.route('**/fonts.googleapis.com/**', lambda route: route.abort())
+        page = context.new_page()
         errors = []
         page.on('pageerror', lambda e: errors.append(str(e)))
         page.goto(URL)
