@@ -74,11 +74,14 @@ body {
 .bar { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 h1 {
-  margin: 0; font: 700 34px/1 var(--font-display); letter-spacing: 0.02em;
-  /* gold leaf: a brass gradient inside the letters, with a pressed-in shadow below */
-  background: linear-gradient(180deg, #fbeeb4 8%, #e0bd5e 48%, #a8812c 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.85)) drop-shadow(0 0 6px rgba(240, 200, 90, 0.25));
+  margin: 0; padding: 6px 15px 7px; font: 700 30px/1 var(--font-display); letter-spacing: 0.03em;
+  /* gold letters on a black enamel plate in a brass bezel: readable on any wood */
+  color: #f7dd8b;
+  text-shadow: 0 1px 0 #6f5218, 0 0 9px rgba(240, 200, 90, 0.4);
+  background: linear-gradient(180deg, #0e0703, #2a1a0e);
+  border-radius: 9px;
+  box-shadow: 0 0 0 1.5px var(--brass), 0 0 0 2.5px var(--brass-lo), 0 3px 5px 2px rgba(0, 0, 0, 0.5), inset 0 2px 5px rgba(0, 0, 0, 0.85);
+  margin: 3px;
 }
 .pick { position: relative; display: inline-block; }
 .pick::after { content: "▾"; position: absolute; right: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--enamel-ink); font-size: 12px; }
