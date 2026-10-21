@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, solve, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, solve, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -1146,8 +1146,115 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   }
 }
 
+/* Yukon: the deal, moving any face-up card with what is on it, playouts */
+{
+  const COLS = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
+  const card = (suit, rank, up = true) => ({ card: { id: `${suit[0]}${rank}`, suit, rank }, up });
+  const blank = () => {
+    const st = yukon.setup({}, mulberry32(1));
+    for (const id of Object.keys(st.piles)) st.piles[id] = [];
+    return st;
+  };
+  const mv = (from, index, to) => ({ type: 'move', from, index, to });
+  const ok = (state, action) => { const r = yukon.reduce(state, action, {}); assert(r.state, `expected legal: ${JSON.stringify(action)} (${r.error})`); return r.state; };
+  const bad = (state, action, why) => assert(yukon.reduce(state, action, {}).error, `expected illegal: ${why}`);
+
+  // the deal: column i holds i hidden cards and five showing, apart from the first, which holds one
+  const st = yukon.setup({}, mulberry32(3));
+  const all = Object.values(st.piles).flat();
+  assert.strictEqual(all.length, 52);
+  assert.strictEqual(new Set(all.map(e => e.card.id)).size, 52, 'ids are unique');
+  COLS.forEach((id, i) => {
+    const col = st.piles[id];
+    assert.strictEqual(col.length, i === 0 ? 1 : i + 5);
+    assert.strictEqual(col.filter(e => !e.up).length, i);
+    assert(col.slice(i).every(e => e.up) && col.slice(0, i).every(e => !e.up), `${id} hidden cards sit under the showing ones`);
+  });
+  same(yukon.setup({}, mulberry32(3)), st);
+
+  // a stack moves whole even when it is not a run; only its first card must fit
+  const s = blank();
+  s.piles.t0 = [card('spades', 9, false), card('hearts', 8), card('clubs', 2), card('diamonds', 11)];
+  s.piles.t1 = [card('spades', 9)];
+  s.piles.t2 = [card('clubs', 13)];
+  s.piles.t3 = [card('hearts', 5)];
+  bad(s, mv('t0', 0, 't3'), 'a face-down card cannot be lifted');
+  bad(s, mv('t0', 2, 't1'), 'a two of clubs does not go on a nine');
+  const moved = ok(s, mv('t0', 1, 't1'));
+  same(moved.piles.t1.map(e => e.card.id), ['s9', 'h8', 'c2', 'd11'], 'the whole stack travels');
+  assert(moved.piles.t0[0].up, 'the card left behind is turned up');
+  bad(s, mv('t0', 3, 't3'), 'an eleven does not go on a five');
+  bad(s, mv('t3', 0, 't4'), 'only a king may go to an empty column');
+  ok(s, mv('t2', 0, 't4'));                          // a king may
+  bad(s, mv('t0', 1, 't0'), 'the same column');
+
+  // foundations take one card at a time
+  const f = blank();
+  f.piles.t0 = [card('spades', 2), card('hearts', 1)];
+  f.piles.t1 = [card('hearts', 7), card('spades', 1)];
+  ok(f, mv('t1', 1, 'f0'));
+  bad(f, mv('t1', 0, 'f0'), 'a seven and an ace together cannot go home');
+  assert.strictEqual(ok(f, mv('t0', 1, 'f1')).piles.f1.length, 1);
+  same(yukon.onActivate(f, 't0', 1), mv('t0', 1, 'f0'), 'double tap sends it home');
+  assert.strictEqual(yukon.onActivate(f, 't0', 0), null, 'only the top card');
+  const back = blank();
+  back.piles.f0 = [card('hearts', 1), card('hearts', 2)];
+  back.piles.t0 = [card('spades', 3)];
+  ok(back, mv('f0', 1, 't0'));
+  bad(back, mv('f0', 0, 't0'), 'only the top foundation card comes back');
+
+  // winning, and the finish offered once the columns are runs
+  const w = blank();
+  w.piles.t0 = [card('hearts', 3), card('clubs', 2)];
+  w.piles.f0 = [card('clubs', 1)];
+  assert.strictEqual(yukon.autoAction(w).type, 'move', 'every column is a run, so finishing is offered');
+  w.piles.t1 = [card('hearts', 3), card('clubs', 8)];
+  assert.strictEqual(yukon.autoAction(w), null, 'not while a column is out of order');
+
+  // random playouts keep every invariant, and undo and replay agree
+  let moves = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const rng = mulberry32(seed + 1000);
+    const session = new Session(yukon, {}, seed);
+    for (let step = 0; step < 150; step++) {
+      const options = [];
+      for (const [from, entries] of Object.entries(session.state.piles)) {
+        entries.forEach((_, index) => {
+          for (const to of Object.keys(session.state.piles)) {
+            if (yukon.reduce(session.state, mv(from, index, to), {}).state) options.push(mv(from, index, to));
+          }
+        });
+      }
+      if (!options.length) break;
+      session.apply(options[Math.floor(rng() * options.length)]);
+      moves++;
+      const cards = Object.values(session.state.piles).flat();
+      assert.strictEqual(cards.length, 52);
+      assert.strictEqual(new Set(cards.map(e => e.card.id)).size, 52);
+      for (const id of COLS) {
+        const col = session.state.piles[id];
+        if (col.length) assert(col.at(-1).up, `${id} shows its top card`);
+        const firstUp = col.findIndex(e => e.up);
+        assert(firstUp < 0 || col.slice(firstUp).every(e => e.up), `${id} showing cards are contiguous`);
+      }
+    }
+    const replay = new Session(yukon, {}, seed, session.actions);
+    same(replay.state, session.state, 'replay agrees');
+    if (session.actions.length) { session.undo(); assert.strictEqual(session.actions.length, replay.actions.length - 1); }
+  }
+  // highlighting: every card the generic search marks really can move
+  for (let seed = 1; seed <= 10; seed++) {
+    const state = yukon.setup({}, mulberry32(seed));
+    for (const id of movableCards(yukon, state, {})) {
+      const where = Object.entries(state.piles).find(([, es]) => es.some(e => e.card.id === id));
+      assert(where, 'the marked card exists');
+    }
+  }
+  console.log(`yukon playouts: ${moves} moves checked`);
+}
+
 // Every pile a deal creates has a slot to be drawn in, so no card can vanish from the table.
-for (const rules of [klondike, freecell, golf, pyramid, spider, forty]) {
+for (const rules of [klondike, freecell, golf, pyramid, spider, forty, yukon]) {
   const options = Object.fromEntries(rules.options.map(o => [o.id, o.default]));
   const state = rules.setup(options, mulberry32(1));
   const slots = new Set(rules.layout(options).map(s => s.id));

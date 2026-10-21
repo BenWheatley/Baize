@@ -7,7 +7,7 @@ import traceback
 from playwright.sync_api import sync_playwright
 
 URL = (pathlib.Path(__file__).resolve().parent.parent / 'baize.html').as_uri()
-GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2', 'pyramid': '3', 'spider': '4', 'forty': '5'}
+GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2', 'pyramid': '3', 'spider': '4', 'forty': '5', 'yukon': '6'}
 FACE_DOWN = 'Face-down card'
 
 # Deals are fixed so that the checks do not depend on luck. Seed 1 of FreeCell has three
@@ -15,7 +15,7 @@ FACE_DOWN = 'Face-down card'
 # pair (queen and ace of spades) and one king (hearts) in the free bottom row; seed 30 of Spider
 # (one suit) has exactly one tap-move: the six of spades onto the seven; seed 8 of Forty Thieves
 # has exactly one, the two of hearts onto the three, and no ace showing.
-SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14, 'pyramid': 2, 'spider': 30, 'forty': 8}
+SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14, 'pyramid': 2, 'spider': 30, 'forty': 8, 'yukon': 3}
 
 
 def status(pg):
@@ -57,7 +57,7 @@ def wait_for_deal(pg):
 
 def check_menu_and_saves(pg):
     names = pg.eval_on_selector_all('#game option', 'o => o.map(x => x.textContent)')
-    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid', 'Spider', 'Forty Thieves'], names
+    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid', 'Spider', 'Forty Thieves', 'Yukon'], names
     start(pg, 'klondike')
     box = pg.locator('.slot[data-pile=stock]').bounding_box()
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
@@ -355,6 +355,39 @@ def check_spider(pg):
     assert not problems, problems[:3]
 
 
+def check_yukon(pg):
+    start(pg, 'yukon')
+    assert 'Home 0 / 52' in status(pg) and 'Hidden 21' in status(pg), status(pg)
+    assert pg.locator('.card').count() == 52
+    # find a move that carries several cards
+    move = pg.evaluate("""() => {
+        const rules = CardSim.yukon, state = rules.setup({}, CardSim.mulberry32(3));
+        for (const [from, es] of Object.entries(state.piles)) for (let index = 0; index < es.length - 1; index++)
+            for (const to of Object.keys(state.piles)) {
+                const m = { type: 'move', from, index, to };
+                if (to.startsWith('t') && rules.reduce(state, m, {}).state) {
+                    return { ...m, lead: es[index].card.id, landing: state.piles[to].at(-1)?.card.id, size: es.length - index };
+                }
+            }
+        return null; }""")
+    assert move and move['size'] > 1 and move['landing'], move
+
+    def tap(card_id, where=0.2):
+        b = pg.locator(f'.card[data-id="{card_id}"]').bounding_box()
+        pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] * where)
+        pg.wait_for_timeout(300)
+
+    tap(move['lead'])
+    assert pg.locator('.card.selected').count() == move['size'], 'the whole stack is selected'
+    tap(move['landing'], 0.5)
+    assert 'Moves 1' in status(pg), status(pg)
+    pg.click('#undo')
+    pg.wait_for_timeout(300)
+    assert 'Moves 0' in status(pg)
+    problems = pg.evaluate(STACKING_PROBLEMS)
+    assert not problems, problems[:3]
+
+
 def check_forty_thieves(pg):
     start(pg, 'forty')
     assert 'Home 0 / 104' in status(pg) and 'Stock 64' in status(pg), status(pg)
@@ -614,7 +647,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

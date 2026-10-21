@@ -1587,7 +1587,103 @@ const CardSim = (() => {
     return search(state, 0) ? path : null;
   }
 
-  return { mulberry32, shuffle, Session, solve, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty };
+  /* ---------- Yukon ----------
+     Klondike without the stock: everything is dealt, and the seven columns hold hidden cards.
+     Any face-up card may be moved, together with every card on top of it, whether or not those
+     form a run; only the card that lands has to fit. */
+
+  const yukonActions = {
+    move(piles, { from, index, to }) {
+      if (!Object.hasOwn(piles, from) || !Object.hasOwn(piles, to)) return 'Unknown pile';
+      if (from === to) return 'Cards cannot move there';
+      const source = piles[from];
+      const target = piles[to];
+      if (!Number.isInteger(index) || index < 0 || index >= source.length) return 'No such card';
+
+      const moving = source.slice(index);
+      const lead = moving[0].card;
+      const landing = top(target);
+      if (!moving[0].up) return 'That card is face down';
+      if (FOUNDATIONS.includes(from) && moving.length > 1) return 'Only one card can leave a foundation at a time';
+
+      if (FOUNDATIONS.includes(to)) {
+        if (FOUNDATIONS.includes(from) || moving.length > 1) return 'Only one card can go to a foundation';
+        if (!fitsFoundation(landing, lead)) return 'That card does not build on this foundation';
+      } else {
+        const fits = landing ? buildsDown(landing, lead) : lead.rank === 13;
+        if (!fits) return 'That card does not build on this column';
+      }
+
+      source.splice(index);
+      target.push(...moving);
+      if (TABLEAU.includes(from) && top(source)) top(source).up = true;
+    },
+  };
+
+  const yukon = {
+    id: 'yukon',
+    name: 'Yukon',
+    showsMovable: true,
+    help: 'Build the four foundations from ace to king in suit. Build columns downward in alternating colours, and move only a king to an empty column. There is no stock: any face-up card can move, together with all the cards on top of it, and only the card that lands has to fit.',
+
+    options: [],
+
+    setup(_options, rng) {
+      const deck = dealDeck(rng);
+      const piles = {};
+      for (const id of FOUNDATIONS) piles[id] = [];
+      let next = 0;
+      TABLEAU.forEach((id, i) => {
+        const count = i === 0 ? 1 : i + 5;                    // i cards face down, then five face up
+        piles[id] = deck.slice(next, next + count).map((card, j) => ({ card, up: j >= i }));
+        next += count;
+      });
+      return { piles };
+    },
+
+    layout() {
+      return [
+        ...FOUNDATIONS.map((id, i) => ({ id, col: 3 + i, row: 0, glyph: 'A' })),
+        ...TABLEAU.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 4.6, glyph: 'K' })),
+      ];
+    },
+
+    faceUp: (_state, _pileId, entry) => entry.up,
+
+    canPickUp(state, pileId, index) {
+      const pile = state.piles[pileId];
+      const entry = pile?.[index];
+      if (!entry || !entry.up) return false;
+      return TABLEAU.includes(pileId) || index === pile.length - 1;
+    },
+
+    reduce: (state, action, options) => reduceWith(yukonActions, state, action, options),
+    onTap: () => null,
+
+    onActivate(state, pileId, index) {
+      if (FOUNDATIONS.includes(pileId)) return null;
+      return index === state.piles[pileId].length - 1 ? homeMove(yukon, state, pileId) : null;
+    },
+
+    /** Offered once every column is a run: from there the game is won. */
+    autoAction(state) {
+      if (!TABLEAU.every(id => isRun(state.piles[id]))) return null;
+      for (const id of TABLEAU) {
+        const action = homeMove(yukon, state, id);
+        if (action) return action;
+      }
+      return null;
+    },
+
+    isWon: state => FOUNDATIONS.every(id => state.piles[id].length === 13),
+
+    status: state => [
+      { label: 'Home', value: `${FOUNDATIONS.reduce((n, id) => n + state.piles[id].length, 0)} / 52` },
+      { label: 'Hidden', value: TABLEAU.reduce((n, id) => n + state.piles[id].filter(entry => !entry.up).length, 0) },
+    ],
+  };
+
+  return { mulberry32, shuffle, Session, solve, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon };
 })();
 </script>
 
@@ -1638,6 +1734,7 @@ const StandardDeck = (() => {
     { rules: CardSim.pyramid, deck: StandardDeck },
     { rules: CardSim.spider, deck: StandardDeck },
     { rules: CardSim.forty, deck: StandardDeck },
+    { rules: CardSim.yukon, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';
