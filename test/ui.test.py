@@ -143,6 +143,17 @@ def check_golf_tap_and_undo(pg):
     assert status(pg) == before, 'undo restores the position'
 
 
+def check_tap_moves_are_animated_even_with_reduced_motion(pg):
+    """A short slide stays when the device asks for reduced motion: iPads often do, and it is feedback."""
+    context = pg.context.browser.new_context(viewport={'width': 1000, 'height': 900}, reduced_motion='reduce')
+    context.route('**/fonts.googleapis.com/**', lambda route: route.abort())
+    page = context.new_page()
+    page.goto(URL)
+    page.wait_for_timeout(700)
+    check_tap_moves_are_animated(page)
+    context.close()
+
+
 def check_tap_moves_are_animated(pg):
     """A tapped card glides to its place, above the other cards, rather than jumping."""
     start(pg, 'golf')
@@ -581,8 +592,8 @@ def check_page_cannot_zoom(pg):
     assert pg.evaluate("document.querySelector('meta[name=viewport]').content") .count('user-scalable=no') == 1
     # the rules card still scrolls on its own
     pg.click('#rules-btn')
-    assert pg.evaluate("getComputedStyle(document.getElementById('rules')).overflowY") == 'auto'
-    assert pg.evaluate("getComputedStyle(document.getElementById('rules')).touchAction") == 'pan-y'
+    assert pg.evaluate("getComputedStyle(document.querySelector('.rules-scroll')).overflowY") == 'auto'
+    assert pg.evaluate("getComputedStyle(document.querySelector('.rules-scroll')).touchAction") == 'pan-y'
     assert pg.evaluate("getComputedStyle(document.body).touchAction") == 'none'
     # Ctrl and the wheel, and a double-click, are not allowed to zoom
     prevented = pg.evaluate("""() => [new WheelEvent('wheel', { ctrlKey: true, cancelable: true, bubbles: true }),
@@ -624,6 +635,28 @@ def check_winnable_preference_is_shared(pg):
     assert pg.evaluate("document.querySelector('button[data-option=winnable][aria-pressed=true]').dataset.value") == '0'
 
 
+def check_rules_text_stays_inside_the_frame(pg):
+    """However far the rules are scrolled, the text (the credit line included) sits inside the gold frame."""
+    pg.set_viewport_size({'width': 420, 'height': 560})
+    pg.wait_for_timeout(300)
+    pg.click('#rules-btn')
+    for position in (0, 1):
+        pg.evaluate("p => { const s = document.querySelector('.rules-scroll'); s.scrollTop = p * s.scrollHeight; }", position)
+        pg.wait_for_timeout(100)
+        box = pg.evaluate("""() => { const r = document.getElementById('rules').getBoundingClientRect();
+            const inside = [...document.querySelectorAll('.rules-scroll > *')].map(e => e.getBoundingClientRect())
+                .filter(b => b.bottom > r.top && b.top < r.bottom);              // what is on show
+            const s = document.querySelector('.rules-scroll').getBoundingClientRect();
+            return { frameTop: r.top + 7, frameBottom: r.bottom - 7, frameLeft: r.left + 7, frameRight: r.right - 7,
+                     scroller: [s.top, s.bottom, s.left, s.right],
+                     scrolls: document.querySelector('.rules-scroll').scrollHeight > document.querySelector('.rules-scroll').clientHeight }; }""")
+        assert box['scrolls'], 'the rules are long enough to scroll on this screen'
+        s_top, s_bottom, s_left, s_right = box['scroller']
+        assert s_top >= box['frameTop'] and s_bottom <= box['frameBottom'] and s_left >= box['frameLeft'] and s_right <= box['frameRight'], \
+            f'the scrolling text stays within the frame: {box}'
+    assert pg.evaluate("document.getElementById('rules').scrollHeight <= document.getElementById('rules').clientHeight + 1"), 'the frame itself does not scroll'
+
+
 def check_game_menu_gives_up_focus(pg):
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
@@ -647,7 +680,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

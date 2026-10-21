@@ -55,7 +55,14 @@
 [hidden] { display: none !important; }
 
 /* The page itself never scrolls or zooms: the table is sized to fit the screen. Only the rules card scrolls. */
-html { height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none; background: #3a2415; }
+html {
+  height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none;
+  /* The desk is painted on the page's canvas, which always reaches the screen's edges. */
+  background:
+    radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%),
+    var(--tex-wood), var(--wood);
+  background-repeat: no-repeat, repeat, repeat;
+}
 
 body {
   margin: 0;
@@ -64,9 +71,6 @@ body {
   overflow: hidden;
   touch-action: none;
   color: var(--cream);
-  background:
-    radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%),
-    var(--tex-wood), var(--wood);
   font: 15px/1.45 var(--font-ui);
   padding-block: max(14px, env(safe-area-inset-top, 0px)) max(22px, env(safe-area-inset-bottom, 0px));   /* clear the iPad status bar when installed */
   overscroll-behavior: none;
@@ -279,16 +283,17 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
   position: absolute; z-index: 20; left: 0; top: calc(100% + 8px);
   box-sizing: border-box;
   width: min(27rem, 100%);
-  max-height: min(75vh, 34rem);
-  overflow-y: auto;
-  touch-action: pan-y;
-  padding: 30px 32px 22px;
   background: var(--card);
   color: var(--ink);
   border-radius: 12px;
   box-shadow: 0 0 0 1px var(--card-edge), 0 18px 44px rgba(0, 0, 0, 0.35);
   transform-origin: 24px -8px;
   animation: rules-in 0.18s ease-out;
+}
+/* The text scrolls inside the frame, so the frame never scrolls away from it. */
+.rules-scroll {
+  box-sizing: border-box; margin: 8px; padding: 22px 24px 14px;
+  max-height: min(75vh, 34rem); overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
 }
 .rules::before {
   content: ""; position: absolute; inset: 7px;
@@ -372,7 +377,7 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
   .options-btn { min-width: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .card.ready { transition: none; }
+  .card.ready { transition: transform 0.14s ease-out; }       /* a short slide stays: it shows where the card went */
   .rules, #options { animation: none; }
   .spinner { animation: pulse 1.6s ease-in-out infinite; border-color: #4a1220; }
   @keyframes pulse { 50% { opacity: 0.3; } }
@@ -397,6 +402,7 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
       <span class="rules-index top" aria-hidden="true"><span>A</span><span>♠</span></span>
       <span class="rules-index bottom" aria-hidden="true"><span>A</span><span>♠</span></span>
       <button id="rules-close" class="rules-close" type="button" aria-label="Close rules">×</button>
+      <div class="rules-scroll">
       <h2 id="rules-title"></h2>
       <p id="rules-text"></p>
       <div class="rules-divider" aria-hidden="true">◆ ◆ ◆</div>
@@ -411,6 +417,7 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
         <li><kbd>Ctrl</kbd> or <kbd>⌘</kbd> with <kbd>Z</kbd> undoes the last move.</li>
       </ul>
       <p class="credit">Card faces are Adrian Kennard’s public-domain (CC0) deck from <a href="https://www.me.uk/cards/">me.uk/cards</a>. The card back is drawn for this page, also CC0.</p>
+      </div>
     </div>
     <div class="controls">
       <div class="menu">
@@ -2147,8 +2154,8 @@ const StandardDeck = (() => {
       el._from = el._at;
       el._at = { x: p.x, y: p.y };
       el.style.transitionDuration = '';
-      if (moved && rank === undefined && el.classList.contains('ready') && !els.board.classList.contains('instant') && !reducedMotion()) {
-        const ms = Math.round(Math.min(MAX_FLIGHT_MS, MIN_FLIGHT_MS + Math.hypot(el._from.x - p.x, el._from.y - p.y) * 0.22));
+      if (moved && rank === undefined && el.classList.contains('ready') && !els.board.classList.contains('instant')) {
+        const ms = reducedMotion() ? 140 : Math.round(Math.min(MAX_FLIGHT_MS, MIN_FLIGHT_MS + Math.hypot(el._from.x - p.x, el._from.y - p.y) * 0.22));
         el.style.transitionDuration = `${ms}ms`;
         el.style.zIndex = FLY_Z + p.z;
         el.classList.add('flying');
