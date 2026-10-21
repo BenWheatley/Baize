@@ -159,7 +159,6 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
   font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
 }
 .status b { color: var(--cream); font-weight: 600; }
-.status .note { color: var(--brass-hi); }
 
 /* Table: green felt let into a walnut rail with a brass inlay */
 .rail {
@@ -235,10 +234,10 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
 .back-medal { fill: var(--back); stroke: var(--back-line); stroke-width: 1.2; }
 .lattice { stroke: var(--back-line); opacity: 0.55; }
 
-/* Win panel: a brass plaque, screwed down, on a darkened table */
-.win { position: absolute; inset: 0; z-index: 200000; display: grid; place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
-.win-card {
-  position: relative; padding: 26px 40px 24px; border-radius: 10px; text-align: center;
+/* Win panel and search dialogue: a brass plaque, screwed down, on a darkened table */
+.win, .modal { position: absolute; inset: 0; z-index: 200000; display: grid; place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
+.plaque {
+  position: relative; padding: 26px 40px 24px; max-width: min(24rem, 90%); border-radius: 10px; text-align: center;
   color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
   background:
     radial-gradient(circle at 12px 12px, #6f5218 0 2.5px, #f3dc98 3px 4.5px, transparent 5px),
@@ -248,8 +247,16 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
     linear-gradient(160deg, #f1d98e 0%, #c9a24a 45%, #e2c57a 70%, #b48c36 100%);
   box-shadow: 0 0 0 2px var(--brass-lo), 0 0 0 3px #0d0703, inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 4px rgba(111, 82, 24, 0.6), 0 20px 40px rgba(0, 0, 0, 0.6);
 }
-.win-card h2 { margin: 0 0 4px; font: 700 36px/1.1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
-.win-card p { margin: 0 0 16px; }
+.plaque h2 { margin: 0 0 4px; font: 700 36px/1.1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
+.plaque p { margin: 0 0 16px; }
+.spinner {
+  width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 50%;
+  border: 5px solid rgba(111, 82, 24, 0.35); border-top-color: #4a1220;
+  animation: spin 0.9s linear infinite;
+}
+.modal[data-state="miss"] .spinner { display: none; }
+.modal h2 { font-size: 26px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Rules card: a popover styled as an ivory playing card with a brass inner frame. */
 .rules {
@@ -309,7 +316,7 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
   font-feature-settings: 'liga'; font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
 }
 /* Until the icon font arrives (or if it never does) show a plain glyph instead of the word "menu". */
-html:not(.icons) .icon { font-family: inherit; font-size: 0; }
+html:not(.icons) .icon { font-family: inherit; font-size: 0; width: auto; height: auto; overflow: visible; }
 html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; line-height: 1; }
 .options-btn { padding: 4px 8px; }
 #options {
@@ -340,7 +347,9 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
 }
 @media (prefers-reduced-motion: reduce) {
   .card.ready { transition: none; }
-  .rules { animation: none; }
+  .rules, #options { animation: none; }
+  .spinner { animation: pulse 1.6s ease-in-out infinite; border-color: #4a1220; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
 }
 </style>
 
@@ -394,7 +403,7 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
   <main id="table" class="table">
     <div id="board" class="board"></div>
     <div id="win" class="win" hidden role="status">
-      <div class="win-card">
+      <div class="plaque">
         <h2>Cleared</h2>
         <p id="win-text"></p>
         <button id="win-new" type="button">New deal</button>
@@ -1626,6 +1635,7 @@ const StandardDeck = (() => {
     rulesTitle: $('rules-title'), rulesText: $('rules-text'),
     hints: $('hints'), undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
     win: $('win'), winText: $('win-text'), winNew: $('win-new'),
+    busy: $('busy'), busyTitle: $('busy-title'), busyText: $('busy-text'), busyBtn: $('busy-btn'),
   };
 
   let game;                   // { rules, deck }
@@ -1640,7 +1650,6 @@ const StandardDeck = (() => {
   let hintCache = { key: null, ids: new Set() };
   let dealing = false;        // true only while a redeal lays the new cards out
   let dealMs = 0;             // how long that layout takes
-  let notice = '';            // a line of status text that outlives one render, such as "Finding a winnable deal…"
   let geometry = { cw: 0, ch: 0, pos: new Map(), areas: [] };
   const cardEls = new Map();
   const slotEls = new Map();
@@ -1665,7 +1674,6 @@ const StandardDeck = (() => {
     selection = null;
     lastTap = null;
     press = null;
-    notice = '';
     buildOptions();
     els.rulesTitle.textContent = game.rules.name;
     els.rulesText.textContent = game.rules.help ?? '';
@@ -1703,6 +1711,8 @@ const StandardDeck = (() => {
   const SEARCH_NODES = 3000;
   const wantsWinnable = (rules, options) => Boolean(options.winnable) && Boolean(rules.canSolve?.(options));
 
+  const BUSY_DELAY_MS = 350;  // a search quicker than this never shows its dialogue
+  let busyTimer = 0;
   let cancelSearch = null;    // set while a search runs: stops it, and the deal is random
   let cancelledByUser = false;
 
@@ -1749,6 +1759,28 @@ const StandardDeck = (() => {
     }
   }
 
+  /** The dialogue over the table: searching (with Cancel) or the news that the search failed (with OK). */
+  function showBusy(state, title, text, button) {
+    els.busy.dataset.state = state;
+    els.busyTitle.textContent = title;
+    els.busyText.textContent = text;
+    els.busyBtn.textContent = button;
+    els.busy.hidden = false;
+    els.busyBtn.focus();
+  }
+
+  function hideBusy() {
+    clearTimeout(busyTimer);
+    if (els.busy.hidden) return;
+    els.busy.hidden = true;
+    if (els.busy.contains(document.activeElement)) document.activeElement.blur();
+  }
+
+  /** Cancel a search in progress, or dismiss the dialogue once it has reported. */
+  function dismissBusy() {
+    if (cancelSearch) { cancelledByUser = true; cancelSearch(); } else hideBusy();
+  }
+
   /** Clear the table, and only then deal the new cards out. With no seed, choose one. */
   async function redeal(options, seed) {
     busy = true;
@@ -1759,18 +1791,18 @@ const StandardDeck = (() => {
       const picking = seed === undefined && wantsWinnable(game.rules, options);
       let stopped = false;
       if (picking) {
-        notice = 'Finding a winnable deal…';
-        els.fresh.textContent = 'Cancel';
-        syncChrome(session.state);
+        busyTimer = setTimeout(() => showBusy('searching', 'Finding a winnable deal',
+          'This can take a little while. Cancel to take a random deal instead.', 'Cancel'), BUSY_DELAY_MS);
       }
       const [found] = await Promise.all([picking ? findWinnableSeed(game.rules, options) : seed, animate ? gather() : null]);
       stopped = picking && cancelledByUser;
       if (found === null) missed = true;
       startGame(game, options, found ?? seed ?? newSeed(), [], animate);
-      if (missed) notice = stopped ? 'Search cancelled, so this deal is random.' : 'No winnable deal turned up in time, so this one is random.';
+      hideBusy();
+      if (missed && !stopped) showBusy('miss', 'No winnable deal found',
+        'The search ran out of time, so this deal is random.', 'OK');
       if (animate) await pause(dealMs + 60);
     } finally {
-      els.fresh.textContent = 'New deal';
       cancelSearch = null;
       cancelledByUser = false;
       delete els.board.dataset.dealing;
@@ -1975,8 +2007,7 @@ const StandardDeck = (() => {
       ...rules.options.filter(o => !o.when || o.when(session.options))
         .map(o => [o.label, o.choices.find(c => c.value === session.options[o.id])?.label ?? '']),
     ];
-    els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))),
-      ...(notice ? [h('span', { class: 'note' }, notice)] : []));
+    els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))));
     els.undo.disabled = busy || session.actions.length === 0;
     els.finish.hidden = busy || !rules.autoAction(state);
     els.hints.hidden = !rules.showsMovable;
@@ -2225,11 +2256,12 @@ const StandardDeck = (() => {
   els.finish.addEventListener('click', autoFinish);
   els.restart.addEventListener('click', () => { if (!busy) redeal(session.options, session.seed); });
   const newDeal = () => {
-    if (cancelSearch) { cancelledByUser = true; cancelSearch(); return; }   // the button reads Cancel while searching
+    if (cancelSearch) { dismissBusy(); return; }                           // New deal while searching gives up too
     if (!busy) redeal(session.options);
   };
   els.fresh.addEventListener('click', newDeal);
   els.winNew.addEventListener('click', newDeal);
+  els.busyBtn.addEventListener('click', dismissBusy);
 
   els.hints.addEventListener('click', () => {
     hintsOn = !hintsOn;
@@ -2263,6 +2295,10 @@ const StandardDeck = (() => {
   });
 
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !els.busy.hidden) {
+      dismissBusy();
+      return;
+    }
     if (e.key === 'Escape' && !els.rules.hidden) {
       setRulesOpen(false, { returnFocus: true });
       return;
@@ -2272,7 +2308,7 @@ const StandardDeck = (() => {
       return;
     }
     if (e.key === 'Shift') setShift(true);
-    const typing = e.target.closest?.('select, input, textarea') || !els.rules.hidden;
+    const typing = e.target.closest?.('select, input, textarea') || !els.rules.hidden || !els.busy.hidden;
     const rank = e.ctrlKey || e.metaKey || e.altKey || typing ? null : rankOfKey(e);
     if (rank !== null) setRank(e.code, rank);
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {

@@ -3,6 +3,7 @@
 Run from anywhere:  python3 test/ui.test.py
 """
 import pathlib
+import traceback
 from playwright.sync_api import sync_playwright
 
 URL = (pathlib.Path(__file__).resolve().parent.parent / 'baize.html').as_uri()
@@ -482,14 +483,31 @@ def check_search_can_be_cancelled(pg):
     # A worker that never answers stands in for a search that takes a long time.
     pg.evaluate("() => { window.Worker = class { postMessage() {} terminate() {} }; }")
     pg.click('#new')
-    pg.wait_for_timeout(500)
-    assert pg.locator('#new').inner_text() == 'Cancel', 'the button offers to cancel'
-    assert 'Finding a winnable deal' in status(pg), status(pg)
+    assert pg.locator('#busy').is_hidden(), 'a search that has only just begun shows nothing'
+    pg.wait_for_timeout(600)
+    assert pg.locator('#busy').is_visible() and 'winnable' in pg.locator('#busy-title').inner_text().lower()
+    assert pg.locator('#busy-spinner').is_visible() and pg.locator('#busy-btn').inner_text() == 'Cancel'
+    over = pg.evaluate("""() => { const r = document.getElementById('busy').getBoundingClientRect(), t = document.getElementById('table').getBoundingClientRect();
+        return r.left == t.left && r.right == t.right && r.top == t.top && r.bottom == t.bottom; }""")
+    assert over, 'the dialogue covers the play area'
+    pg.click('#busy-btn')
+    wait_for_deal(pg)
+    assert pg.locator('#busy').is_hidden(), 'Cancel closes the dialogue'
+    assert pg.locator('.card').count() == 52, 'a deal was made all the same'
+    # Escape cancels too
+    pg.click('#new')
+    pg.wait_for_timeout(600)
+    pg.keyboard.press('Escape')
+    wait_for_deal(pg)
+    assert pg.locator('#busy').is_hidden()
+    # A search that runs out of time says so, and OK dismisses it.
+    pg.evaluate("() => { window.Worker = class { postMessage() { setTimeout(() => this.onmessage({ data: { seed: null } }), 600); } terminate() {} }; }")
     pg.click('#new')
     wait_for_deal(pg)
-    assert pg.locator('#new').inner_text() == 'New deal'
-    assert 'Search cancelled' in status(pg), status(pg)
-    assert pg.locator('.card').count() == 52, 'a deal was made all the same'
+    assert pg.locator('#busy').is_visible() and pg.locator('#busy-btn').inner_text() == 'OK'
+    assert pg.locator('#busy-spinner').is_hidden(), 'no spinner once it has finished'
+    pg.click('#busy-btn')
+    assert pg.locator('#busy').is_hidden()
 
 
 def check_game_menu_gives_up_focus(pg):
@@ -507,7 +525,7 @@ def check_win_panel_is_on_top(pg):
         start(pg, name)
         pg.evaluate("() => { document.getElementById('win').hidden = false; }")
         covered = pg.evaluate("""() => {
-            const r = document.querySelector('.win-card').getBoundingClientRect();
+            const r = document.querySelector('#win .plaque').getBoundingClientRect();
             const points = [[.1, .1], [.5, .5], [.9, .9], [.1, .9], [.9, .1]];
             return points.filter(([x, y]) => !document.elementFromPoint(r.left + r.width * x, r.top + r.height * y)?.closest('.win')).length;
         }""")
@@ -535,6 +553,7 @@ with sync_playwright() as p:
         except AssertionError as e:
             failures += 1
             print('FAIL', check.__name__, '-', e)
+            traceback.print_exc()
         page.context.close()
     browser.close()
     raise SystemExit(1 if failures else 0)
