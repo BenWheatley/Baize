@@ -6,10 +6,16 @@ import functools
 import http.server
 import json
 import pathlib
+import shutil
+import tempfile
 import threading
 from playwright.sync_api import sync_playwright
 
-DIST = pathlib.Path(__file__).resolve().parent.parent
+REPO = pathlib.Path(__file__).resolve().parent.parent
+# Serve a copy, so the test can change the game while the app is open.
+DIST = pathlib.Path(tempfile.mkdtemp())
+for name in ('baize.html', 'sw.js', 'manifest.webmanifest', 'index.html', 'icons'):
+    (shutil.copytree if (REPO / name).is_dir() else shutil.copy)(REPO / name, DIST / name)
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
@@ -49,6 +55,18 @@ with sync_playwright() as p:
     page.goto(base)
     assert page.evaluate("fetch(document.querySelector('link[rel=apple-touch-icon]').href).then(r => r.ok)")
     assert page.evaluate("document.querySelector('meta[name=apple-mobile-web-app-capable]').content") == 'yes'
+
+    # A new version on the server is noticed while the app stays open, and a reload offers it.
+    assert page.locator('#update').is_hidden()
+    page.wait_for_timeout(1500)                      # the test server dates files to the second
+    (DIST / 'baize.html').write_text((DIST / 'baize.html').read_text() + '\n<!-- a newer version -->\n')
+    page.evaluate("fetch('baize.html')")             # what coming back to the app does
+    page.wait_for_selector('#update', state='visible', timeout=5000)
+    page.click('#update-btn')
+    page.wait_for_load_state()
+    page.wait_for_timeout(500)
+    assert 'a newer version' in page.content(), 'the reload shows the new version'
+    assert page.locator('#update').is_hidden()
 
     # Offline: the whole app still opens and plays.
     context.set_offline(True)

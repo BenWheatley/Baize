@@ -52,3 +52,7 @@ Commit each change on its own, run `npm test` first, and keep diffs small. The h
 ## Screen behaviour
 
 The page never scrolls or zooms; the cards shrink to fit (down to 22 px wide). Only the rules card scrolls. Browser zoom with Ctrl and +/- is left alone for accessibility.
+
+## Updates
+
+The service worker answers from its cache and checks the server in the background (past the browser's own cache). When baize.html has changed, open pages show "A new version is ready" with a Reload button; the app also checks each time it comes back to the front. An installed iPad app is suspended rather than closed, so without this it would keep the old version indefinitely.

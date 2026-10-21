@@ -241,6 +241,15 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
 .back-medal { fill: var(--back); stroke: var(--back-line); stroke-width: 1.2; }
 .lattice { stroke: var(--back-line); opacity: 0.55; }
 
+/* "A new version is ready": a small brass strip at the foot of the screen */
+.update {
+  position: fixed; z-index: 300000; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px; padding: 6px 8px 6px 16px; border-radius: 10px; white-space: nowrap;
+  color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
+  background: linear-gradient(160deg, #f1d98e, #c9a24a 50%, #b48c36);
+  box-shadow: 0 0 0 2px var(--brass-lo), 0 0 0 3px #0d0703, 0 10px 24px rgba(0, 0, 0, 0.55);
+}
+
 /* Win panel and search dialogue: a brass plaque, screwed down, on a darkened table */
 .win, .modal { position: absolute; inset: 0; z-index: 200000; display: grid; place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
 .plaque {
@@ -415,6 +424,11 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
       <button id="new" type="button" class="primary">New deal</button>
     </div>
   </header>
+
+  <div id="update" class="update" hidden role="status">
+    <span>A new version is ready.</span>
+    <button id="update-btn" type="button" class="primary" onclick="location.reload()">Reload</button>
+  </div>
 
   <p id="status" class="status" aria-live="polite"></p>
 
@@ -2429,6 +2443,14 @@ const StandardDeck = (() => {
 try {
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    // The worker says when a newer game has arrived; an installed app may never be closed, so offer a reload.
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data?.type === 'updated') document.getElementById('update').hidden = false;
+    });
+    // Look for a newer game whenever the app comes back to the front. (The worker does the comparing.)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') fetch('baize.html').catch(() => {});
+    });
   }
 } catch { /* the app works without it */ }
 </script>
