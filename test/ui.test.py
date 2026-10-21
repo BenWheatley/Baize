@@ -238,7 +238,7 @@ def check_rules_card(pg):
 def check_pyramid(pg):
     start(pg, 'pyramid')
     assert 'Left 28 / 28' in status(pg), status(pg)
-    assert pg.locator('.slot').count() == 2, 'only the stock and waste have outlines'
+    assert pg.locator('.slot').count() == 3, 'the stock, waste and removed pile have outlines'
     shift(pg, True)
     assert lit(pg) == sorted([FACE_DOWN, 'Ace of spades', 'King of hearts', 'Queen of spades']), lit(pg)
     shift(pg, False)
@@ -252,7 +252,10 @@ def check_pyramid(pg):
     assert pg.locator('.card.selected').count() == 1, 'the first card of a pair is selected'
     tap('Ace of spades')
     assert 'Left 26 / 28' in status(pg) and 'Moves 1' in status(pg), status(pg)
-    assert pg.locator('.card[aria-label="Ace of spades"]').count() == 0, 'removed cards leave the table'
+    pg.wait_for_timeout(300)
+    out = pg.locator('.slot[data-pile=out]').bounding_box()
+    gone = pg.locator('.card[aria-label="Ace of spades"]').bounding_box()
+    assert abs(gone['x'] - out['x']) < 3 and abs(gone['y'] - out['y']) < 3, 'removed cards go to the removed pile'
     tap('King of hearts')
     assert 'Left 25 / 28' in status(pg), status(pg)
     pg.click('#undo')
@@ -563,10 +566,29 @@ def check_selected_and_highlighted_combine(pg):
     box = card.bounding_box()
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.9)
     pg.wait_for_timeout(400)
-    style = card.evaluate("el => { const c = getComputedStyle(el); return { rotate: c.rotate, shadow: c.boxShadow, cls: el.className }; }")
+    style = card.evaluate("""el => { const c = getComputedStyle(el); const m = new DOMMatrix(c.transform);
+        return { angle: Math.atan2(m.b, m.a) * 180 / Math.PI, shadow: c.boxShadow, cls: el.className }; }""")
     assert 'selected' in style['cls'] and 'hint' in style['cls'], style
-    assert style['rotate'] != 'none' and '6deg' in style['rotate'].replace(' ', '') or style['rotate'].startswith('6'), style
+    assert abs(style['angle'] - 6) < 0.5, style
+    after = card.bounding_box()
+    centre = lambda b: (b['x'] + b['width'] / 2, b['y'] + b['height'] / 2)
+    assert abs(centre(after)[0] - centre(box)[0]) < 1.5 and abs(centre(after)[1] - centre(box)[1]) < 1.5, \
+        f'the card tilts about its own centre: {centre(box)} -> {centre(after)}'
     assert style['shadow'].count('rgb') >= 3, f'the ring and the lift both show: {style}'
+
+
+def check_winnable_preference_is_shared(pg):
+    start(pg, 'freecell')
+    choose(pg, 'winnable', 1)
+    wait_for_deal(pg)
+    for name in ('klondike', 'golf', 'pyramid'):
+        open_game(pg, name)
+        pressed = pg.evaluate("document.querySelector('button[data-option=winnable][aria-pressed=true]')?.dataset.value")
+        assert pressed == '1', f'{name} keeps Winnable'
+    choose(pg, 'winnable', 0)
+    wait_for_deal(pg)
+    open_game(pg, 'freecell')
+    assert pg.evaluate("document.querySelector('button[data-option=winnable][aria-pressed=true]').dataset.value") == '0'
 
 
 def check_game_menu_gives_up_focus(pg):
@@ -592,7 +614,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_selected_and_highlighted_combine, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

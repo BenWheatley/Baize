@@ -1146,4 +1146,13 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   }
 }
 
+// Every pile a deal creates has a slot to be drawn in, so no card can vanish from the table.
+for (const rules of [klondike, freecell, golf, pyramid, spider, forty]) {
+  const options = Object.fromEntries(rules.options.map(o => [o.id, o.default]));
+  const state = rules.setup(options, mulberry32(1));
+  const slots = new Set(rules.layout(options).map(s => s.id));
+  for (const id of Object.keys(state.piles)) assert(slots.has(id), `${rules.id}: pile ${id} has no slot`);
+}
+console.log('every pile has a slot');
+
 console.log('all tests passed');

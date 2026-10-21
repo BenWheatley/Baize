@@ -220,9 +220,9 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
 .card svg { display: block; width: 100%; height: 100%; }
 .card.covered { box-shadow: none; }
 /* Selected cards tilt and lift; the Show moves highlight is a ring, so the two read together. */
-.card.selected { rotate: 6deg; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 9px 14px rgba(0, 0, 0, 0.45), 0 3px 4px rgba(0, 0, 0, 0.3); }
+.card.selected { box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 9px 14px rgba(0, 0, 0, 0.45), 0 3px 4px rgba(0, 0, 0, 0.3); }
 .card.flying { box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 8px 13px rgba(0, 0, 0, 0.4); }
-.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), rotate 0.15s ease-out, box-shadow 0.15s; }
+.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.15s; }
 .board.instant .card { transition: none; }
 .card.hint { box-shadow: 0 0 0 2px var(--hint), 0 0 14px 2px var(--hint); }
 .card.hint.covered { box-shadow: 0 0 0 2px var(--hint); }
@@ -1117,6 +1117,7 @@ const CardSim = (() => {
       ...PYRAMID.flatMap((row, r) => row.map((id, i) => ({ id, col: 3 - r / 2 + i, y: r * 0.5, bare: true }))),
       { id: 'stock', col: 0, y: PYRAMID_ROWS * 0.5 + 0.8, glyph: '↻' },
       { id: 'waste', col: 1, y: PYRAMID_ROWS * 0.5 + 0.8 },
+      { id: 'out', col: 6, y: PYRAMID_ROWS * 0.5 + 0.8 },   // pairs that have been removed
     ],
 
     faceUp: (_state, _pileId, entry) => entry.up,
@@ -1627,6 +1628,7 @@ const StandardDeck = (() => {
 
   const STORE_KEY = 'baize.v2';
   const HINTS_KEY = 'baize.hints';
+  const WINNABLE_KEY = 'baize.winnable';
   const COL_GAP = 0.16;       // gap between columns, in card widths (less on a narrow table)
   const NARROW_GAP = 0.07;
   const NARROW_BOARD = 520;   // px
@@ -1640,6 +1642,7 @@ const StandardDeck = (() => {
   const Z_PER_PILE = 256;     // stacking: pile n sits above pile n-1, and each card above the one beneath it
   const DRAG_Z = 100000;      // dragged cards float above every pile
   const FLY_Z = 60000;        // cards in flight during a redeal, in the order they travel
+  const SELECT_TILT = 6;      // degrees
   const FLIGHT_MS = 220;      // matches the transition on .card.ready
   const MIN_FLIGHT_MS = 170, MAX_FLIGHT_MS = 380;   // a move takes longer the further it goes
   const GATHER_STEP = 6;      // ms between cards being picked up
@@ -1686,7 +1689,15 @@ const StandardDeck = (() => {
   const newSeed = () => Math.floor(Math.random() * 1_000_000);
   const defaultOptions = rules => Object.fromEntries(rules.options.map(o => [o.id, o.default]));
 
+  /** Random or Winnable is a standing preference, kept as the player moves between games. */
+  const readWinnable = () => { try { const v = localStorage.getItem(WINNABLE_KEY); return v === null ? null : Number(v); } catch { return null; } };
+  const withWinnable = (rules, options) => {
+    const pref = readWinnable();
+    return pref !== null && rules.options.some(o => o.id === 'winnable') ? { ...options, winnable: pref } : options;
+  };
+
   function startGame(nextGame, options, seed, actions = [], animateDeal = false) {
+    options = withWinnable(nextGame.rules, options);
     const next = new Session(nextGame.rules, options, seed, actions);  // throws if it cannot replay
     if (nextGame !== game) resetBoard();
     game = nextGame;
@@ -1987,7 +1998,17 @@ const StandardDeck = (() => {
     for (const [id, p] of geometry.pos) cardEls.get(id).style.zIndex = p.z;
   }
 
+  /** The centre of the selected cards, as one stack, in board coordinates; they tilt about it together. */
+  function selectionPivot() {
+    const chosen = [...geometry.pos.values()].filter(p => selection?.pile === p.pile && p.index >= selection.index);
+    if (!chosen.length) return null;
+    const left = Math.min(...chosen.map(p => p.x)), right = Math.max(...chosen.map(p => p.x + geometry.cw));
+    const top = Math.min(...chosen.map(p => p.y)), bottom = Math.max(...chosen.map(p => p.y + geometry.ch));
+    return { x: (left + right) / 2, y: (top + bottom) / 2 };
+  }
+
   function syncCards() {
+    const pivot = selectionPivot();
     const flights = dealing ? dealOrder() : new Map();
     dealMs = flights.size ? (flights.size - 1) * DEAL_STEP + FLIGHT_MS : 0;
     for (const [id, p] of geometry.pos) {
@@ -2006,7 +2027,9 @@ const StandardDeck = (() => {
         setTimeout(() => { const now = geometry.pos.get(id); if (now) setFace(el, now.up ? now.card : null); }, rank * DEAL_STEP);
       }
       el.style.transitionDelay = rank === undefined ? '' : `${rank * DEAL_STEP}ms`;
-      el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+      const tilted = pivot && selection.pile === p.pile && p.index >= selection.index;
+      if (tilted) el.style.transformOrigin = `${pivot.x - p.x}px ${pivot.y - p.y}px`;   // left alone when the tilt is undone, so it unwinds about the same point
+      el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${tilted ? SELECT_TILT : 0}deg)`;
       el.style.zIndex = rank === undefined ? p.z : FLY_Z + rank;
       // A card that moves flies above the others, and drops to its place in the stack when it lands.
       const moved = el._at && (Math.abs(el._at.x - p.x) > 1 || Math.abs(el._at.y - p.y) > 1);
@@ -2118,6 +2141,7 @@ const StandardDeck = (() => {
           const button = h('button', { type: 'button', 'data-option': option.id, 'data-value': String(choice.value) }, choice.label);
           button.addEventListener('click', () => {
             if (busy) return;
+            if (option.id === 'winnable') { try { localStorage.setItem(WINNABLE_KEY, String(choice.value)); } catch { /* optional */ } }
             setOptionsOpen(false, { returnFocus: true });
             redeal({ ...session.options, [option.id]: choice.value });
           });
