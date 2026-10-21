@@ -55,13 +55,12 @@
 [hidden] { display: none !important; }
 
 /* The page itself never scrolls or zooms: the table is sized to fit the screen. Only the rules card scrolls. */
-html { height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none; }
+html { height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none; background: #3a2415; }
 
 body {
   margin: 0;
   box-sizing: border-box;
-  height: 100vh;
-  height: 100dvh;
+  position: fixed; inset: 0;   /* the layout viewport itself, whatever the browser's toolbars are doing */
   overflow: hidden;
   touch-action: none;
   color: var(--cream);
@@ -220,14 +219,17 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
 }
 .card svg { display: block; width: 100%; height: 100%; }
 .card.covered { box-shadow: none; }
-.card.selected { box-shadow: 0 0 0 2.5px var(--accent), 0 3px 8px rgba(0, 0, 0, 0.35); }
-.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1); }
+/* Selected cards tilt and lift; the Show moves highlight is a ring, so the two read together. */
+.card.selected { rotate: 6deg; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 9px 14px rgba(0, 0, 0, 0.45), 0 3px 4px rgba(0, 0, 0, 0.3); }
+.card.flying { box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 8px 13px rgba(0, 0, 0, 0.4); }
+.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), rotate 0.15s ease-out, box-shadow 0.15s; }
 .board.instant .card { transition: none; }
 .card.hint { box-shadow: 0 0 0 2px var(--hint), 0 0 14px 2px var(--hint); }
 .card.hint.covered { box-shadow: 0 0 0 2px var(--hint); }
+.card.hint.selected, .card.hint.selected.covered { box-shadow: 0 0 0 2px var(--hint), 0 0 14px 2px var(--hint), 0 9px 14px rgba(0, 0, 0, 0.45); }
 /* Dimming is a flat overlay and changes instantly. A CSS filter would make the browser
    re-render every card's SVG each time a key is pressed or released. */
-.board.hints .card.dim:not(.dragging) { box-shadow: none; }
+.board.hints .card.dim:not(.dragging):not(.selected) { box-shadow: none; }
 .board.hints .card.dim:not(.dragging)::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--dim); pointer-events: none;
 }
@@ -325,8 +327,9 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
 html:not(.icons) .icon { font-family: inherit; font-size: 0; width: auto; height: auto; overflow: visible; }
 html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; line-height: 1; }
 .options-btn { padding: 4px 8px; }
+.menu { position: relative; display: flex; }
 #options {
-  position: absolute; z-index: 20; right: 0; top: calc(100% + 8px);
+  position: absolute; z-index: 20; left: 0; top: calc(100% + 10px); width: max-content; max-width: calc(100vw - 16px);
   flex-direction: column; align-items: stretch; gap: 8px; padding: 14px 16px;
   background: linear-gradient(180deg, #3b2412, #26160a); border-radius: 12px;
   box-shadow: 0 0 0 1.5px var(--brass), 0 0 0 2.5px var(--brass-lo), 0 18px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 235, 170, 0.18);
@@ -343,7 +346,6 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
   .table { padding: 6px; }
   .controls { gap: 6px 4px; }
   .controls > button { padding: 6px 4px; font-size: 13.5px; flex: 1 1 auto; }
-  #options { left: 0; }
 }
 /* Short screens (a phone on its side): every pixel of height goes to the table. */
 @media (max-height: 500px) {
@@ -402,8 +404,10 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
       <p class="credit">Card faces are Adrian Kennard’s public-domain (CC0) deck from <a href="https://www.me.uk/cards/">me.uk/cards</a>. The card back is drawn for this page, also CC0.</p>
     </div>
     <div class="controls">
-      <button id="options-btn" class="toggle options-btn" type="button" aria-label="Options" aria-haspopup="true" aria-expanded="false" aria-controls="options"><span class="icon" data-fallback="☰" aria-hidden="true">menu</span></button>
-      <div id="options" class="controls" hidden></div>
+      <div class="menu">
+        <button id="options-btn" class="toggle options-btn" type="button" aria-label="Options" aria-haspopup="true" aria-expanded="false" aria-controls="options"><span class="icon" data-fallback="☰" aria-hidden="true">menu</span></button>
+        <div id="options" class="controls" hidden></div>
+      </div>
       <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same. Hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to highlight every card of that rank; add Shift for only the movable ones." hidden>Show moves</button>
       <button id="undo" type="button">Undo</button>
       <button id="finish" type="button" hidden>Auto-finish</button>
@@ -1637,6 +1641,7 @@ const StandardDeck = (() => {
   const DRAG_Z = 100000;      // dragged cards float above every pile
   const FLY_Z = 60000;        // cards in flight during a redeal, in the order they travel
   const FLIGHT_MS = 220;      // matches the transition on .card.ready
+  const MIN_FLIGHT_MS = 170, MAX_FLIGHT_MS = 380;   // a move takes longer the further it goes
   const GATHER_STEP = 6;      // ms between cards being picked up
   const DEAL_STEP = 14;       // ms between cards being dealt
   const VIEWER = null;        // solo play: nothing is hidden from this player
@@ -2005,11 +2010,20 @@ const StandardDeck = (() => {
       el.style.zIndex = rank === undefined ? p.z : FLY_Z + rank;
       // A card that moves flies above the others, and drops to its place in the stack when it lands.
       const moved = el._at && (Math.abs(el._at.x - p.x) > 1 || Math.abs(el._at.y - p.y) > 1);
+      el._from = el._at;
       el._at = { x: p.x, y: p.y };
+      el.style.transitionDuration = '';
       if (moved && rank === undefined && el.classList.contains('ready') && !els.board.classList.contains('instant') && !reducedMotion()) {
+        const ms = Math.round(Math.min(MAX_FLIGHT_MS, MIN_FLIGHT_MS + Math.hypot(el._from.x - p.x, el._from.y - p.y) * 0.22));
+        el.style.transitionDuration = `${ms}ms`;
         el.style.zIndex = FLY_Z + p.z;
+        el.classList.add('flying');
         clearTimeout(el._landing);
-        el._landing = setTimeout(() => { const now = geometry.pos.get(id); if (now) el.style.zIndex = now.z; }, FLIGHT_MS + 40);
+        el._landing = setTimeout(() => {
+          const now = geometry.pos.get(id);
+          if (now) el.style.zIndex = now.z;
+          el.classList.remove('flying');
+        }, ms + 40);
       }
       el.classList.toggle('covered', p.covered);
       el.classList.toggle('selected', selection?.pile === p.pile && p.index >= selection.index);
@@ -2274,6 +2288,11 @@ const StandardDeck = (() => {
     els.options.hidden = !open;
     els.optionsBtn.setAttribute('aria-expanded', String(open));
     if (open) {
+      // Hang from the button, but keep the whole popover on screen.
+      els.options.style.left = '0px';
+      const r = els.options.getBoundingClientRect();
+      const shift = Math.min(0, innerWidth - 8 - r.right);
+      els.options.style.left = `${Math.max(shift, 8 - r.left)}px`;
       setRulesOpen(false);
       els.options.querySelector('[aria-pressed="true"]')?.focus();
     } else if (returnFocus) els.optionsBtn.focus();

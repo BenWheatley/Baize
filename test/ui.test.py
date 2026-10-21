@@ -159,9 +159,10 @@ def check_tap_moves_are_animated(pg):
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.2)
     pg.wait_for_timeout(700)
     track = pg.evaluate("window.__track")
-    moving = [s for s in track if (s['x'], s['y']) != (track[0]['x'], track[0]['y']) and (s['x'], s['y']) != (track[-1]['x'], track[-1]['y'])]
+    far = lambda s, t: abs(s['x'] - t['x']) + abs(s['y'] - t['y']) > 3        # the last pixels of an ease-out do not count
+    moving = [s for s in track if far(s, track[0]) and far(s, track[-1])]
     assert len(moving) >= 3, f'the card should be seen part-way along its path: {len(moving)} samples'
-    assert all(s['z'] >= 60000 for s in moving), 'it flies above the other cards'
+    assert all(s['z'] >= 60000 for s in moving), ('it flies above the other cards', [s for s in moving if s['z'] < 60000][:3], track[:3])
     assert track[-1]['z'] < 60000, f'and settles into the stack: {track[-1]}'
 
 
@@ -498,6 +499,11 @@ def check_responsive(pg):
         menu = page.evaluate("""() => { const r = document.getElementById('options').getBoundingClientRect();
             return { left: r.left, right: r.right, bottom: r.bottom, w: innerWidth, h: innerHeight }; }""")
         assert menu['left'] >= 0 and menu['right'] <= menu['w'] and menu['bottom'] <= menu['h'], f'{label}: the menu fits the screen {menu}'
+        near = page.evaluate("""() => { const m = document.getElementById('options').getBoundingClientRect(), b = document.getElementById('options-btn').getBoundingClientRect();
+            return { gap: m.top - b.bottom, overlap: Math.min(m.right, b.right) - Math.max(m.left, b.left) }; }""")
+        assert 0 <= near['gap'] <= 16 and near['overlap'] > 0, f'{label}: the menu hangs from its button {near}'
+        body = page.evaluate("(() => { const r = document.body.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, innerWidth, innerHeight]; })()")
+        assert body[:2] == [0, 0] and body[2:4] == body[4:], f'{label}: the page fills the screen exactly {body}'
         context.close()
 
 
@@ -548,6 +554,21 @@ def check_page_cannot_zoom(pg):
     assert prevented == [True, True], prevented
 
 
+def check_selected_and_highlighted_combine(pg):
+    """A selected card tilts and lifts; Show moves draws a ring; a card can be both."""
+    start(pg, 'freecell')
+    pg.click('#hints')
+    label = [l for l in lit(pg) if l != FACE_DOWN][0]
+    card = pg.locator(f'.card[aria-label="{label}"]')
+    box = card.bounding_box()
+    pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.9)
+    pg.wait_for_timeout(400)
+    style = card.evaluate("el => { const c = getComputedStyle(el); return { rotate: c.rotate, shadow: c.boxShadow, cls: el.className }; }")
+    assert 'selected' in style['cls'] and 'hint' in style['cls'], style
+    assert style['rotate'] != 'none' and '6deg' in style['rotate'].replace(' ', '') or style['rotate'].startswith('6'), style
+    assert style['shadow'].count('rgb') >= 3, f'the ring and the lift both show: {style}'
+
+
 def check_game_menu_gives_up_focus(pg):
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
@@ -571,7 +592,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_selected_and_highlighted_combine, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
