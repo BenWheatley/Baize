@@ -55,6 +55,8 @@ with sync_playwright() as p:
     page.goto(base)
     assert page.evaluate("fetch(document.querySelector('link[rel=apple-touch-icon]').href).then(r => r.ok)")
     assert page.evaluate("document.querySelector('meta[name=apple-mobile-web-app-capable]').content") == 'yes'
+    # A plain black status bar, not a translucent one: with the translucent bar an iPad gave the page a window 20 pt short of the screen.
+    assert page.evaluate("document.querySelector('meta[name=apple-mobile-web-app-status-bar-style]').content") == 'black'
 
     # A new version on the server is noticed while the app stays open, and a reload offers it.
     assert page.locator('#update').is_hidden()
