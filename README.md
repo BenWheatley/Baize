@@ -29,7 +29,7 @@ Runs the engine, rulesets and deck art in Node (about 30 seconds, mostly random 
 python3 test/ui.test.py
 ```
 
-Drives the page in Chromium with Python Playwright: the game menu and saves, highlighting with Shift and rank keys, the Show moves toggle, Golf taps, FreeCell drag and double-tap, Pyramid pairs and kings, Spider and Forty Thieves taps and deals, and the rules card (opening, closing, stacking order). Deals are fixed by seed. One check fails if cards ever get a CSS filter (or a transition on one) again, which is what made highlighting slow. It also checks that a new deal clears the table before dealing, and that winnable deals can be won.
+Drives the page in Chromium with Python Playwright: the game menu and saves, highlighting with Shift and rank keys, the Show moves toggle, Golf taps, FreeCell drag and double-tap, Pyramid pairs and kings, Spider and Forty Thieves taps and deals, and the rules card (opening, closing, stacking order). Deals are fixed by seed. One check fails if cards ever get a CSS filter (or a transition on one) again, which is what made highlighting slow. It also checks that a new deal clears the table before dealing, and that winnable deals can be won. It also checks the options menu, the search dialogue and its Cancel, that the page never scrolls or zooms on any screen size, and that a tapped card flies above the others.
 
 ## Installing it (PWA)
 
@@ -39,7 +39,7 @@ Because the cache is refreshed in the background, an edited page appears the sec
 
 ## Winnable deals
 
-Klondike, FreeCell, Golf, Pyramid and one-suit Spider offer Deals: Winnable. `solve()` in the engine searches a ruleset's own `moves()` (depth first, or best first where the ruleset gives a `progress()` score); the app runs it on one seed after another, in a worker, until it finds a win, and the stored seed then reproduces that deal. A solution that is found is real, since the tests replay it, but a search that gives up proves nothing: the app stops after 20 seconds and says the deal is random. Forty Thieves and two- or four-suit Spider are too hard for this solver, so they do not offer it.
+Klondike, FreeCell, Golf, Pyramid and one-suit Spider offer Deals: Winnable. `solve()` in the engine searches a ruleset's own `moves()` (depth first, or best first where the ruleset gives a `progress()` score); the app runs it on one seed after another, in a worker, until it finds a win, and the stored seed then reproduces that deal. A solution that is found is real, since the tests replay it, but a search that gives up proves nothing: the app stops after 20 seconds and says the deal is random. While it searches, a dialogue with a spinner and a Cancel button covers the table. Forty Thieves and two- or four-suit Spider are too hard for this solver, so they do not offer it.
 
 ## Card art
 
@@ -48,3 +48,7 @@ The faces are Adrian Kennard's playing cards (<https://www.me.uk/cards/>), dedic
 ## Working on it
 
 Commit each change on its own, run `npm test` first, and keep diffs small. The history before the first test commit was rebuilt from saved snapshots of each published version, so some early commits bundle several changes.
+
+## Screen behaviour
+
+The page never scrolls or zooms; the cards shrink to fit (down to 22 px wide). Only the rules card scrolls. Browser zoom with Ctrl and +/- is left alone for accessibility.

@@ -143,6 +143,28 @@ def check_golf_tap_and_undo(pg):
     assert status(pg) == before, 'undo restores the position'
 
 
+def check_tap_moves_are_animated(pg):
+    """A tapped card glides to its place, above the other cards, rather than jumping."""
+    start(pg, 'golf')
+    shift(pg, True)
+    label = [l for l in lit(pg) if l != FACE_DOWN][0]
+    box = pg.locator(f'.card[aria-label="{label}"]').bounding_box()
+    shift(pg, False)
+    pg.evaluate("""label => { const el = document.querySelector(`.card[aria-label="${label}"]`);
+        window.__track = []; const t0 = performance.now();
+        const sample = () => { const m = new DOMMatrix(getComputedStyle(el).transform);
+            window.__track.push({ t: performance.now() - t0, x: m.m41, y: m.m42, z: +getComputedStyle(el).zIndex });
+            if (performance.now() - t0 < 600) requestAnimationFrame(sample); };
+        sample(); }""", label)
+    pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.2)
+    pg.wait_for_timeout(700)
+    track = pg.evaluate("window.__track")
+    moving = [s for s in track if (s['x'], s['y']) != (track[0]['x'], track[0]['y']) and (s['x'], s['y']) != (track[-1]['x'], track[-1]['y'])]
+    assert len(moving) >= 3, f'the card should be seen part-way along its path: {len(moving)} samples'
+    assert all(s['z'] >= 60000 for s in moving), 'it flies above the other cards'
+    assert track[-1]['z'] < 60000, f'and settles into the stack: {track[-1]}'
+
+
 def check_freecell_drag_and_double_tap(pg):
     start(pg, 'freecell')
     cards = pg.evaluate("""() => [...document.querySelectorAll('.card')].map(c => {
@@ -549,7 +571,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

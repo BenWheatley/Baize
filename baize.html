@@ -2003,6 +2003,14 @@ const StandardDeck = (() => {
       el.style.transitionDelay = rank === undefined ? '' : `${rank * DEAL_STEP}ms`;
       el.style.transform = `translate(${p.x}px, ${p.y}px)`;
       el.style.zIndex = rank === undefined ? p.z : FLY_Z + rank;
+      // A card that moves flies above the others, and drops to its place in the stack when it lands.
+      const moved = el._at && (Math.abs(el._at.x - p.x) > 1 || Math.abs(el._at.y - p.y) > 1);
+      el._at = { x: p.x, y: p.y };
+      if (moved && rank === undefined && el.classList.contains('ready') && !els.board.classList.contains('instant') && !reducedMotion()) {
+        el.style.zIndex = FLY_Z + p.z;
+        clearTimeout(el._landing);
+        el._landing = setTimeout(() => { const now = geometry.pos.get(id); if (now) el.style.zIndex = now.z; }, FLIGHT_MS + 40);
+      }
       el.classList.toggle('covered', p.covered);
       el.classList.toggle('selected', selection?.pile === p.pile && p.index >= selection.index);
     }
