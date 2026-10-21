@@ -461,8 +461,11 @@ def check_responsive(pg):
             }""")
             assert fit['outside'] == 0, f'{label} {name}: {fit["outside"]} cards stick out of the table'
             assert fit['overflowX'] <= 0, f'{label} {name}: the page scrolls sideways'
-            if label != 'phone landscape':       # a very short screen may scroll vertically instead of shrinking the cards
-                assert fit['bottom'] <= fit['height'] + 2, f'{label} {name}: the table runs off the bottom ({fit})'
+            assert fit['bottom'] <= fit['height'] + 2, f'{label} {name}: the table runs off the bottom ({fit})'
+            lock = page.evaluate("""() => { const r = document.documentElement;
+                return { scrollbar: innerWidth - r.clientWidth, overflowY: r.scrollHeight - r.clientHeight,
+                         overflow: getComputedStyle(r).overflow, body: getComputedStyle(document.body).overflow }; }""")
+            assert lock['scrollbar'] == 0 and lock['overflowY'] <= 0 and lock['overflow'] == 'hidden' == lock['body'], f'{label} {name}: the page can scroll {lock}'
         if touch:
             small = page.evaluate("""() => [...document.querySelectorAll('.bar button, .bar select')]
                 .filter(b => b.offsetParent !== null && b.getBoundingClientRect().height < 43).map(b => b.id || b.textContent)""")
@@ -510,6 +513,19 @@ def check_search_can_be_cancelled(pg):
     assert pg.locator('#busy').is_hidden()
 
 
+def check_page_cannot_zoom(pg):
+    assert pg.evaluate("document.querySelector('meta[name=viewport]').content") .count('user-scalable=no') == 1
+    # the rules card still scrolls on its own
+    pg.click('#rules-btn')
+    assert pg.evaluate("getComputedStyle(document.getElementById('rules')).overflowY") == 'auto'
+    assert pg.evaluate("getComputedStyle(document.getElementById('rules')).touchAction") == 'pan-y'
+    assert pg.evaluate("getComputedStyle(document.body).touchAction") == 'none'
+    # Ctrl and the wheel, and a double-click, are not allowed to zoom
+    prevented = pg.evaluate("""() => [new WheelEvent('wheel', { ctrlKey: true, cancelable: true, bubbles: true }),
+        new Event('gesturestart', { cancelable: true, bubbles: true })].map(e => { document.body.dispatchEvent(e); return e.defaultPrevented; })""")
+    assert prevented == [True, True], prevented
+
+
 def check_game_menu_gives_up_focus(pg):
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
@@ -533,7 +549,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
