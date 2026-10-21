@@ -161,6 +161,24 @@ def check_animation_survives_a_small_resize(pg):
     check_tap_moves_are_animated(pg)
 
 
+def check_desk_covers_a_short_window(pg):
+    """If an installed iPad app's window is a few points shorter than the screen, the page is made as tall as the screen."""
+    context = pg.context.browser.new_context(viewport={'width': 1000, 'height': 900})
+    context.route('**/fonts.googleapis.com/**', lambda route: route.abort())
+    context.add_init_script("""Object.defineProperty(navigator, 'standalone', { value: true });
+        Object.defineProperty(screen, 'width', { value: 1000 }); Object.defineProperty(screen, 'height', { value: 920 });""")
+    page = context.new_page()
+    page.goto(URL)
+    page.wait_for_timeout(700)
+    sizes = page.evaluate("[document.body.getBoundingClientRect().height, document.documentElement.getBoundingClientRect().height, innerHeight, document.getElementById('table').getBoundingClientRect().bottom]")
+    assert sizes[0] == 920 and sizes[1] == 920, sizes
+    assert sizes[3] <= 900, f'the table is still fitted to the window {sizes}'
+    page.set_viewport_size({'width': 1000, 'height': 700})        # a window far shorter than the screen is left alone
+    page.wait_for_timeout(300)
+    assert page.evaluate("document.body.getBoundingClientRect().height") == 700
+    context.close()
+
+
 def check_diagnostics_panel(pg):
     assert pg.locator('#diagnostics').is_hidden()
     for _ in range(5):
@@ -699,7 +717,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_desk_covers_a_short_window, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

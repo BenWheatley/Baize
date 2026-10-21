@@ -2530,7 +2530,7 @@ const StandardDeck = (() => {
      (a phone's address bar sliding away changes the height by a few dozen pixels). */
   let lastFit = '';
   let lastSize = { w: 0, h: 0 };
-  const diagnostics = { relayouts: 0, snaps: 0 };
+  const diagnostics = { relayouts: 0, snaps: 0, cover: 0 };
   function relayout() {
     if (!session) return;
     const height = window.visualViewport?.height ?? window.innerHeight;
@@ -2556,10 +2556,29 @@ const StandardDeck = (() => {
   // iOS reports stale sizes straight after a rotation, and can leave the page scrolled a little: settle both.
   function settleScreen() {
     if (window.scrollX || window.scrollY) scrollTo(0, 0);
+    coverScreen();
     lastFit = '';
     relayout();
   }
+
+  /** An installed iPad app can be given a window a few points shorter than the screen (the height of the
+      status bar), which leaves a strip along the bottom that the page cannot paint. When the screen is
+      taller than the window by a small amount, the page is made as tall as the screen so that the desk
+      reaches the bottom edge. The table itself is still fitted to the window. */
+  const STRIP_MAX = 48;
+  function coverScreen() {
+    const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+    const turned = (innerWidth < innerHeight) !== (screen.width < screen.height);
+    const screenHeight = turned ? screen.width : screen.height;
+    const gap = screenHeight - innerHeight;
+    const cover = standalone && gap > 0 && gap <= STRIP_MAX;
+    document.documentElement.style.height = document.body.style.height = cover ? `${screenHeight}px` : '';
+    document.body.style.bottom = cover ? 'auto' : '';
+    diagnostics.cover = cover ? gap : 0;
+  }
+  coverScreen();
   addEventListener('orientationchange', () => [60, 300, 800].forEach(ms => setTimeout(settleScreen, ms)));
+  addEventListener('resize', coverScreen);
   window.visualViewport?.addEventListener('scroll', settleScreen);
   addEventListener('scroll', () => { if (window.scrollX || window.scrollY) scrollTo(0, 0); });
 
@@ -2579,7 +2598,7 @@ const StandardDeck = (() => {
       panel.textContent = [
         `inner ${innerWidth}x${innerHeight}  visual ${vv ? `${vv.width}x${vv.height} +${vv.offsetTop}` : 'n/a'}  screen ${screen.width}x${screen.height}`,
         `body ${body.width}x${body.height} at ${body.top}  table bottom ${Math.round(table.bottom)}  scroll ${scrollX},${scrollY}`,
-        `standalone ${navigator.standalone ?? matchMedia('(display-mode: standalone)').matches}  reduced motion ${reducedMotion()}  relayouts ${diagnostics.relayouts}  snaps ${diagnostics.snaps}`,
+        `standalone ${navigator.standalone ?? matchMedia('(display-mode: standalone)').matches}  reduced motion ${reducedMotion()}  relayouts ${diagnostics.relayouts}  snaps ${diagnostics.snaps}  cover ${diagnostics.cover}`,
         `board ${els.board.clientWidth}x${els.board.clientHeight}  instant ${els.board.classList.contains('instant')}  dpr ${devicePixelRatio}`,
       ].join('\n');
     };
