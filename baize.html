@@ -246,8 +246,12 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
 .lattice { stroke: var(--back-line); opacity: 0.55; }
 
 /* "A new version is ready": a small brass strip at the foot of the screen */
+.diagnostics {
+  position: absolute; z-index: 300000; left: 8px; top: 8px; margin: 0; padding: 6px 8px; border-radius: 6px; pointer-events: none;
+  font: 11px/1.35 ui-monospace, monospace; color: #bfffbf; background: rgba(0, 0, 0, 0.8); white-space: pre-wrap;
+}
 .update {
-  position: fixed; z-index: 300000; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  position: absolute; z-index: 300000; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
   display: flex; align-items: center; gap: 12px; padding: 6px 8px 6px 16px; border-radius: 10px; white-space: nowrap;
   color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
   background: linear-gradient(160deg, #f1d98e, #c9a24a 50%, #b48c36);
@@ -432,6 +436,7 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
     </div>
   </header>
 
+  <pre id="diagnostics" class="diagnostics" hidden></pre>
   <div id="update" class="update" hidden role="status">
     <span>A new version is ready.</span>
     <button id="update-btn" type="button" class="primary" onclick="location.reload()">Reload</button>
@@ -2524,18 +2529,63 @@ const StandardDeck = (() => {
   /* Lay the cards out again when the room changes: the width, or the height beyond a small tolerance
      (a phone's address bar sliding away changes the height by a few dozen pixels). */
   let lastFit = '';
+  let lastSize = { w: 0, h: 0 };
+  const diagnostics = { relayouts: 0, snaps: 0 };
   function relayout() {
     if (!session) return;
-    const fit = `${els.board.clientWidth}x${Math.round((window.visualViewport?.height ?? window.innerHeight) / 24)}`;
+    const height = window.visualViewport?.height ?? window.innerHeight;
+    const fit = `${els.board.clientWidth}x${Math.round(height / 24)}`;
     if (fit === lastFit) return;
     lastFit = fit;
-    els.board.classList.add('instant');
+    diagnostics.relayouts++;
+    // Only a real change of shape (a rotation, a resized window) snaps the cards into place. A small
+    // wobble in the height, which a standalone iPad app can report, must not switch the animations off.
+    const snap = Math.abs(els.board.clientWidth - lastSize.w) > 2 || Math.abs(height - lastSize.h) > 80;
+    lastSize = { w: els.board.clientWidth, h: height };
+    if (snap) {
+      diagnostics.snaps++;
+      els.board.classList.add('instant');
+    }
     render();
-    requestAnimationFrame(() => els.board.classList.remove('instant'));
+    if (snap) requestAnimationFrame(() => els.board.classList.remove('instant'));
   }
   new ResizeObserver(relayout).observe(els.board);
   addEventListener('resize', relayout);
   window.visualViewport?.addEventListener('resize', relayout);
+
+  // iOS reports stale sizes straight after a rotation, and can leave the page scrolled a little: settle both.
+  function settleScreen() {
+    if (window.scrollX || window.scrollY) scrollTo(0, 0);
+    lastFit = '';
+    relayout();
+  }
+  addEventListener('orientationchange', () => [60, 300, 800].forEach(ms => setTimeout(settleScreen, ms)));
+  window.visualViewport?.addEventListener('scroll', settleScreen);
+  addEventListener('scroll', () => { if (window.scrollX || window.scrollY) scrollTo(0, 0); });
+
+  // Five quick taps on the title show what the screen reports, for tracking down layout trouble.
+  let titleTaps = [];
+  document.querySelector('h1').addEventListener('click', () => {
+    const now = Date.now();
+    titleTaps = [...titleTaps.filter(t => now - t < 2000), now];
+    if (titleTaps.length < 5) return;
+    titleTaps = [];
+    const panel = $('diagnostics');
+    panel.hidden = !panel.hidden;
+    clearInterval(panel.timer);
+    if (panel.hidden) return;
+    const show = () => {
+      const vv = window.visualViewport, body = document.body.getBoundingClientRect(), table = els.table.getBoundingClientRect();
+      panel.textContent = [
+        `inner ${innerWidth}x${innerHeight}  visual ${vv ? `${vv.width}x${vv.height} +${vv.offsetTop}` : 'n/a'}  screen ${screen.width}x${screen.height}`,
+        `body ${body.width}x${body.height} at ${body.top}  table bottom ${Math.round(table.bottom)}  scroll ${scrollX},${scrollY}`,
+        `standalone ${navigator.standalone ?? matchMedia('(display-mode: standalone)').matches}  reduced motion ${reducedMotion()}  relayouts ${diagnostics.relayouts}  snaps ${diagnostics.snaps}`,
+        `board ${els.board.clientWidth}x${els.board.clientHeight}  instant ${els.board.classList.contains('instant')}  dpr ${devicePixelRatio}`,
+      ].join('\n');
+    };
+    show();
+    panel.timer = setInterval(show, 500);
+  });
 
   try { hintsOn = localStorage.getItem(HINTS_KEY) === '1'; } catch { /* optional */ }
   open(GAMES.find(g => g.rules.id === readStore().current) ?? GAMES[0]);
