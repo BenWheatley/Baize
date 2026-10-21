@@ -386,9 +386,15 @@ def check_redeal_order(pg):
         assert pg.evaluate("document.querySelectorAll('.card').length") == len(before)
 
 
+def choose(pg, option, value):
+    """Pick an option the way a person does: open the menu, then press the button."""
+    pg.click('#options-btn')
+    pg.click(f'button[data-option="{option}"][data-value="{value}"]')
+
+
 def check_winnable_deals(pg):
     start(pg, 'freecell')
-    pg.click('button[data-option="winnable"][data-value="1"]')
+    choose(pg, 'winnable', 1)
     wait_for_deal(pg)
     stored = pg.evaluate("JSON.parse(localStorage.getItem('baize.v2')).games.freecell")
     assert stored['options']['winnable'] == 1, stored
@@ -411,10 +417,22 @@ def check_winnable_deals(pg):
         CardSim.freecell.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 }))""", last), 'fallback deal can be won'
     # Spider can only promise winnable deals with one suit, so the setting is not offered otherwise.
     start(pg, 'spider')
+    pg.click('#options-btn')
     assert pg.locator('[data-option-group="winnable"]').is_visible()
     pg.click('button[data-option="suits"][data-value="2"]')
     wait_for_deal(pg)
+    assert not pg.locator('#options').is_visible(), 'choosing an option closes the menu'
+    pg.click('#options-btn')
     assert not pg.locator('[data-option-group="winnable"]').is_visible()
+    pg.keyboard.press('Escape')
+    assert not pg.locator('#options').is_visible(), 'Escape closes the menu'
+    assert pg.evaluate("document.activeElement.id") == 'options-btn'
+    pg.click('#options-btn')
+    pg.mouse.click(5, 5)
+    assert not pg.locator('#options').is_visible(), 'clicking elsewhere closes the menu'
+    pg.click('#options-btn')
+    pg.click('#rules-btn')
+    assert not pg.locator('#options').is_visible() and pg.locator('#rules').is_visible(), 'only one popover at a time'
 
 
 VIEWPORTS = {'phone': (390, 844, True), 'phone landscape': (844, 390, True), 'tablet': (820, 1180, True),
@@ -423,7 +441,7 @@ VIEWPORTS = {'phone': (390, 844, True), 'phone landscape': (844, 390, True), 'ta
 
 def check_responsive(pg):
     """Every game fits every screen: nothing hangs over the table or the page edge, buttons are
-    finger-sized on touch screens, and the options fold away on narrow ones."""
+    finger-sized on touch screens, and the options menu fits."""
     browser = pg.context.browser
     for label, (w, h, touch) in VIEWPORTS.items():
         context = browser.new_context(viewport={'width': w, 'height': h}, has_touch=touch, is_mobile=touch)
@@ -449,19 +467,17 @@ def check_responsive(pg):
                 .filter(b => b.offsetParent !== null && b.getBoundingClientRect().height < 43).map(b => b.id || b.textContent)""")
             assert not small, f'{label}: buttons under 44 px: {small}'
         start(page, 'klondike')
-        if w <= 720:
-            assert not page.locator('#options').is_visible(), f'{label}: options start folded away'
-            page.click('#options-btn')
-            assert page.locator('#options').is_visible(), f'{label}: the Options button opens them'
-            assert page.evaluate("document.getElementById('board').getBoundingClientRect().bottom <= innerHeight + 2") or h < 500
-        else:
-            assert not page.locator('#options-btn').is_visible() and page.locator('#options').is_visible(), f'{label}: options are shown'
+        assert not page.locator('#options').is_visible(), f'{label}: options start closed'
+        page.click('#options-btn')
+        menu = page.evaluate("""() => { const r = document.getElementById('options').getBoundingClientRect();
+            return { left: r.left, right: r.right, bottom: r.bottom, w: innerWidth, h: innerHeight }; }""")
+        assert menu['left'] >= 0 and menu['right'] <= menu['w'] and menu['bottom'] <= menu['h'], f'{label}: the menu fits the screen {menu}'
         context.close()
 
 
 def check_search_can_be_cancelled(pg):
     start(pg, 'freecell')
-    pg.click('button[data-option="winnable"][data-value="1"]')
+    choose(pg, 'winnable', 1)
     wait_for_deal(pg)
     # A worker that never answers stands in for a search that takes a long time.
     pg.evaluate("() => { window.Worker = class { postMessage() {} terminate() {} }; }")
