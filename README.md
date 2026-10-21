@@ -1,6 +1,6 @@
 # Baize
 
-A single-page card-table simulator. `baize.html` is the whole app: open it in a browser, or publish it as is. It plays Klondike, FreeCell, Golf, Pyramid, Spider (one, two or four suits; two decks) and Forty Thieves and Yukon (two decks), and the engine is written so that other games (Hanabi, for one) can be added as rulesets.
+A single-page card-table simulator. `baize.html` is the whole app: open it in a browser, or publish it as is. It plays Klondike, FreeCell, Golf, Pyramid, Spider (one, two or four suits; two decks) and Forty Thieves (two decks), Yukon and TriPeaks, and the engine is written so that other games (Hanabi, for one) can be added as rulesets.
 
 'Baize' is the green woollen cloth that covers a card table.
 
@@ -39,7 +39,7 @@ Because the cache is refreshed in the background, an edited page appears the sec
 
 ## Winnable deals
 
-Klondike, FreeCell, Golf, Pyramid and one-suit Spider offer Deals: Winnable. `solve()` in the engine searches a ruleset's own `moves()` (depth first, or best first where the ruleset gives a `progress()` score); the app runs it on one seed after another, in a worker, until it finds a win, and the stored seed then reproduces that deal. A solution that is found is real, since the tests replay it, but a search that gives up proves nothing: the app stops after 20 seconds and says the deal is random. While it searches, a dialogue with a spinner and a Cancel button covers the table. Yukon, Forty Thieves and two- or four-suit Spider are too hard for this solver, so they do not offer it.
+Klondike, FreeCell, Golf, Pyramid, TriPeaks and one-suit Spider offer Deals: Winnable. `solve()` in the engine searches a ruleset's own `moves()` (depth first, or best first where the ruleset gives a `progress()` score); the app runs it on one seed after another, in a worker, until it finds a win, and the stored seed then reproduces that deal. A solution that is found is real, since the tests replay it, but a search that gives up proves nothing: the app stops after 20 seconds and says the deal is random. While it searches, a dialogue with a spinner and a Cancel button covers the table. Yukon, Forty Thieves and two- or four-suit Spider are too hard for this solver, so they do not offer it.
 
 ## Card art
 

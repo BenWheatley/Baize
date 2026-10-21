@@ -1695,7 +1695,102 @@ const CardSim = (() => {
     ],
   };
 
-  return { mulberry32, shuffle, Session, solve, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon };
+  /* ---------- TriPeaks ----------
+     28 cards in three overlapping peaks over a row of ten, one card showing on the waste. A card is
+     free once nothing overlaps it, and a free card is played onto the waste when it is one rank
+     above or below the waste card. Draw from the stock when stuck; there is no redeal. Clear all
+     three peaks to win. */
+
+  /** Where each row's cards sit, in card widths from the left. Each card is overlapped by the cards
+      of the next row that lie half a card to either side of it. */
+  const PEAK_X = [
+    [1.5, 4.5, 7.5],
+    [1, 2, 4, 5, 7, 8],
+    [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5],
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+  ];
+  const peakId = (row, i) => `k${row}_${i}`;
+  const PEAKS = PEAK_X.map((xs, r) => xs.map((_, i) => peakId(r, i)));
+  const PEAK_IDS = PEAKS.flat();
+  /** The cards that overlap each peak card. */
+  const OVERLAPS = Object.fromEntries(PEAK_X.flatMap((xs, r) => xs.map((x, i) => [peakId(r, i),
+    r + 1 < PEAK_X.length ? PEAK_X[r + 1].flatMap((nx, j) => (Math.abs(nx - x) === 0.5 ? [peakId(r + 1, j)] : [])) : []])));
+
+  const isFree = (piles, id) => piles[id].length > 0 && OVERLAPS[id].every(over => !piles[over].length);
+  const peakCardsLeft = piles => PEAK_IDS.reduce((n, id) => n + piles[id].length, 0);
+
+  const tripeaksActions = {
+    draw: golfActions.draw,
+
+    play(piles, { from }, options) {
+      if (!PEAK_IDS.includes(from)) return 'Only a card in the peaks can be played';
+      if (!piles[from].length) return 'There is no card there';
+      if (!isFree(piles, from)) return 'That card is still covered';
+      const gap = Math.abs(top(piles[from]).card.rank - top(piles.waste).card.rank);
+      if (gap !== 1 && !(options.wrap && gap === 12)) return 'That card is not next in rank to the one showing';
+      piles.waste.push(piles[from].pop());
+    },
+  };
+
+  const tripeaks = {
+    id: 'tripeaks',
+    name: 'TriPeaks',
+    showsMovable: true,
+    help: 'Clear the three peaks. Tap a free card (one with nothing overlapping it) to play it onto the waste when it is one rank higher or lower than the card showing. Draw from the stock when stuck. There is no redeal.',
+
+    options: [
+      { id: 'wrap', label: 'Wrap', default: 0, choices: [{ value: 0, label: 'Off' }, { value: 1, label: 'Kings and aces' }] },
+      WINNABLE_OPTION,
+    ],
+    canSolve: () => true,
+
+    setup(_options, rng) {
+      const deck = dealDeck(rng);
+      const piles = { stock: deck.slice(PEAK_IDS.length + 1).map(faceDown), waste: [{ card: deck[PEAK_IDS.length], up: true }] };
+      PEAK_IDS.forEach((id, k) => { piles[id] = [{ card: deck[k], up: false }]; });
+      return { piles };
+    },
+
+    layout: () => [
+      ...PEAK_X.flatMap((xs, r) => xs.map((x, i) => ({ id: peakId(r, i), col: x, y: r * 0.5, bare: true }))),
+      { id: 'stock', col: 4, y: PEAK_X.length * 0.5 + 0.8 },
+      { id: 'waste', col: 5, y: PEAK_X.length * 0.5 + 0.8 },
+    ],
+
+    /** A peak card shows its face once nothing overlaps it. */
+    faceUp: (state, pileId, entry) => entry.up || (PEAK_IDS.includes(pileId) && isFree(state.piles, pileId)),
+    canPickUp: () => false,
+    reduce: (state, action, options) => reduceWith(tripeaksActions, state, action, options),
+
+    onTap(state, pileId) {
+      if (pileId === 'stock') return state.piles.stock.length ? { type: 'draw' } : null;
+      return PEAK_IDS.includes(pileId) ? { type: 'play', from: pileId } : null;
+    },
+
+    onActivate: () => null,
+    autoAction: () => null,
+
+    moves(state, options) {
+      const { piles } = state;
+      const showing = top(piles.waste).card.rank;
+      const plays = PEAK_IDS.filter(id => isFree(piles, id))
+        .filter(id => { const gap = Math.abs(top(piles[id]).card.rank - showing); return gap === 1 || (options.wrap && gap === 12); })
+        .map(id => ({ type: 'play', from: id }));
+      return piles.stock.length ? [...plays, { type: 'draw' }] : plays;
+    },
+
+    /** Fewer cards left is better; the peaks' lower cards matter most, since they are the last to free. */
+    progress: state => -10 * peakCardsLeft(state.piles) + 2 * PEAKS[0].filter(id => !state.piles[id].length).length,
+
+    isWon: state => peakCardsLeft(state.piles) === 0,
+
+    status: state => [
+      { label: 'Left', value: `${peakCardsLeft(state.piles)} / ${PEAK_IDS.length}` },
+      { label: 'Stock', value: state.piles.stock.length },
+    ],
+  };
+
+  return { mulberry32, shuffle, Session, solve, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
 })();
 </script>
 
@@ -1747,6 +1842,7 @@ const StandardDeck = (() => {
     { rules: CardSim.spider, deck: StandardDeck },
     { rules: CardSim.forty, deck: StandardDeck },
     { rules: CardSim.yukon, deck: StandardDeck },
+    { rules: CardSim.tripeaks, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';

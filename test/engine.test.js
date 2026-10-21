@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, solve, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -971,7 +971,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   const cases = [
     ['klondike', klondike, { draw: 1 }, 40], ['klondike', klondike, { draw: 3 }, 60], ['freecell', freecell, {}, 20],
     ['golf', golf, { wrap: 1 }, 80], ['golf', golf, { wrap: 0 }, 400], ['pyramid', pyramid, { redeals: 2 }, 30],
-    ['pyramid', pyramid, { redeals: 99 }, 30], ['spider', spider, { suits: 1, gaps: 1 }, 10],
+    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10],
   ];
   for (const [name, rules, base, tries] of cases) {
     const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };
@@ -1253,8 +1253,110 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   console.log(`yukon playouts: ${moves} moves checked`);
 }
 
+/* TriPeaks: the deal, which cards are free, playing, wrapping, playouts */
+{
+  const PEAKS = [3, 6, 9, 10].flatMap((n, r) => Array.from({ length: n }, (_, i) => `k${r}_${i}`));
+  const card = (suit, rank) => ({ card: { id: `${suit[0]}${rank}`, suit, rank }, up: false });
+  const blank = () => {
+    const st = tripeaks.setup({}, mulberry32(1));
+    for (const id of Object.keys(st.piles)) st.piles[id] = [];
+    return st;
+  };
+  const play = id => ({ type: 'play', from: id });
+  const opts = { wrap: 0 };
+
+  const st = tripeaks.setup(opts, mulberry32(4));
+  const all = Object.values(st.piles).flat();
+  assert.strictEqual(all.length, 52);
+  assert.strictEqual(new Set(all.map(e => e.card.id)).size, 52, 'ids are unique');
+  assert.strictEqual(PEAKS.length, 28);
+  assert(PEAKS.every(id => st.piles[id].length === 1), 'one card on every peak place');
+  assert.strictEqual(st.piles.stock.length, 23);
+  assert.strictEqual(st.piles.waste.length, 1);
+  same(tripeaks.setup(opts, mulberry32(4)), st);
+  // only the bottom row shows at first
+  const shows = id => tripeaks.faceUp(st, id, st.piles[id][0], 'viewer');
+  assert(PEAKS.filter(id => id.startsWith('k3')).every(shows), 'the base row is face up');
+  assert(PEAKS.filter(id => !id.startsWith('k3')).every(id => !shows(id)), 'the rest are face down');
+  assert(st.piles.stock.every(e => !e.up) && st.piles.waste[0].up);
+
+  // overlap: a card is freed by the removal of both cards below it (the shape of each peak)
+  const s = blank();
+  for (const id of PEAKS) s.piles[id] = [card('spades', 6)];
+  s.piles.waste = [card('hearts', 7)];
+  const bad = (state, action, why) => assert(tripeaks.reduce(state, action, opts).error, `expected illegal: ${why}`);
+  const ok = (state, action) => { const r = tripeaks.reduce(state, action, opts); assert(r.state, `expected legal: ${JSON.stringify(action)} (${r.error})`); return r.state; };
+  bad(s, play('k0_0'), 'a covered card cannot be played');
+  bad(s, play('k2_0'), 'covered by the base row');
+  const t = ok(s, play('k3_0'));
+  assert.strictEqual(t.piles.waste.at(-1).card.id, 's6');
+  bad(t, play('k2_0'), 'still covered by k3_1');
+  bad(t, play('k3_9'), 'a six on a six is not next in rank');
+  t.piles.waste = [card('hearts', 7)];
+  const u = ok(t, play('k3_1'));
+  assert(tripeaks.faceUp(u, 'k2_0', u.piles.k2_0[0], 'viewer'), 'the card is turned up once both overlapping cards are gone');
+  u.piles.waste = [card('hearts', 5)];
+  ok(u, play('k2_0'));
+  bad(u, play('k2_1'), 'k2_1 is overlapped by k3_1 (gone) and k3_2 (not)');
+  bad(s, { type: 'play', from: 'stock' }, 'cannot play the stock');
+
+  // wrap
+  const w = blank();
+  w.piles.k3_0 = [card('clubs', 13)];
+  w.piles.waste = [card('hearts', 1)];
+  bad(w, play('k3_0'), 'a king does not follow an ace without wrap');
+  assert(tripeaks.reduce(w, play('k3_0'), { wrap: 1 }).state, 'a king follows an ace with wrap');
+
+  // draw and taps
+  const d = tripeaks.setup(opts, mulberry32(4));
+  const drawn = ok(d, { type: 'draw' });
+  assert.strictEqual(drawn.piles.stock.length, 22);
+  assert.strictEqual(drawn.piles.waste.length, 2);
+  assert(drawn.piles.waste.at(-1).up);
+  same(tripeaks.onTap(d, 'stock', 0), { type: 'draw' });
+  assert.strictEqual(tripeaks.onTap(blank(), 'stock', 0), null);
+  same(tripeaks.onTap(d, 'k3_2', 0), play('k3_2'));
+  assert.strictEqual(tripeaks.onTap(d, 'waste', 0), null);
+
+  // winning
+  const won = blank();
+  won.piles.waste = [card('hearts', 7)];
+  assert(tripeaks.isWon(won));
+  won.piles.k0_0 = [card('hearts', 6)];
+  assert(!tripeaks.isWon(won));
+
+  // random playouts
+  let moves = 0, wins = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const rng = mulberry32(seed + 500);
+    const o = { wrap: seed % 2 };
+    const session = new Session(tripeaks, o, seed);
+    for (let step = 0; step < 120; step++) {
+      const choices = tripeaks.moves(session.state, o);
+      if (!choices.length) break;
+      assert(session.apply(choices[Math.floor(rng() * choices.length)]));
+      moves++;
+      const cards = Object.values(session.state.piles).flat();
+      assert.strictEqual(cards.length, 52);
+      assert.strictEqual(new Set(cards.map(e => e.card.id)).size, 52);
+    }
+    if (session.won) wins++;
+    same(new Session(tripeaks, o, seed, session.actions).state, session.state, 'replay matches');
+    while (session.undo());
+    same(session.state, tripeaks.setup(o, mulberry32(seed)), 'undo restores the deal');
+  }
+  // every candidate the solver is offered is legal, and the legal plays are all offered
+  for (let seed = 1; seed <= 20; seed++) {
+    const state = tripeaks.setup({ wrap: 1 }, mulberry32(seed));
+    for (const action of tripeaks.moves(state, { wrap: 1 })) assert(tripeaks.reduce(state, action, { wrap: 1 }).state || action.type === 'play', 'candidates are legal');
+    const legal = [...PEAKS.map(play), { type: 'draw' }].filter(a => tripeaks.reduce(state, a, { wrap: 1 }).state).length;
+    assert.strictEqual(tripeaks.moves(state, { wrap: 1 }).length, legal, 'moves() lists every legal play');
+  }
+  console.log(`tripeaks playouts: ${moves} moves checked, ${wins} wins`);
+}
+
 // Every pile a deal creates has a slot to be drawn in, so no card can vanish from the table.
-for (const rules of [klondike, freecell, golf, pyramid, spider, forty, yukon]) {
+for (const rules of [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks]) {
   const options = Object.fromEntries(rules.options.map(o => [o.id, o.default]));
   const state = rules.setup(options, mulberry32(1));
   const slots = new Set(rules.layout(options).map(s => s.id));

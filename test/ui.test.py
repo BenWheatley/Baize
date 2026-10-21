@@ -7,7 +7,7 @@ import traceback
 from playwright.sync_api import sync_playwright
 
 URL = (pathlib.Path(__file__).resolve().parent.parent / 'baize.html').as_uri()
-GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2', 'pyramid': '3', 'spider': '4', 'forty': '5', 'yukon': '6'}
+GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2', 'pyramid': '3', 'spider': '4', 'forty': '5', 'yukon': '6', 'tripeaks': '7'}
 FACE_DOWN = 'Face-down card'
 
 # Deals are fixed so that the checks do not depend on luck. Seed 1 of FreeCell has three
@@ -15,7 +15,7 @@ FACE_DOWN = 'Face-down card'
 # pair (queen and ace of spades) and one king (hearts) in the free bottom row; seed 30 of Spider
 # (one suit) has exactly one tap-move: the six of spades onto the seven; seed 8 of Forty Thieves
 # has exactly one, the two of hearts onto the three, and no ace showing.
-SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14, 'pyramid': 2, 'spider': 30, 'forty': 8, 'yukon': 3}
+SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14, 'pyramid': 2, 'spider': 30, 'forty': 8, 'yukon': 3, 'tripeaks': 5}
 
 
 def status(pg):
@@ -57,7 +57,7 @@ def wait_for_deal(pg):
 
 def check_menu_and_saves(pg):
     names = pg.eval_on_selector_all('#game option', 'o => o.map(x => x.textContent)')
-    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid', 'Spider', 'Forty Thieves', 'Yukon'], names
+    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid', 'Spider', 'Forty Thieves', 'Yukon', 'TriPeaks'], names
     start(pg, 'klondike')
     box = pg.locator('.slot[data-pile=stock]').bounding_box()
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
@@ -418,6 +418,33 @@ def check_yukon(pg):
     assert not problems, problems[:3]
 
 
+def check_tripeaks(pg):
+    start(pg, 'tripeaks')
+    assert 'Left 28 / 28' in status(pg) and 'Stock 23' in status(pg), status(pg)
+    assert pg.locator('.card').count() == 52
+    hidden = pg.evaluate("l => [...document.querySelectorAll('.card')].filter(c => c.getAttribute('aria-label') === l).length", FACE_DOWN)
+    assert hidden == 18 + 23, f'only the base row and the waste show: {hidden} face down'
+    play = pg.evaluate("""() => {
+        const rules = CardSim.tripeaks, state = rules.setup({ wrap: 0 }, CardSim.mulberry32(5));
+        const showing = state.piles.waste.at(-1).card.rank;
+        return rules.moves(state, { wrap: 0 }).filter(a => a.type === 'play')
+            .map(a => ({ pile: a.from, id: state.piles[a.from][0].card.id }))[0] ?? null; }""")
+    assert play, 'seed 5 offers a first play'
+    b = pg.locator(f'.card[data-id="{play["id"]}"]').bounding_box()
+    pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] * 0.2)
+    pg.wait_for_timeout(400)
+    assert 'Left 27 / 28' in status(pg) and 'Moves 1' in status(pg), status(pg)
+    pg.click('#undo')
+    pg.wait_for_timeout(300)
+    assert 'Left 28 / 28' in status(pg)
+    box = pg.locator('.slot[data-pile="stock"]').bounding_box()
+    pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    pg.wait_for_timeout(400)
+    assert 'Stock 22' in status(pg), status(pg)
+    problems = pg.evaluate(STACKING_PROBLEMS)
+    assert not problems, problems[:3]
+
+
 def check_forty_thieves(pg):
     start(pg, 'forty')
     assert 'Home 0 / 104' in status(pg) and 'Stock 64' in status(pg), status(pg)
@@ -699,7 +726,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
