@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Baize</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,0,0&icon_names=menu&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,0,0&icon_names=bar_chart,menu&display=block">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@500;700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
 <style>
 /* Layout: one column. Header (name + controls) and a status line on a wooden desk, then the felt
@@ -279,6 +279,14 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
   animation: spin 0.9s linear infinite;
 }
 .modal[data-state="miss"] .spinner { display: none; }
+#stats .plaque { max-width: min(34rem, 94%); }
+#stats h2 { margin-bottom: 8px; }
+.stats-table { border-collapse: collapse; margin: 0 auto 16px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.stats-table th { padding: 2px 8px 5px; font: 600 10.5px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; text-align: right; border-bottom: 1px solid rgba(74, 18, 32, 0.45); }
+.stats-table td { padding: 3px 8px; text-align: right; }
+.stats-table th:first-child, .stats-table td:first-child { text-align: left; }
+.stats-table tr.current td { font-weight: 700; }
+.plaque-buttons { display: flex; justify-content: center; gap: 12px; }
 .modal h2 { font-size: 26px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -355,6 +363,8 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
 }
 #options[hidden] { display: none; }
 #options .seg { margin: 0; }
+#options .menu-item { display: flex; align-items: center; gap: 8px; margin: 3px 0 0; }
+html.icons #options .menu-item .icon { font-size: 20px; }
 #options .seg-label { min-width: 4.5em; justify-content: start; }
 #options .seg button { flex: 1 1 auto; }
 @media (max-width: 520px) {
@@ -379,6 +389,11 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
   button, #game { min-height: 44px; touch-action: manipulation; }
   .rules-close { min-height: 0; width: 36px; height: 36px; }
   .options-btn { min-width: 44px; }
+}
+@media (max-width: 520px) {
+  .stats-table { font-size: 12.5px; }
+  .stats-table th, .stats-table td { padding-left: 4px; padding-right: 4px; }
+  #stats .plaque { padding: 22px 16px 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .card.ready { transition: transform 0.14s ease-out; }       /* a short slide stays: it shows where the card went */
@@ -452,6 +467,16 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
         <h2>Cleared</h2>
         <p id="win-text"></p>
         <button id="win-new" type="button">New deal</button>
+      </div>
+    </div>
+    <div id="stats" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="stats-title">
+      <div class="plaque">
+        <h2 id="stats-title">Statistics</h2>
+        <table id="stats-table" class="stats-table"></table>
+        <div class="plaque-buttons">
+          <button id="stats-reset" type="button">Reset</button>
+          <button id="stats-close" type="button" class="primary">Close</button>
+        </div>
       </div>
     </div>
     <div id="busy" class="modal" hidden role="alertdialog" aria-modal="true" aria-labelledby="busy-title" aria-describedby="busy-text">
@@ -1790,7 +1815,32 @@ const CardSim = (() => {
     ],
   };
 
-  return { mulberry32, shuffle, Session, solve, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
+  /* ---------- Statistics ----------
+     One record per game: deals played, deals won, the fewest moves in a win, and the winning streak.
+     A deal is counted when it is won, or when it is given up after at least one move. `deal` names
+     the deal (game, seed and options), so a deal that is won, undone and won again, or one that is
+     given up after being won, is never counted twice. */
+
+  const emptyRecord = () => ({ played: 0, won: 0, best: null, streak: 0, bestStreak: 0, lastWon: null });
+
+  /** The new statistics after a result: { outcome: 'won', moves, deal } or { outcome: 'abandoned', deal }. */
+  function recordResult(stats, gameId, result) {
+    const before = stats[gameId] ?? emptyRecord();
+    if (before.lastWon === result.deal) return stats;
+    const record = { ...before, played: before.played + 1 };
+    if (result.outcome === 'won') {
+      record.won += 1;
+      record.streak += 1;
+      record.bestStreak = Math.max(record.bestStreak, record.streak);
+      record.best = before.best === null ? result.moves : Math.min(before.best, result.moves);
+      record.lastWon = result.deal;
+    } else {
+      record.streak = 0;
+    }
+    return { ...stats, [gameId]: record };
+  }
+
+  return { mulberry32, shuffle, Session, solve, recordResult, emptyRecord, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
 })();
 </script>
 
@@ -1846,6 +1896,7 @@ const StandardDeck = (() => {
   ];
 
   const STORE_KEY = 'baize.v2';
+  const STATS_KEY = 'baize.stats';
   const HINTS_KEY = 'baize.hints';
   const WINNABLE_KEY = 'baize.winnable';
   const COL_GAP = 0.16;       // gap between columns, in card widths (less on a narrow table)
@@ -1877,6 +1928,7 @@ const StandardDeck = (() => {
     rulesTitle: $('rules-title'), rulesText: $('rules-text'),
     hints: $('hints'), undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
     win: $('win'), winText: $('win-text'), winNew: $('win-new'),
+    stats: $('stats'), statsTable: $('stats-table'), statsReset: $('stats-reset'), statsClose: $('stats-close'),
     busy: $('busy'), busyTitle: $('busy-title'), busyText: $('busy-text'), busyBtn: $('busy-btn'),
   };
 
@@ -2036,6 +2088,8 @@ const StandardDeck = (() => {
     busy = true;
     els.board.dataset.dealing = 'true';
     const animate = cardEls.size > 0 && !reducedMotion();
+    // A new deal (not a restart of this one) given up part-way counts as played.
+    if (seed === undefined && session.actions.length && !session.won) noteResult({ outcome: 'abandoned' });
     try {
       let missed = false;
       const picking = seed === undefined && wantsWinnable(game.rules, options);
@@ -2082,6 +2136,66 @@ const StandardDeck = (() => {
     store.current = game.rules.id;
     store.games[game.rules.id] = { options: session.options, seed: session.seed, actions: session.actions };
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch { /* storage is a convenience only */ }
+  }
+
+  /* ---------- Statistics ---------- */
+
+  const readStats = () => {
+    try { return JSON.parse(localStorage.getItem(STATS_KEY)) ?? {}; } catch { return {}; }
+  };
+  const writeStats = stats => { try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch { /* optional */ } };
+  /** Names the deal. Random or Winnable only says how a deal was chosen, and is a standing preference, so it is left out. */
+  const dealName = () => {
+    const { winnable, ...rest } = session.options;
+    return `${game.rules.id}:${session.seed}:${JSON.stringify(rest)}`;
+  };
+
+  function noteResult(result) {
+    const before = readStats();
+    const after = CardSim.recordResult(before, game.rules.id, { ...result, deal: dealName() });
+    if (after !== before) writeStats(after);
+  }
+
+  function showStats() {
+    const stats = readStats();
+    const cell = (value, tag = 'td') => h(tag, {}, String(value));
+    const rows = GAMES.map(g => {
+      const r = stats[g.rules.id];
+      const none = !r || !r.played;
+      return h('tr', { class: g === game ? 'current' : '' },
+        cell(g.rules.name),
+        cell(none ? '–' : r.played),
+        cell(none ? '–' : r.won),
+        cell(none ? '–' : `${Math.round((100 * r.won) / r.played)}%`),
+        cell(r?.best ?? '–'),
+        cell(none ? '–' : `${r.streak} (${r.bestStreak})`));
+    });
+    els.statsTable.replaceChildren(
+      h('tr', {}, ...['Game', 'Played', 'Won', 'Win', 'Best', 'Streak'].map(title => cell(title, 'th'))),
+      ...rows);
+    els.statsReset.textContent = 'Reset';
+    els.stats.hidden = false;
+    els.statsClose.focus();
+  }
+
+  function hideStats({ returnFocus = true } = {}) {
+    if (els.stats.hidden) return;
+    els.stats.hidden = true;
+    clearTimeout(resetTimer);
+    if (returnFocus) els.optionsBtn.focus();
+  }
+
+  /** Wiping the record takes two presses, the second within three seconds of the first. */
+  let resetTimer = 0;
+  function resetStats() {
+    if (els.statsReset.textContent === 'Reset') {
+      els.statsReset.textContent = 'Press again to erase';
+      resetTimer = setTimeout(() => { els.statsReset.textContent = 'Reset'; }, 3000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    writeStats({});
+    showStats();
   }
 
   /** Reopen the saved game for a ruleset, if there is a usable one. */
@@ -2173,6 +2287,7 @@ const StandardDeck = (() => {
     syncChrome(state);
     syncHints();
     save();
+    if (session.won) noteResult({ outcome: 'won', moves: session.actions.length });
   }
 
   function syncSlots() {
@@ -2294,8 +2409,7 @@ const StandardDeck = (() => {
     for (const option of rules.options) {
       els.options.querySelector(`[data-option-group="${option.id}"]`).hidden = option.when ? !option.when(session.options) : false;
     }
-    els.optionsBtn.hidden = !rules.options.some(option => !option.when || option.when(session.options));
-    els.options.querySelectorAll('button').forEach(button => {
+    els.options.querySelectorAll('button[data-option]').forEach(button => {
       const pressed = String(session.options[button.dataset.option]) === button.dataset.value;
       button.setAttribute('aria-pressed', String(pressed));
     });
@@ -2366,7 +2480,11 @@ const StandardDeck = (() => {
           });
           return button;
         }),
-      )));
+      )),
+    h('button', { id: 'stats-btn', type: 'button', class: 'menu-item', 'aria-haspopup': 'dialog' },
+      h('span', { class: 'icon', 'data-fallback': '★', 'aria-hidden': 'true' }, 'bar_chart'), ' Statistics'));
+    els.statsBtn = $('stats-btn');
+    els.statsBtn.addEventListener('click', () => { if (!busy) { setOptionsOpen(false); setRulesOpen(false); showStats(); } });
   }
 
   /* ---------- Playing ---------- */
@@ -2545,6 +2663,9 @@ const StandardDeck = (() => {
   document.fonts?.load("24px 'Material Symbols Outlined'", 'menu')
     .then(faces => { if (faces.length) document.documentElement.classList.add('icons'); })
     .catch(() => {});
+  els.statsClose.addEventListener('click', () => hideStats());
+  els.statsReset.addEventListener('click', resetStats);
+  els.stats.addEventListener('pointerdown', e => { if (e.target === els.stats) hideStats(); });
   els.undo.addEventListener('click', undo);
   els.finish.addEventListener('click', autoFinish);
   els.restart.addEventListener('click', () => { if (!busy) redeal(session.options, session.seed); });
@@ -2588,6 +2709,10 @@ const StandardDeck = (() => {
   });
 
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !els.stats.hidden) {
+      hideStats();
+      return;
+    }
     if (e.key === 'Escape' && !els.busy.hidden) {
       dismissBusy();
       return;
@@ -2601,7 +2726,7 @@ const StandardDeck = (() => {
       return;
     }
     if (e.key === 'Shift') setShift(true);
-    const typing = e.target.closest?.('select, input, textarea') || !els.rules.hidden || !els.busy.hidden;
+    const typing = e.target.closest?.('select, input, textarea') || !els.rules.hidden || !els.busy.hidden || !els.stats.hidden;
     const rank = e.ctrlKey || e.metaKey || e.altKey || typing ? null : rankOfKey(e);
     if (rank !== null) setRank(e.code, rank);
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {

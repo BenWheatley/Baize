@@ -703,6 +703,65 @@ def check_rules_text_stays_inside_the_frame(pg):
     assert pg.evaluate("document.getElementById('rules').scrollHeight <= document.getElementById('rules').clientHeight + 1"), 'the frame itself does not scroll'
 
 
+def stats_rows(pg):
+    pg.click('#options-btn')
+    pg.click('#stats-btn')
+    rows = pg.evaluate("[...document.querySelectorAll('#stats-table tr')].map(r => [...r.children].map(c => c.textContent))")
+    return {r[0]: r[1:] for r in rows}
+
+
+def check_statistics(pg):
+    assert stats_rows(pg)['Golf'] == ['–'] * 5, 'nothing played yet'
+    pg.keyboard.press('Escape')
+    assert pg.locator('#stats').is_hidden(), 'Escape closes the panel'
+    assert pg.evaluate("document.activeElement.id") == 'options-btn'
+    # A saved, already-won Golf deal: load it and the win is counted, once.
+    saved = pg.evaluate("""() => {
+        const options = { wrap: 1, winnable: 0 }, rules = CardSim.golf;
+        for (let seed = 0; seed < 200; seed++) {
+            const actions = CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 });
+            if (actions) return { seed, options, actions };
+        }
+        return null; }""")
+    assert saved
+    pg.evaluate("""s => localStorage.setItem('baize.v2', JSON.stringify({ current: 'golf', games: { golf: s } }))""", saved)
+    pg.reload()
+    pg.wait_for_timeout(700)
+    golf = stats_rows(pg)['Golf']
+    moves = str(len(saved['actions']))
+    assert golf == ['1', '1', '100%', moves, '1 (1)'], golf
+    pg.keyboard.press('Escape')
+    pg.reload()
+    pg.wait_for_timeout(700)
+    assert stats_rows(pg)['Golf'] == golf, 'reloading a won deal does not count it again'
+    pg.keyboard.press('Escape')
+    # undo and win again: still one
+    pg.click('#undo')
+    pg.wait_for_timeout(300)
+    pg.click('#new')                                  # given up after a win that was undone: not counted either
+    wait_for_deal(pg)
+    assert stats_rows(pg)['Golf'] == golf, stats_rows(pg)['Golf']
+    pg.keyboard.press('Escape')
+    # a deal given up after a move counts as played and ends the streak
+    box = pg.locator('.slot[data-pile="stock"]').bounding_box()
+    pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    pg.wait_for_timeout(300)
+    pg.click('#new')
+    wait_for_deal(pg)
+    assert stats_rows(pg)['Golf'] == ['2', '1', '50%', moves, '0 (1)'], stats_rows(pg)['Golf']
+    # a deal with no moves, or a restart, is not counted
+    pg.keyboard.press('Escape')
+    pg.click('#new')
+    wait_for_deal(pg)
+    assert stats_rows(pg)['Golf'][0] == '2'
+    # reset needs two presses
+    pg.click('#stats-reset')
+    assert stats_rows(pg)['Golf'][0] == '2', 'one press only arms the reset'
+    pg.click('#stats-reset')
+    pg.click('#stats-reset')
+    assert pg.evaluate("[...document.querySelectorAll('#stats-table tr')].map(r => r.children[1].textContent).slice(1).every(t => t === '–')")
+
+
 def check_game_menu_gives_up_focus(pg):
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
@@ -726,7 +785,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()

@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, recordResult, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -1353,6 +1353,27 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     assert.strictEqual(tripeaks.moves(state, { wrap: 1 }).length, legal, 'moves() lists every legal play');
   }
   console.log(`tripeaks playouts: ${moves} moves checked, ${wins} wins`);
+}
+
+/* Statistics */
+{
+  const won = (moves, deal) => ({ outcome: 'won', moves, deal });
+  const gave = deal => ({ outcome: 'abandoned', deal });
+  let stats = {};
+  stats = recordResult(stats, 'golf', won(40, 'a'));
+  same(stats.golf, { played: 1, won: 1, best: 40, streak: 1, bestStreak: 1, lastWon: 'a' });
+  assert.strictEqual(recordResult(stats, 'golf', won(40, 'a')), stats, 'the same deal is not counted twice');
+  assert.strictEqual(recordResult(stats, 'golf', gave('a')), stats, 'nor given up after it was won');
+  stats = recordResult(stats, 'golf', won(30, 'b'));
+  same([stats.golf.played, stats.golf.won, stats.golf.best, stats.golf.streak, stats.golf.bestStreak], [2, 2, 30, 2, 2]);
+  stats = recordResult(stats, 'golf', gave('c'));
+  same([stats.golf.played, stats.golf.won, stats.golf.best, stats.golf.streak, stats.golf.bestStreak], [3, 2, 30, 0, 2], 'giving up ends the streak');
+  stats = recordResult(stats, 'golf', won(50, 'd'));
+  same([stats.golf.best, stats.golf.streak, stats.golf.bestStreak], [30, 1, 2], 'a worse win does not replace the best');
+  stats = recordResult(stats, 'pyramid', gave('x'));
+  same(stats.pyramid, { played: 1, won: 0, best: null, streak: 0, bestStreak: 0, lastWon: null }, 'games are kept apart');
+  same(stats.golf.played, 4);
+  console.log('statistics ok');
 }
 
 // Every pile a deal creates has a slot to be drawn in, so no card can vanish from the table.

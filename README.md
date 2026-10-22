@@ -56,3 +56,7 @@ The page never scrolls or zooms; the cards shrink to fit (down to 22 px wide). O
 ## Updates
 
 The service worker answers from its cache and checks the server in the background (past the browser's own cache). When baize.html has changed, open pages show "A new version is ready" with a Reload button; the app also checks each time it comes back to the front. An installed iPad app is suspended rather than closed, so without this it would keep the old version indefinitely.
+
+## Statistics
+
+The Statistics entry in the menu shows, for each game, deals played and won, win rate, fewest moves in a win and the winning streak (current and best), kept in the browser's local storage. A deal counts when it is won, or when it is given up (New deal, or a change of options) after at least one move; a restart never counts, and a deal is never counted twice, however often it is undone, redone or reloaded. The bookkeeping is `recordResult` in the engine, tested in Node.
