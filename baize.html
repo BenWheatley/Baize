@@ -648,7 +648,15 @@ const CardSim = (() => {
 
   const SUITS = ['spades', 'hearts', 'diamonds', 'clubs'];
   const RANKS = Array.from({ length: 13 }, (_, i) => i + 1);
-  const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
+  /** Ids of the piles cards are built up on: f0, f1, ... */
+  const homeIds = count => Array.from({ length: count }, (_, i) => `f${i}`);
+  const FOUNDATIONS = homeIds(4);
+
+  const emptyPiles = ids => Object.fromEntries(ids.map(id => [id, []]));
+  const homeLayout = (ids, col, glyph) => ids.map((id, i) => ({ id, col: col + i, row: 0, glyph }));
+  const homeCount = (state, ids) => ids.reduce((n, id) => n + state.piles[id].length, 0);
+  const homeStatus = (state, ids, total) => ({ label: 'Home', value: `${homeCount(state, ids)} / ${total}` });
+  const allComplete = (state, ids) => ids.every(id => state.piles[id].length === 13);
 
   const isRed = suit => suit === 'hearts' || suit === 'diamonds';
   const top = pile => pile[pile.length - 1];
@@ -699,12 +707,27 @@ const CardSim = (() => {
   };
 
   /** The first foundation move available for the top card of a pile. */
-  function homeMove(rules, state, from) {
+  function homeMove(rules, state, from, homes = FOUNDATIONS) {
     const index = state.piles[from].length - 1;
     if (index < 0) return null;
-    for (const to of FOUNDATIONS) {
+    for (const to of homes) {
       const action = { type: 'move', from, index, to };
       if (rules.reduce(state, action).state) return action;
+    }
+    return null;
+  }
+
+  /** A double tap sends the top card of a pile home, if it can go. */
+  function sendHome(rules, state, pileId, index, homes = FOUNDATIONS) {
+    if (pileId === 'stock' || homes.includes(pileId)) return null;
+    return index === state.piles[pileId].length - 1 ? homeMove(rules, state, pileId, homes) : null;
+  }
+
+  /** The first card of the given piles that can go home: what Auto-finish plays. */
+  function firstHomeMove(rules, state, from, homes = FOUNDATIONS) {
+    for (const id of from) {
+      const action = homeMove(rules, state, id, homes);
+      if (action) return action;
     }
     return null;
   }
@@ -787,8 +810,7 @@ const CardSim = (() => {
 
     setup(_options, rng) {
       const deck = dealDeck(rng);
-      const piles = { stock: [], waste: [] };
-      for (const id of FOUNDATIONS) piles[id] = [];
+      const piles = { stock: [], waste: [], ...emptyPiles(FOUNDATIONS) };
       let next = 0;
       TABLEAU.forEach((id, i) => {
         piles[id] = deck.slice(next, next + i + 1).map((card, j, row) => ({ card, up: j === row.length - 1 }));
@@ -802,7 +824,7 @@ const CardSim = (() => {
       return [
         { id: 'stock', col: 0, row: 0, glyph: '↻' },
         { id: 'waste', col: 1, row: 0, fan: 'right', visible: options.draw },
-        ...FOUNDATIONS.map((id, i) => ({ id, col: 3 + i, row: 0, glyph: 'A' })),
+        ...homeLayout(FOUNDATIONS, 3, 'A'),
         ...TABLEAU.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 3.8, glyph: 'K' })),
       ];
     },
@@ -824,22 +846,14 @@ const CardSim = (() => {
       return state.piles.waste.length ? { type: 'recycle' } : null;
     },
 
-    onActivate(state, pileId, index) {
-      if (pileId === 'stock' || FOUNDATIONS.includes(pileId)) return null;
-      return index === state.piles[pileId].length - 1 ? homeMove(klondike, state, pileId) : null;
-    },
+    onActivate: (state, pileId, index) => sendHome(klondike, state, pileId, index),
 
     /** Offered only once nothing is hidden and the stock is spent: from there the game is won. */
     autoAction(state) {
       const { piles } = state;
       const settled = !piles.stock.length && !piles.waste.length &&
         TABLEAU.every(id => piles[id].every(entry => entry.up));
-      if (!settled) return null;
-      for (const id of TABLEAU) {
-        const action = homeMove(klondike, state, id);
-        if (action) return action;
-      }
-      return null;
+      return settled ? firstHomeMove(klondike, state, TABLEAU) : null;
     },
 
     /** Home first, then moves that turn a card over, then the rest; the stock last. */
@@ -888,10 +902,10 @@ const CardSim = (() => {
       return score;
     },
 
-    isWon: state => FOUNDATIONS.every(id => state.piles[id].length === 13),
+    isWon: state => allComplete(state, FOUNDATIONS),
 
     status: state => [
-      { label: 'Home', value: `${FOUNDATIONS.reduce((n, id) => n + state.piles[id].length, 0)} / 52` },
+      homeStatus(state, FOUNDATIONS, 52),
       { label: 'Stock', value: state.piles.stock.length },
     ],
   };
@@ -949,7 +963,7 @@ const CardSim = (() => {
 
     layout: () => [
       ...CELLS.map((id, i) => ({ id, col: i, row: 0 })),
-      ...FOUNDATIONS.map((id, i) => ({ id, col: 4 + i, row: 0, glyph: 'A' })),
+      ...homeLayout(FOUNDATIONS, 4, 'A'),
       ...COLUMNS.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 5.4 })),
     ],
 
@@ -979,12 +993,7 @@ const CardSim = (() => {
     autoAction(state) {
       const { piles } = state;
       const ordered = COLUMNS.every(id => piles[id].every((entry, i, col) => !i || col[i - 1].card.rank > entry.card.rank));
-      if (!ordered) return null;
-      for (const id of [...CELLS, ...COLUMNS]) {
-        const action = homeMove(freecell, state, id);
-        if (action) return action;
-      }
-      return null;
+      return ordered ? firstHomeMove(freecell, state, [...CELLS, ...COLUMNS]) : null;
     },
 
     /** Home first, then out of the cells, then between columns, and last into a free cell. */
@@ -1039,10 +1048,10 @@ const CardSim = (() => {
     /** The free cells are interchangeable, so a position names them in sorted order. */
     key: state => positionKey(state, CELLS),
 
-    isWon: state => FOUNDATIONS.every(id => state.piles[id].length === 13),
+    isWon: state => allComplete(state, FOUNDATIONS),
 
     status: state => [
-      { label: 'Home', value: `${FOUNDATIONS.reduce((n, id) => n + state.piles[id].length, 0)} / 52` },
+      homeStatus(state, FOUNDATIONS, 52),
       { label: 'Free cells', value: `${emptyIds(state.piles, CELLS).length} / ${CELLS.length}` },
     ],
   };
@@ -1276,7 +1285,7 @@ const CardSim = (() => {
      once. Clear eight runs to win. */
 
   const SPIDER_COLUMNS = Array.from({ length: 10 }, (_, i) => `t${i}`);
-  const SPIDER_HOME = Array.from({ length: 8 }, (_, i) => `f${i}`);
+  const SPIDER_HOME = homeIds(8);
 
   /** Face-up cards of one suit in descending rank, each one below the last. */
   const isSuitRun = entries => entries.every((entry, i) => entry.up && (i === 0 ||
@@ -1335,8 +1344,7 @@ const CardSim = (() => {
     setup(options, rng) {
       const suits = SUITS.slice(0, options.suits);
       const deck = dealDeck(rng, suits, 8 / suits.length);
-      const piles = {};
-      for (const id of SPIDER_HOME) piles[id] = [];
+      const piles = emptyPiles(SPIDER_HOME);
       let next = 0;
       SPIDER_COLUMNS.forEach((id, i) => {
         const count = i < 4 ? 6 : 5;
@@ -1349,7 +1357,7 @@ const CardSim = (() => {
 
     layout: () => [
       { id: 'stock', col: 0, row: 0 },
-      ...SPIDER_HOME.map((id, i) => ({ id, col: 2 + i, row: 0 })),
+      ...homeLayout(SPIDER_HOME, 2),
       ...SPIDER_COLUMNS.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 5.5 })),
     ],
 
@@ -1422,7 +1430,7 @@ const CardSim = (() => {
       return score - piles.stock.length / 10;
     },
 
-    isWon: state => SPIDER_HOME.every(id => state.piles[id].length === 13),
+    isWon: state => allComplete(state, SPIDER_HOME),
 
     status: state => [
       { label: 'Runs', value: `${SPIDER_HOME.filter(id => state.piles[id].length).length} / ${SPIDER_HOME.length}` },
@@ -1436,7 +1444,7 @@ const CardSim = (() => {
      there is no redeal. */
 
   const THIEF_COLUMNS = Array.from({ length: 10 }, (_, i) => `t${i}`);
-  const THIEF_HOME = Array.from({ length: 8 }, (_, i) => `f${i}`);
+  const THIEF_HOME = homeIds(8);
   const thiefFits = (landing, lead) => !landing || (landing.card.suit === lead.suit && landing.card.rank === lead.rank + 1);
 
   const thievesActions = {
@@ -1464,16 +1472,6 @@ const CardSim = (() => {
     },
   };
 
-  const thiefHome = (state, from) => {
-    const index = state.piles[from].length - 1;
-    if (index < 0) return null;
-    for (const to of THIEF_HOME) {
-      const action = { type: 'move', from, index, to };
-      if (forty.reduce(state, action).state) return action;
-    }
-    return null;
-  };
-
   const forty = {
     id: 'forty',
     name: 'Forty Thieves',
@@ -1483,8 +1481,7 @@ const CardSim = (() => {
 
     setup(_options, rng) {
       const deck = dealDeck(rng, SUITS, 2);
-      const piles = { stock: deck.slice(40).map(faceDown), waste: [] };
-      for (const id of THIEF_HOME) piles[id] = [];
+      const piles = { stock: deck.slice(40).map(faceDown), waste: [], ...emptyPiles(THIEF_HOME) };
       THIEF_COLUMNS.forEach((id, i) => { piles[id] = deck.slice(i * 4, i * 4 + 4).map(card => ({ card, up: true })); });
       return { piles };
     },
@@ -1492,7 +1489,7 @@ const CardSim = (() => {
     layout: () => [
       { id: 'stock', col: 0, row: 0 },
       { id: 'waste', col: 1, row: 0 },
-      ...THIEF_HOME.map((id, i) => ({ id, col: 2 + i, row: 0, glyph: 'A' })),
+      ...homeLayout(THIEF_HOME, 2, 'A'),
       ...THIEF_COLUMNS.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 5.5 })),
     ],
 
@@ -1521,8 +1518,7 @@ const CardSim = (() => {
     },
 
     onTap: (state, pileId) => (pileId === 'stock' && state.piles.stock.length ? { type: 'draw' } : null),
-    onActivate: (state, pileId, index) => (index === state.piles[pileId].length - 1 && pileId !== 'stock' && !THIEF_HOME.includes(pileId)
-      ? thiefHome(state, pileId) : null),
+    onActivate: (state, pileId, index) => sendHome(forty, state, pileId, index, THIEF_HOME),
     autoAction: () => null,
 
     /** Home first, then column to column, then from the waste, and the stock last. */
@@ -1562,10 +1558,10 @@ const CardSim = (() => {
       }
       return score - piles.stock.length / 8;
     },
-    isWon: state => THIEF_HOME.every(id => state.piles[id].length === 13),
+    isWon: state => allComplete(state, THIEF_HOME),
 
     status: state => [
-      { label: 'Home', value: `${THIEF_HOME.reduce((n, id) => n + state.piles[id].length, 0)} / 104` },
+      homeStatus(state, THIEF_HOME, 104),
       { label: 'Stock', value: state.piles.stock.length },
     ],
   };
@@ -1682,8 +1678,7 @@ const CardSim = (() => {
 
     setup(_options, rng) {
       const deck = dealDeck(rng);
-      const piles = {};
-      for (const id of FOUNDATIONS) piles[id] = [];
+      const piles = emptyPiles(FOUNDATIONS);
       let next = 0;
       TABLEAU.forEach((id, i) => {
         const count = i === 0 ? 1 : i + 5;                    // i cards face down, then five face up
@@ -1695,7 +1690,7 @@ const CardSim = (() => {
 
     layout() {
       return [
-        ...FOUNDATIONS.map((id, i) => ({ id, col: 3 + i, row: 0, glyph: 'A' })),
+        ...homeLayout(FOUNDATIONS, 3, 'A'),
         ...TABLEAU.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 4.6, glyph: 'K' })),
       ];
     },
@@ -1712,25 +1707,17 @@ const CardSim = (() => {
     reduce: (state, action, options) => reduceWith(yukonActions, state, action, options),
     onTap: () => null,
 
-    onActivate(state, pileId, index) {
-      if (FOUNDATIONS.includes(pileId)) return null;
-      return index === state.piles[pileId].length - 1 ? homeMove(yukon, state, pileId) : null;
-    },
+    onActivate: (state, pileId, index) => sendHome(yukon, state, pileId, index),
 
     /** Offered once every column is a run: from there the game is won. */
     autoAction(state) {
-      if (!TABLEAU.every(id => isRun(state.piles[id]))) return null;
-      for (const id of TABLEAU) {
-        const action = homeMove(yukon, state, id);
-        if (action) return action;
-      }
-      return null;
+      return TABLEAU.every(id => isRun(state.piles[id])) ? firstHomeMove(yukon, state, TABLEAU) : null;
     },
 
-    isWon: state => FOUNDATIONS.every(id => state.piles[id].length === 13),
+    isWon: state => allComplete(state, FOUNDATIONS),
 
     status: state => [
-      { label: 'Home', value: `${FOUNDATIONS.reduce((n, id) => n + state.piles[id].length, 0)} / 52` },
+      homeStatus(state, FOUNDATIONS, 52),
       { label: 'Hidden', value: TABLEAU.reduce((n, id) => n + state.piles[id].filter(entry => !entry.up).length, 0) },
     ],
   };
