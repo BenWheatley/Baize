@@ -686,6 +686,12 @@ const CardSim = (() => {
   /** The first of the foundations `homes` that `card` can go on, if any. */
   const homeTarget = (piles, homes, card) => homes.find(id => fitsFoundation(top(piles[id]), card));
 
+  /** Is `card` one rank above or below `showing` (a king and an ace too, when `wrap`)? Golf and TriPeaks. */
+  const nextInRank = (card, showing, wrap) => {
+    const gap = Math.abs(card.rank - showing.rank);
+    return gap === 1 || (wrap && gap === 12);
+  };
+
   /** Can `lead` go on a non-empty tableau column whose top entry is `landing`? */
   const buildsDown = (landing, lead) =>
     landing.up && isRed(landing.card.suit) !== isRed(lead.suit) && landing.card.rank === lead.rank + 1;
@@ -1087,8 +1093,7 @@ const CardSim = (() => {
       if (!TABLEAU.includes(from)) return 'Only a column card can be played';
       const card = top(piles[from])?.card;
       if (!card) return 'That column is empty';
-      const gap = Math.abs(card.rank - top(piles.waste).card.rank);
-      if (gap !== 1 && !(options.wrap && gap === 12)) return 'That card is not next in rank to the one showing';
+      if (!nextInRank(card, top(piles.waste).card, options.wrap)) return 'That card is not next in rank to the one showing';
       piles.waste.push(piles[from].pop());
     },
   };
@@ -1132,10 +1137,9 @@ const CardSim = (() => {
 
     moves(state, options) {
       const { piles } = state;
-      const showing = top(piles.waste).card.rank;
-      const plays = TABLEAU.filter(id => piles[id].length).map(id => ({ id, gap: Math.abs(top(piles[id]).card.rank - showing) }))
-        .filter(({ gap }) => gap === 1 || (options.wrap && gap === 12))
-        .map(({ id }) => ({ type: 'play', from: id }));
+      const showing = top(piles.waste).card;
+      const plays = TABLEAU.filter(id => piles[id].length && nextInRank(top(piles[id]).card, showing, options.wrap))
+        .map(id => ({ type: 'play', from: id }));
       return piles.stock.length ? [...plays, { type: 'draw' }] : plays;
     },
 
@@ -1756,8 +1760,7 @@ const CardSim = (() => {
       if (!PEAK_IDS.includes(from)) return 'Only a card in the peaks can be played';
       if (!piles[from].length) return 'There is no card there';
       if (!isFree(piles, from)) return 'That card is still covered';
-      const gap = Math.abs(top(piles[from]).card.rank - top(piles.waste).card.rank);
-      if (gap !== 1 && !(options.wrap && gap === 12)) return 'That card is not next in rank to the one showing';
+      if (!nextInRank(top(piles[from]).card, top(piles.waste).card, options.wrap)) return 'That card is not next in rank to the one showing';
       piles.waste.push(piles[from].pop());
     },
   };
@@ -1799,9 +1802,8 @@ const CardSim = (() => {
 
     moves(state, options) {
       const { piles } = state;
-      const showing = top(piles.waste).card.rank;
-      const plays = PEAK_IDS.filter(id => isFree(piles, id))
-        .filter(id => { const gap = Math.abs(top(piles[id]).card.rank - showing); return gap === 1 || (options.wrap && gap === 12); })
+      const showing = top(piles.waste).card;
+      const plays = PEAK_IDS.filter(id => isFree(piles, id) && nextInRank(top(piles[id]).card, showing, options.wrap))
         .map(id => ({ type: 'play', from: id }));
       return piles.stock.length ? [...plays, { type: 'draw' }] : plays;
     },
