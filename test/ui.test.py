@@ -48,6 +48,13 @@ def shift(pg, down):
     pg.wait_for_timeout(120)
 
 
+def tap(pg, selector, where=0.5, wait=300):
+    """Click the middle of an element, `where` of the way down it, and let the move settle."""
+    b = pg.locator(selector).bounding_box()
+    pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] * where)
+    pg.wait_for_timeout(wait)
+
+
 def wait_for_deal(pg):
     """Wait until a redeal (cards gathered, then dealt out) has finished."""
     pg.wait_for_timeout(100)
@@ -273,20 +280,18 @@ def check_pyramid(pg):
     assert lit(pg) == sorted([FACE_DOWN, 'Ace of spades', 'King of hearts', 'Queen of spades']), lit(pg)
     shift(pg, False)
 
-    def tap(label):
-        b = pg.locator(f'.card[aria-label="{label}"]').bounding_box()
-        pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] / 2)
-        pg.wait_for_timeout(250)
+    def tap_label(label):
+        tap(pg, f'.card[aria-label="{label}"]', wait=250)
 
-    tap('Queen of spades')
+    tap_label('Queen of spades')
     assert pg.locator('.card.selected').count() == 1, 'the first card of a pair is selected'
-    tap('Ace of spades')
+    tap_label('Ace of spades')
     assert 'Left 26 / 28' in status(pg) and 'Moves 1' in status(pg), status(pg)
     pg.wait_for_timeout(300)
     out = pg.locator('.slot[data-pile=out]').bounding_box()
     gone = pg.locator('.card[aria-label="Ace of spades"]').bounding_box()
     assert abs(gone['x'] - out['x']) < 3 and abs(gone['y'] - out['y']) < 3, 'removed cards go to the removed pile'
-    tap('King of hearts')
+    tap_label('King of hearts')
     assert 'Left 25 / 28' in status(pg), status(pg)
     pg.click('#undo')
     pg.click('#undo')
@@ -299,8 +304,8 @@ def check_pyramid(pg):
     bottom = [c['label'] for c in cards if abs(c['y'] - free_row) < 3 and c['label'] not in
               ('Queen of spades', 'Ace of spades', 'King of hearts')][:2]
     assert len(bottom) == 2, bottom
-    tap(bottom[0])
-    tap(bottom[1])
+    tap_label(bottom[0])
+    tap_label(bottom[1])
     assert 'Moves 0' in status(pg) and pg.locator('.card.selected').count() == 1, status(pg)
     # the stock draws
     box = pg.locator('.slot[data-pile=stock]').bounding_box()
@@ -366,14 +371,12 @@ def check_spider(pg):
     assert pg.locator('.card.hint').count() > 0, 'some card can move'
     shift(pg, False)
 
-    def tap(card_id):
-        b = pg.locator(f'.card[data-id="{card_id}"]').bounding_box()
-        pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] * 0.2)
-        pg.wait_for_timeout(300)
+    def tap_card(card_id, where=0.2):
+        tap(pg, f'.card[data-id="{card_id}"]', where)
 
-    tap('s6.2')
+    tap_card('s6.2')
     assert pg.locator('.card.selected').count() == 1, 'the first tap selects'
-    tap('s7.2')
+    tap_card('s7.2')
     assert 'Moves 1' in status(pg), status(pg)
     pg.click('#undo')
     pg.wait_for_timeout(300)
@@ -402,14 +405,12 @@ def check_yukon(pg):
         return null; }""")
     assert move and move['size'] > 1 and move['landing'], move
 
-    def tap(card_id, where=0.2):
-        b = pg.locator(f'.card[data-id="{card_id}"]').bounding_box()
-        pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] * where)
-        pg.wait_for_timeout(300)
+    def tap_card(card_id, where=0.2):
+        tap(pg, f'.card[data-id="{card_id}"]', where)
 
-    tap(move['lead'])
+    tap_card(move['lead'])
     assert pg.locator('.card.selected').count() == move['size'], 'the whole stack is selected'
-    tap(move['landing'], 0.5)
+    tap_card(move['landing'], 0.5)
     assert 'Moves 1' in status(pg), status(pg)
     pg.click('#undo')
     pg.wait_for_timeout(300)
@@ -450,13 +451,11 @@ def check_forty_thieves(pg):
     assert 'Home 0 / 104' in status(pg) and 'Stock 64' in status(pg), status(pg)
     assert pg.locator('.card').count() == 104
 
-    def tap(card_id):
-        b = pg.locator(f'.card[data-id="{card_id}"]').bounding_box()
-        pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] * 0.2)
-        pg.wait_for_timeout(300)
+    def tap_card(card_id, where=0.2):
+        tap(pg, f'.card[data-id="{card_id}"]', where)
 
-    tap('h2.1')
-    tap('h3.1')
+    tap_card('h2.1')
+    tap_card('h3.1')
     assert 'Moves 1' in status(pg), status(pg)
     pg.click('#undo')
     pg.wait_for_timeout(300)
