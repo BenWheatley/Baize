@@ -536,6 +536,8 @@ html.icons #options .menu-item .icon { font-size: 20px; }
        canSolve(options)                       -> boolean (optional): can solve() find winnable deals under these options?
                                                  A ruleset that says so also lists WINNABLE_OPTION among its options.
        help                                    -> a few sentences of rules, shown in the rules card
+     A ruleset is written with defineRules(), which supplies options [], canPickUp (never), onActivate (null) and
+     autoAction (null) for the games that do not need them.
      Dragging produces { type: 'move', from, index, to }; any other action type reaches
      the ruleset through onTap or onActivate. Hanabi would add per-player hand piles,
      a faceUp that hides the viewer's own hand, and play, discard and hint actions.
@@ -766,6 +768,15 @@ const CardSim = (() => {
     if (TABLEAU.includes(from) && top(source)) top(source).up = true;
   }
 
+  /** Fills in what most rulesets leave alone: no drags, no double tap, no Auto-finish, no options. */
+  const defineRules = rules => ({
+    options: [],
+    canPickUp: () => false,
+    onActivate: () => null,
+    autoAction: () => null,
+    ...rules,
+  });
+
   /* ---------- Klondike ---------- */
 
   const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -796,7 +807,7 @@ const CardSim = (() => {
     }),
   };
 
-  const klondike = {
+  const klondike = defineRules({
     id: 'klondike',
     name: 'Klondike',
     showsMovable: true,
@@ -908,7 +919,7 @@ const CardSim = (() => {
       homeStatus(state, FOUNDATIONS, 52),
       { label: 'Stock', value: state.piles.stock.length },
     ],
-  };
+  });
 
   /* ---------- FreeCell ----------
      Everything is dealt face up. Four free cells each hold one card. A run of cards may move
@@ -946,7 +957,7 @@ const CardSim = (() => {
     },
   };
 
-  const freecell = {
+  const freecell = defineRules({
     id: 'freecell',
     name: 'FreeCell',
     showsMovable: true,
@@ -1054,7 +1065,7 @@ const CardSim = (() => {
       homeStatus(state, FOUNDATIONS, 52),
       { label: 'Free cells', value: `${emptyIds(state.piles, CELLS).length} / ${CELLS.length}` },
     ],
-  };
+  });
 
   /* ---------- Golf ----------
      Seven columns of five face-up cards, one card showing on the waste. Tap the last card of
@@ -1079,7 +1090,7 @@ const CardSim = (() => {
     },
   };
 
-  const golf = {
+  const golf = defineRules({
     id: 'golf',
     name: 'Golf',
     showsMovable: true,
@@ -1107,7 +1118,6 @@ const CardSim = (() => {
     ],
 
     faceUp: (_state, _pileId, entry) => entry.up,
-    canPickUp: () => false,
     reduce: (state, action, options) => reduceWith(golfActions, state, action, options),
 
     onTap(state, pileId, index) {
@@ -1116,8 +1126,6 @@ const CardSim = (() => {
       return last ? { type: 'play', from: pileId } : null;
     },
 
-    onActivate: () => null,
-    autoAction: () => null,
 
     moves(state, options) {
       const { piles } = state;
@@ -1137,7 +1145,7 @@ const CardSim = (() => {
       { label: 'Left', value: `${TABLEAU.reduce((n, id) => n + state.piles[id].length, 0)} / 35` },
       { label: 'Stock', value: state.piles.stock.length },
     ],
-  };
+  });
 
   /* ---------- Pyramid ----------
      28 cards in seven overlapping rows. A card is free once both cards that overlap it are
@@ -1186,7 +1194,7 @@ const CardSim = (() => {
     },
   };
 
-  const pyramid = {
+  const pyramid = defineRules({
     id: 'pyramid',
     name: 'Pyramid',
     showsMovable: true,
@@ -1213,7 +1221,6 @@ const CardSim = (() => {
     ],
 
     faceUp: (_state, _pileId, entry) => entry.up,
-    canPickUp: () => false,
     canSelect: (state, pileId, index) => takeable(state.piles).includes(pileId) && index === state.piles[pileId].length - 1,
     reduce: (state, action, options) => reduceWith(pyramidActions, state, action, options),
 
@@ -1228,8 +1235,6 @@ const CardSim = (() => {
       return selection && selection.pile !== pileId ? { type: 'take', from: [selection.pile, pileId] } : null;
     },
 
-    onActivate: () => null,
-    autoAction: () => null,
 
     /** Kings, then pairs that add up to 13, then drawing and turning the waste over. */
     moves(state) {
@@ -1275,7 +1280,7 @@ const CardSim = (() => {
       { label: 'Stock', value: state.piles.stock.length },
       { label: 'Redeals', value: options.redeals >= UNLIMITED_REDEALS ? 'unlimited' : Math.max(0, options.redeals - state.redeals) },
     ],
-  };
+  });
 
   /* ---------- Spider ----------
      Two decks (104 cards) in one, two or four suits, in ten columns. A card may go on any
@@ -1328,7 +1333,7 @@ const CardSim = (() => {
     },
   };
 
-  const spider = {
+  const spider = defineRules({
     id: 'spider',
     name: 'Spider',
     showsMovable: true,
@@ -1386,8 +1391,6 @@ const CardSim = (() => {
       return ids;
     },
     onTap: (state, pileId) => (pileId === 'stock' && state.piles.stock.length >= SPIDER_COLUMNS.length ? { type: 'deal' } : null),
-    onActivate: () => null,
-    autoAction: () => null,
 
     /** Moves that build within a suit first, then moves that turn a card over, then the rest; the deal last. */
     moves(state, options) {
@@ -1436,7 +1439,7 @@ const CardSim = (() => {
       { label: 'Runs', value: `${SPIDER_HOME.filter(id => state.piles[id].length).length} / ${SPIDER_HOME.length}` },
       { label: 'Deals left', value: state.piles.stock.length / SPIDER_COLUMNS.length },
     ],
-  };
+  });
 
   /* ---------- Forty Thieves ----------
      Two decks. Ten columns of four, all face up; eight foundations built up by suit from the ace.
@@ -1472,12 +1475,11 @@ const CardSim = (() => {
     },
   };
 
-  const forty = {
+  const forty = defineRules({
     id: 'forty',
     name: 'Forty Thieves',
     showsMovable: true,
     help: 'Build the eight foundations from ace to king in suit, using two decks. Build columns downward in suit, moving one card at a time; any card may go to an empty column. Tap the stock to turn a card onto the waste, whose top card is in play. There is no redeal. Tap a card and then where it should go, drag it, or double-tap it to send it home.',
-    options: [],
 
     setup(_options, rng) {
       const deck = dealDeck(rng, SUITS, 2);
@@ -1519,7 +1521,6 @@ const CardSim = (() => {
 
     onTap: (state, pileId) => (pileId === 'stock' && state.piles.stock.length ? { type: 'draw' } : null),
     onActivate: (state, pileId, index) => sendHome(forty, state, pileId, index, THIEF_HOME),
-    autoAction: () => null,
 
     /** Home first, then column to column, then from the waste, and the stock last. */
     moves(state) {
@@ -1564,7 +1565,7 @@ const CardSim = (() => {
       homeStatus(state, THIEF_HOME, 104),
       { label: 'Stock', value: state.piles.stock.length },
     ],
-  };
+  });
 
   /* ---------- Solving ----------
      A depth-first search over a ruleset's own candidate moves, remembering every position it has
@@ -1668,13 +1669,12 @@ const CardSim = (() => {
     }),
   };
 
-  const yukon = {
+  const yukon = defineRules({
     id: 'yukon',
     name: 'Yukon',
     showsMovable: true,
     help: 'Build the four foundations from ace to king in suit. Build columns downward in alternating colours, and move only a king to an empty column. There is no stock: any face-up card can move, together with all the cards on top of it, and only the card that lands has to fit.',
 
-    options: [],
 
     setup(_options, rng) {
       const deck = dealDeck(rng);
@@ -1720,7 +1720,7 @@ const CardSim = (() => {
       homeStatus(state, FOUNDATIONS, 52),
       { label: 'Hidden', value: TABLEAU.reduce((n, id) => n + state.piles[id].filter(entry => !entry.up).length, 0) },
     ],
-  };
+  });
 
   /* ---------- TriPeaks ----------
      28 cards in three overlapping peaks over a row of ten, one card showing on the waste. A card is
@@ -1759,7 +1759,7 @@ const CardSim = (() => {
     },
   };
 
-  const tripeaks = {
+  const tripeaks = defineRules({
     id: 'tripeaks',
     name: 'TriPeaks',
     showsMovable: true,
@@ -1786,7 +1786,6 @@ const CardSim = (() => {
 
     /** A peak card shows its face once nothing overlaps it. */
     faceUp: (state, pileId, entry) => entry.up || (PEAK_IDS.includes(pileId) && isFree(state.piles, pileId)),
-    canPickUp: () => false,
     reduce: (state, action, options) => reduceWith(tripeaksActions, state, action, options),
 
     onTap(state, pileId) {
@@ -1794,8 +1793,6 @@ const CardSim = (() => {
       return PEAK_IDS.includes(pileId) ? { type: 'play', from: pileId } : null;
     },
 
-    onActivate: () => null,
-    autoAction: () => null,
 
     moves(state, options) {
       const { piles } = state;
@@ -1815,7 +1812,7 @@ const CardSim = (() => {
       { label: 'Left', value: `${peakCardsLeft(state.piles)} / ${PEAK_IDS.length}` },
       { label: 'Stock', value: state.piles.stock.length },
     ],
-  };
+  });
 
   /* ---------- Statistics ----------
      One record per game: deals played, deals won, the fewest moves in a win, and the winning streak.
