@@ -2,6 +2,6 @@
   "name": "baize",
   "private": true,
   "scripts": {
-    "test": "node test/engine.test.js"
+    "test": "node test/engine.test.js && node test/golden.test.js"
   }
 }
