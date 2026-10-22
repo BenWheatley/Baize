@@ -709,6 +709,40 @@ const CardSim = (() => {
     return null;
   }
 
+  /** The piles and cards a drag names, or an error. `blocked(from, to)` holds a game's own bans on top of the common checks. */
+  function lift(piles, { from, index, to }, blocked) {
+    if (!Object.hasOwn(piles, from) || !Object.hasOwn(piles, to)) return { error: 'Unknown pile' };
+    if (from === to || blocked(from, to)) return { error: 'Cards cannot move there' };
+    const source = piles[from];
+    if (!Number.isInteger(index) || index < 0 || index >= source.length) return { error: 'No such card' };
+    return { source, target: piles[to], moving: source.slice(index) };
+  }
+
+  /** A move in the Klondike family: a run (or a stack) goes to a foundation, one card at a time, or to a column
+      that it builds down on; a king goes to an empty column. `liftError(moving, from)` says what may be picked up. */
+  function columnMove(piles, action, { blocked, liftError }) {
+    const lifted = lift(piles, action, blocked);
+    if (lifted.error) return lifted.error;
+    const { source, target, moving } = lifted;
+    const { from, index, to } = action;
+    const lead = moving[0].card;
+    const landing = top(target);
+    const cannotLift = liftError(moving, from);
+    if (cannotLift) return cannotLift;
+
+    if (FOUNDATIONS.includes(to)) {
+      if (FOUNDATIONS.includes(from) || moving.length > 1) return 'Only one card can go to a foundation';
+      if (!fitsFoundation(landing, lead)) return 'That card does not build on this foundation';
+    } else {
+      const fits = landing ? buildsDown(landing, lead) : lead.rank === 13;
+      if (!fits) return 'That card does not build on this column';
+    }
+
+    source.splice(index);
+    target.push(...moving);
+    if (TABLEAU.includes(from) && top(source)) top(source).up = true;
+  }
+
   /* ---------- Klondike ---------- */
 
   const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -729,31 +763,14 @@ const CardSim = (() => {
       piles.waste = [];
     },
 
-    move(piles, { from, index, to }) {
-      if (!Object.hasOwn(piles, from) || !Object.hasOwn(piles, to)) return 'Unknown pile';
-      if (from === to || from === 'stock' || to === 'stock' || to === 'waste') return 'Cards cannot move there';
-      const source = piles[from];
-      const target = piles[to];
-      if (!Number.isInteger(index) || index < 0 || index >= source.length) return 'No such card';
-
-      const moving = source.slice(index);
-      const lead = moving[0].card;
-      const landing = top(target);
-      if (!isRun(moving)) return 'Only a face-up run can move';
-      if (!TABLEAU.includes(from) && moving.length > 1) return 'Only one card can leave here at a time';
-
-      if (FOUNDATIONS.includes(to)) {
-        if (FOUNDATIONS.includes(from) || moving.length > 1) return 'Only one card can go to a foundation';
-        if (!fitsFoundation(landing, lead)) return 'That card does not build on this foundation';
-      } else {
-        const fits = landing ? buildsDown(landing, lead) : lead.rank === 13;
-        if (!fits) return 'That card does not build on this column';
-      }
-
-      source.splice(index);
-      target.push(...moving);
-      if (TABLEAU.includes(from) && top(source)) top(source).up = true;
-    },
+    move: (piles, action) => columnMove(piles, action, {
+      blocked: (from, to) => from === 'stock' || to === 'stock' || to === 'waste',
+      liftError: (moving, from) => {
+        if (!isRun(moving)) return 'Only a face-up run can move';
+        if (!TABLEAU.includes(from) && moving.length > 1) return 'Only one card can leave here at a time';
+        return null;
+      },
+    }),
   };
 
   const klondike = {
@@ -890,14 +907,11 @@ const CardSim = (() => {
   const emptyIds = (piles, ids) => ids.filter(id => !piles[id].length);
 
   const freecellActions = {
-    move(piles, { from, index, to }) {
-      if (!Object.hasOwn(piles, from) || !Object.hasOwn(piles, to)) return 'Unknown pile';
-      if (from === to || FOUNDATIONS.includes(from)) return 'Cards cannot move there';
-      const source = piles[from];
-      const target = piles[to];
-      if (!Number.isInteger(index) || index < 0 || index >= source.length) return 'No such card';
-
-      const moving = source.slice(index);
+    move(piles, action) {
+      const lifted = lift(piles, action, from => FOUNDATIONS.includes(from));
+      if (lifted.error) return lifted.error;
+      const { source, target, moving } = lifted;
+      const { index, to } = action;
       const lead = moving[0].card;
       if (!isRun(moving)) return 'Only a run can move';
 
@@ -1648,31 +1662,14 @@ const CardSim = (() => {
      form a run; only the card that lands has to fit. */
 
   const yukonActions = {
-    move(piles, { from, index, to }) {
-      if (!Object.hasOwn(piles, from) || !Object.hasOwn(piles, to)) return 'Unknown pile';
-      if (from === to) return 'Cards cannot move there';
-      const source = piles[from];
-      const target = piles[to];
-      if (!Number.isInteger(index) || index < 0 || index >= source.length) return 'No such card';
-
-      const moving = source.slice(index);
-      const lead = moving[0].card;
-      const landing = top(target);
-      if (!moving[0].up) return 'That card is face down';
-      if (FOUNDATIONS.includes(from) && moving.length > 1) return 'Only one card can leave a foundation at a time';
-
-      if (FOUNDATIONS.includes(to)) {
-        if (FOUNDATIONS.includes(from) || moving.length > 1) return 'Only one card can go to a foundation';
-        if (!fitsFoundation(landing, lead)) return 'That card does not build on this foundation';
-      } else {
-        const fits = landing ? buildsDown(landing, lead) : lead.rank === 13;
-        if (!fits) return 'That card does not build on this column';
-      }
-
-      source.splice(index);
-      target.push(...moving);
-      if (TABLEAU.includes(from) && top(source)) top(source).up = true;
-    },
+    move: (piles, action) => columnMove(piles, action, {
+      blocked: () => false,
+      liftError: (moving, from) => {
+        if (!moving[0].up) return 'That card is face down';
+        if (FOUNDATIONS.includes(from) && moving.length > 1) return 'Only one card can leave a foundation at a time';
+        return null;
+      },
+    }),
   };
 
   const yukon = {
