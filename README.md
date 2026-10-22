@@ -60,3 +60,7 @@ The service worker answers from its cache and checks the server in the backgroun
 ## Statistics
 
 The Statistics entry in the menu shows, for each game, deals played and won, win rate, fewest moves in a win and the winning streak (current and best), kept in the browser's local storage. A deal counts when it is won, or when it is given up (New deal, or a change of options) after at least one move; a restart never counts, and a deal is never counted twice, however often it is undone, redone or reloaded. The bookkeeping is `recordResult` in the engine, tested in Node.
+
+## Hints
+
+Hint (in the menu, or the H key) runs the solver from the current position on a worker, 12,000 positions at most, with a Cancel button if it takes a while. It sees the face-down cards too, so it is not a fair hint, only a useful one. If it finds a win, the first move of that line is lit (a ring on the cards to move, dashes where they go) and the message says a win is still possible. If not, the ruleset's own first-choice move is lit and the message says no win was found. Games whose ruleset has no `moves()` (Yukon) have no Hint.

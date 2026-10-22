@@ -189,7 +189,7 @@ def check_tap_moves_are_animated(pg):
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.2)
     pg.wait_for_timeout(700)
     track = pg.evaluate("window.__track")
-    far = lambda s, t: abs(s['x'] - t['x']) + abs(s['y'] - t['y']) > 3        # the last pixels of an ease-out do not count
+    far = lambda s, t: abs(s['x'] - t['x']) + abs(s['y'] - t['y']) > 8        # the last pixels of an ease-out do not count
     moving = [s for s in track if far(s, track[0]) and far(s, track[-1])]
     assert len(moving) >= 3, f'the card should be seen part-way along its path: {len(moving)} samples'
     assert all(s['z'] >= 60000 for s in moving), ('it flies above the other cards', [s for s in moving if s['z'] < 60000][:3], track[:3])
@@ -762,6 +762,52 @@ def check_statistics(pg):
     assert pg.evaluate("[...document.querySelectorAll('#stats-table tr')].map(r => r.children[1].textContent).slice(1).every(t => t === '–')")
 
 
+def check_hint(pg):
+    """Hint lights the first move of a winning line, which really is playable and really wins."""
+    saved = pg.evaluate("""() => {
+        const options = { wrap: 1, winnable: 0 }, rules = CardSim.golf;
+        for (let seed = 0; seed < 200; seed++) {
+            const actions = CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 });
+            if (actions) return { seed, options, actions };
+        }
+        return null; }""")
+    pg.evaluate("""s => localStorage.setItem('baize.v2', JSON.stringify({ current: 'golf', games: { golf: { seed: s.seed, options: s.options, actions: [] } } }))""", saved)
+    pg.reload()
+    pg.wait_for_timeout(700)
+    assert pg.locator('.card.suggest').count() == 0
+    pg.click('#options-btn')
+    pg.click('#hint-btn')
+    pg.wait_for_selector('.card.suggest, .slot.suggest-to', timeout=20000)
+    assert 'win is still possible' in pg.locator('#toast').inner_text(), pg.locator('#toast').inner_text()
+    first = saved['actions'][0]
+    if first['type'] == 'play':
+        lit_ids = pg.evaluate("[...document.querySelectorAll('.card.suggest')].map(c => c.dataset.id)")
+        assert len(lit_ids) == 1, lit_ids
+        b = pg.locator('.card.suggest').bounding_box()
+        pg.mouse.click(b['x'] + b['width'] / 2, b['y'] + b['height'] * 0.2)
+    else:
+        assert pg.locator('.slot[data-pile="stock"].suggest-to, .card.suggest').count() >= 1
+        box = pg.locator('.slot[data-pile="stock"]').bounding_box()
+        pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    pg.wait_for_timeout(400)
+    assert 'Moves 1' in status(pg), status(pg)
+    assert pg.locator('.card.suggest').count() == 0 and pg.locator('.suggest-to').count() == 0, 'the hint goes once it is taken'
+    # the H key does the same, and a game with no solver has no Hint
+    pg.keyboard.press('h')
+    pg.wait_for_selector('.card.suggest, .slot.suggest-to', timeout=20000)
+    start(pg, 'yukon')
+    pg.click('#options-btn')
+    assert pg.locator('#hint-btn').is_hidden(), 'Yukon cannot be searched'
+    pg.keyboard.press('Escape')
+    # a position the solver cannot win still gets a plausible move, and says so
+    start(pg, 'forty')
+    pg.keyboard.press('h')
+    pg.wait_for_selector('#toast:not([hidden])', timeout=30000)
+    text = pg.locator('#toast').inner_text()
+    assert 'win is still possible' in text or 'No win found' in text, text
+    assert pg.locator('.card.suggest, .slot.suggest-to').count() >= 1
+
+
 def check_game_menu_gives_up_focus(pg):
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
@@ -785,7 +831,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
