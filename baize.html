@@ -683,6 +683,9 @@ const CardSim = (() => {
     ? landing.card.suit === lead.suit && lead.rank === landing.card.rank + 1
     : lead.rank === 1;
 
+  /** The first of the foundations `homes` that `card` can go on, if any. */
+  const homeTarget = (piles, homes, card) => homes.find(id => fitsFoundation(top(piles[id]), card));
+
   /** Can `lead` go on a non-empty tableau column whose top entry is `landing`? */
   const buildsDown = (landing, lead) =>
     landing.up && isRed(landing.card.suit) !== isRed(lead.suit) && landing.card.rank === lead.rank + 1;
@@ -873,7 +876,7 @@ const CardSim = (() => {
       const home = [], flips = [], others = [];
       const goHome = (from) => {
         const entry = top(piles[from]);
-        const to = entry && FOUNDATIONS.find(id => fitsFoundation(top(piles[id]), entry.card));
+        const to = entry && homeTarget(piles, FOUNDATIONS, entry.card);
         if (to) home.push({ type: 'move', from, index: piles[from].length - 1, to });
       };
       for (const from of [...TABLEAU, 'waste']) goHome(from);
@@ -1016,7 +1019,7 @@ const CardSim = (() => {
         const entry = top(piles[from]);
         if (!entry) continue;
         const index = piles[from].length - 1;
-        const to = FOUNDATIONS.find(id => fitsFoundation(top(piles[id]), entry.card));
+        const to = homeTarget(piles, FOUNDATIONS, entry.card);
         if (to) home.push({ type: 'move', from, index, to });
         if (freeCell && !CELLS.includes(from)) park.push({ type: 'move', from, index, to: freeCell });
       }
@@ -1511,7 +1514,7 @@ const CardSim = (() => {
       for (const from of [...THIEF_COLUMNS, 'waste']) {
         const lead = piles[from].length && top(piles[from]).card;
         if (!lead) continue;
-        const home = THIEF_HOME.some(to => fitsFoundation(top(piles[to]), lead));
+        const home = homeTarget(piles, THIEF_HOME, lead) !== undefined;
         const column = THIEF_COLUMNS.some(to => to !== from && thiefFits(top(piles[to]), lead));
         if (home || column) ids.add(lead.id);
       }
@@ -1531,7 +1534,7 @@ const CardSim = (() => {
         const entry = top(piles[from]);
         if (!entry) continue;
         const index = piles[from].length - 1;
-        const to = THIEF_HOME.find(id => fitsFoundation(top(piles[id]), entry.card));
+        const to = homeTarget(piles, THIEF_HOME, entry.card);
         if (to) home.push({ type: 'move', from, index, to });
         for (const column of THIEF_COLUMNS) {
           if (column === from) continue;
