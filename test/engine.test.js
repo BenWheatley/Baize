@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, recordResult, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, recordResult, readSettings, SETTINGS, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -1374,6 +1374,20 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   same(stats.pyramid, { played: 1, won: 0, best: null, streak: 0, bestStreak: 0, lastWon: null }, 'games are kept apart');
   same(stats.golf.played, 4);
   console.log('statistics ok');
+}
+
+{
+  const defaults = { felt: 'green', back: 'red', motion: 'device' };
+  same(readSettings(null), defaults, 'nothing stored gives the defaults');
+  same(readSettings('not json'), defaults, 'unreadable storage gives the defaults');
+  same(readSettings('42'), defaults, 'a stored number is no settings');
+  same(readSettings(JSON.stringify({ felt: 'blue', motion: 'off' })), { felt: 'blue', back: 'red', motion: 'off' }, 'a partial record keeps what it has');
+  same(readSettings(JSON.stringify({ felt: 'plaid', back: 7, motion: 'fast', extra: 1 })), { felt: 'green', back: 'red', motion: 'fast' }, 'invalid values and unknown keys are dropped');
+  for (const setting of SETTINGS) {
+    assert(setting.choices.some(c => c.value === setting.default), `${setting.id}: the default is one of the choices`);
+    for (const c of setting.choices) same(readSettings(JSON.stringify({ [setting.id]: c.value }))[setting.id], c.value, `${setting.id}=${c.value} is accepted`);
+  }
+  console.log('settings ok');
 }
 
 // Every pile a deal creates has a slot to be drawn in, so no card can vanish from the table.

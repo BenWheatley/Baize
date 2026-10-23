@@ -26,10 +26,10 @@ npm test
 Runs the engine, rulesets and deck art in Node (about 30 seconds, mostly random playouts and solver runs). There are no dependencies to install.
 
 ```sh
-python3 test/ui.test.py
+python3 test/ui.test.py [check_name ...]
 ```
 
-Drives the page in Chromium with Python Playwright: the game menu and saves, highlighting with Shift and rank keys, the Show moves toggle, Golf taps, FreeCell drag and double-tap, Pyramid pairs and kings, Spider and Forty Thieves taps and deals, and the rules card (opening, closing, stacking order). Deals are fixed by seed. One check fails if cards ever get a CSS filter (or a transition on one) again, which is what made highlighting slow. It also checks that a new deal clears the table before dealing, and that winnable deals can be won. It also checks the options menu, the search dialogue and its Cancel, that the page never scrolls or zooms on any screen size, and that a tapped card flies above the others.
+Drives the page in Chromium with Python Playwright (naming checks on the command line runs only those): the game menu and saves, highlighting with Shift and rank keys, the Show moves toggle, Golf taps, FreeCell drag and double-tap, Pyramid pairs and kings, Spider and Forty Thieves taps and deals, and the rules card (opening, closing, stacking order). Deals are fixed by seed. One check fails if cards ever get a CSS filter (or a transition on one) again, which is what made highlighting slow. It also checks that a new deal clears the table before dealing, and that winnable deals can be won. It also checks the options menu, the search dialogue and its Cancel, that the page never scrolls or zooms on any screen size, and that a tapped card flies above the others.
 
 ## Installing it (PWA)
 
@@ -64,3 +64,8 @@ The Statistics entry in the menu shows, for each game, deals played and won, win
 ## Hints
 
 Hint (in the menu, or the H key) runs the solver from the current position on a worker, 12,000 positions at most, with a Cancel button if it takes a while. It sees the face-down cards too, so it is not a fair hint, only a useful one. If it finds a win, the first move of that line is lit (a ring on the cards to move, dashes where they go) and the message says a win is still possible. If not, the ruleset's own first-choice move is lit and the message says no win was found. Games whose ruleset has no `moves()` (Yukon) have no Hint.
+
+## Settings
+
+The Settings entry in the menu opens a panel with the player's preferences: table colour, card back colour and animation. Animation is Device (follow the system's Reduce Motion), Normal, Fast (half the time) or Off; the script writes the result to `data-motion` on the page, which the CSS keys on, so choosing Normal also overrides a system that reports Reduce Motion wrongly (as an installed iPad app can). The choices are kept in local storage under `baize.settings`. `SETTINGS` and `readSettings` in the engine define them and drop any stored value that is not one of the choices; the colours themselves are `html[data-felt=...]` and `html[data-back=...]` rules in the CSS. Winnable deals stay a per-game option, and the Show moves toggle stays in the header.
+

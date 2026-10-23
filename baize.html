@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Baize</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,0,0&icon_names=bar_chart,lightbulb,menu&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,0,0&icon_names=bar_chart,lightbulb,menu,settings&display=block">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@500;700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
 <style>
 /* Layout: one column. Header (name + controls) and a status line on a wooden desk, then the felt
@@ -222,7 +222,7 @@ button[aria-pressed="true"].toggle, button[aria-expanded="true"].options-btn {
 /* Selected cards tilt and lift; the Show moves highlight is a ring, so the two read together. */
 .card.selected { box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 9px 14px rgba(0, 0, 0, 0.45), 0 3px 4px rgba(0, 0, 0, 0.3); }
 .card.flying { box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.35), 0 8px 13px rgba(0, 0, 0, 0.4); }
-.card.ready { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.15s; }
+.card.ready { transition: transform var(--flight, 0.22s) cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.15s; }
 .board.instant .card { transition: none; }
 .card.hint { box-shadow: 0 0 0 2px var(--hint), 0 0 14px 2px var(--hint); }
 .card.hint.covered { box-shadow: 0 0 0 2px var(--hint); }
@@ -405,12 +405,33 @@ html.icons #options .menu-item .icon { font-size: 20px; }
   .stats-table th, .stats-table td { padding-left: 4px; padding-right: 4px; }
   #stats .plaque { padding: 22px 16px 20px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .card.suggest { animation: none; box-shadow: 0 0 0 3px var(--suggest), 0 0 14px 4px rgba(127, 220, 255, 0.7); }
-  .card.ready { transition: transform 0.14s ease-out; }       /* a short slide stays: it shows where the card went */
-  .rules, #options { animation: none; }
-  .spinner { animation: pulse 1.6s ease-in-out infinite; border-color: #4a1220; }
-  @keyframes pulse { 50% { opacity: 0.3; } }
+/* The Animation setting: Device follows the system's Reduce Motion, and the script writes the result to data-motion. */
+html[data-motion="fast"] { --flight: 0.11s; }
+html[data-motion="reduced"] .card.ready { transition: transform 0.14s ease-out; }   /* a short slide stays: it shows where the card went */
+html[data-motion="off"] .card.ready { transition: none; }
+html[data-motion="reduced"] .card.suggest, html[data-motion="off"] .card.suggest {
+  animation: none; box-shadow: 0 0 0 3px var(--suggest), 0 0 14px 4px rgba(127, 220, 255, 0.7);
+}
+html[data-motion="reduced"] .rules, html[data-motion="reduced"] #options, html[data-motion="off"] .rules, html[data-motion="off"] #options { animation: none; }
+html[data-motion="reduced"] .spinner, html[data-motion="off"] .spinner { animation: pulse 1.6s ease-in-out infinite; border-color: #4a1220; }
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+/* The Table and Card back settings */
+html[data-felt="blue"] { --felt: #2b5a7a; --felt-deep: #183a52; }
+html[data-felt="burgundy"] { --felt: #7a2a3a; --felt-deep: #4a1522; }
+html[data-felt="charcoal"] { --felt: #3d4247; --felt-deep: #23272b; }
+html[data-back="blue"] { --back: #1f3f7a; }
+html[data-back="green"] { --back: #1f5a3c; }
+html[data-back="black"] { --back: #1d1d22; }
+.swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 235, 170, 0.6); vertical-align: -1px; }
+#settings .plaque { max-width: min(30rem, 94%); }
+#settings .seg { display: flex; margin: 0 0 10px; }
+#settings .seg-label { flex: 0 0 7.5em; justify-content: start; white-space: nowrap; }
+#settings .seg button { flex: 1 1 0; display: flex; align-items: center; justify-content: center; padding: 7px 6px; white-space: nowrap; }
+@media (max-width: 520px) {
+  #settings .plaque { padding: 22px 14px 20px; }
+  #settings .seg { flex-wrap: wrap; }
+  #settings .seg-label { flex: 1 0 100%; padding: 6px 0 2px 10px; }
 }
 </style>
 
@@ -489,6 +510,15 @@ html.icons #options .menu-item .icon { font-size: 20px; }
         <div class="plaque-buttons">
           <button id="stats-reset" type="button">Reset</button>
           <button id="stats-close" type="button" class="primary">Close</button>
+        </div>
+      </div>
+    </div>
+    <div id="settings" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="plaque">
+        <h2 id="settings-title">Settings</h2>
+        <div id="settings-body"></div>
+        <div class="plaque-buttons">
+          <button id="settings-close" type="button" class="primary">Close</button>
         </div>
       </div>
     </div>
@@ -1839,7 +1869,33 @@ const CardSim = (() => {
     return { ...stats, [gameId]: record };
   }
 
-  return { mulberry32, shuffle, Session, solve, recordResult, emptyRecord, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
+  /* ---------- Settings ----------
+     The player's preferences, kept apart from the rules. Each has a fixed set of choices, so a stored
+     value that is missing, misspelt or from a future version falls back to the default. */
+
+  const SETTINGS = [
+    { id: 'felt', label: 'Table', default: 'green', choices: [
+      { value: 'green', label: 'Green', swatch: '#2c6a54' }, { value: 'blue', label: 'Blue', swatch: '#2b5a7a' },
+      { value: 'burgundy', label: 'Burgundy', swatch: '#7a2a3a' }, { value: 'charcoal', label: 'Charcoal', swatch: '#3d4247' }] },
+    { id: 'back', label: 'Card back', default: 'red', choices: [
+      { value: 'red', label: 'Red', swatch: '#7b2231' }, { value: 'blue', label: 'Blue', swatch: '#1f3f7a' },
+      { value: 'green', label: 'Green', swatch: '#1f5a3c' }, { value: 'black', label: 'Black', swatch: '#1d1d22' }] },
+    { id: 'motion', label: 'Animation', default: 'device', choices: [
+      { value: 'device', label: 'Device' }, { value: 'normal', label: 'Normal' },
+      { value: 'fast', label: 'Fast' }, { value: 'off', label: 'Off' }] },
+  ];
+
+  /** The settings held in `text` (as stored), every one of them valid. */
+  function readSettings(text) {
+    let stored = null;
+    try { stored = JSON.parse(text); } catch { /* falls back to the defaults */ }
+    return Object.fromEntries(SETTINGS.map(setting => {
+      const value = stored?.[setting.id];
+      return [setting.id, setting.choices.some(c => c.value === value) ? value : setting.default];
+    }));
+  }
+
+  return { mulberry32, shuffle, Session, solve, recordResult, emptyRecord, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
 })();
 </script>
 
@@ -1898,6 +1954,7 @@ const StandardDeck = (() => {
   const STATS_KEY = 'baize.stats';
   const HINTS_KEY = 'baize.hints';
   const WINNABLE_KEY = 'baize.winnable';
+  const SETTINGS_KEY = 'baize.settings';
   const COL_GAP = 0.16;       // gap between columns, in card widths (less on a narrow table)
   const NARROW_GAP = 0.07;
   const NARROW_BOARD = 520;   // px
@@ -1927,6 +1984,7 @@ const StandardDeck = (() => {
     rulesTitle: $('rules-title'), rulesText: $('rules-text'),
     hints: $('hints'), undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
     win: $('win'), winText: $('win-text'), winNew: $('win-new'),
+    settings: $('settings'), settingsBody: $('settings-body'), settingsClose: $('settings-close'),
     stats: $('stats'), statsTable: $('stats-table'), statsReset: $('stats-reset'), statsClose: $('stats-close'),
     toast: $('toast'),
     busy: $('busy'), busyTitle: $('busy-title'), busyText: $('busy-text'), busyBtn: $('busy-btn'),
@@ -1985,7 +2043,24 @@ const StandardDeck = (() => {
   }
 
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-  const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* The Animation setting: 'normal', 'fast', 'reduced' (a short slide, no dealing) or 'off'. */
+  const deviceReducesMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const motion = () => (settings.motion === 'device' ? (deviceReducesMotion() ? 'reduced' : 'normal') : settings.motion);
+  const reducedMotion = () => motion() === 'reduced' || motion() === 'off';
+  const pace = () => (motion() === 'fast' ? 0.5 : 1);            // fast moves take half as long
+  const flightMs = () => FLIGHT_MS * pace();
+  const dealStep = () => DEAL_STEP * pace();
+
+  let settings = { felt: 'green', back: 'red', motion: 'device' };
+  function applySettings() {
+    const root = document.documentElement;
+    root.dataset.felt = settings.felt;
+    root.dataset.back = settings.back;
+    root.dataset.motion = motion();
+  }
+  try { settings = CardSim.readSettings(localStorage.getItem(SETTINGS_KEY)); } catch { settings = CardSim.readSettings(null); }
+  applySettings();
+  matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', applySettings);
 
   /** Pick every card up, top of each pile first, and stack them face down where the stock sits. */
   async function gather() {
@@ -1999,9 +2074,9 @@ const StandardDeck = (() => {
       el.style.transitionDelay = `${at}ms`;
       el.style.zIndex = FLY_Z + n;
       el.style.transform = target;
-      setTimeout(() => setFace(el, null), at + FLIGHT_MS);
+      setTimeout(() => setFace(el, null), at + flightMs());
     }
-    await pause(Math.max(0, n - 1) * GATHER_STEP + FLIGHT_MS + 60);
+    await pause(Math.max(0, n - 1) * GATHER_STEP + flightMs() + 60);
   }
 
   /* ---------- Winnable deals ----------
@@ -2262,6 +2337,34 @@ const StandardDeck = (() => {
     els.statsClose.focus();
   }
 
+  /** The preferences, each a row of buttons; choosing one applies and keeps it at once. */
+  function showSettings() {
+    const rows = CardSim.SETTINGS.map(setting => h('div', { class: 'seg', role: 'group', 'aria-label': setting.label, 'data-setting-group': setting.id },
+      h('span', { class: 'seg-label' }, setting.label),
+      ...setting.choices.map(choice => {
+        const button = h('button', { type: 'button', 'data-setting': setting.id, 'data-value': choice.value, 'aria-pressed': String(settings[setting.id] === choice.value) },
+          ...(choice.swatch ? [h('span', { class: 'swatch', style: `background:${choice.swatch}` })] : []), choice.label);
+        button.addEventListener('click', () => {
+          settings = { ...settings, [setting.id]: choice.value };
+          try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* optional */ }
+          applySettings();
+          for (const b of els.settingsBody.querySelectorAll(`button[data-setting="${setting.id}"]`)) {
+            b.setAttribute('aria-pressed', String(b === button));
+          }
+        });
+        return button;
+      })));
+    els.settingsBody.replaceChildren(...rows);
+    els.settings.hidden = false;
+    els.settingsClose.focus();
+  }
+
+  function hideSettings({ returnFocus = true } = {}) {
+    if (els.settings.hidden) return;
+    els.settings.hidden = true;
+    if (returnFocus) els.optionsBtn.focus();
+  }
+
   function hideStats({ returnFocus = true } = {}) {
     if (els.stats.hidden) return;
     els.stats.hidden = true;
@@ -2429,7 +2532,7 @@ const StandardDeck = (() => {
   function syncCards() {
     const pivot = selectionPivot();
     const flights = dealing ? dealOrder() : new Map();
-    dealMs = flights.size ? (flights.size - 1) * DEAL_STEP + FLIGHT_MS : 0;
+    dealMs = flights.size ? (flights.size - 1) * dealStep() + flightMs() : 0;
     for (const [id, p] of geometry.pos) {
       let el = cardEls.get(id);
       if (!el) {
@@ -2443,9 +2546,9 @@ const StandardDeck = (() => {
         setFace(el, p.up ? p.card : null);
       } else {
         // A card shows its face only once it starts to move, and flies above everything already dealt.
-        setTimeout(() => { const now = geometry.pos.get(id); if (now) setFace(el, now.up ? now.card : null); }, rank * DEAL_STEP);
+        setTimeout(() => { const now = geometry.pos.get(id); if (now) setFace(el, now.up ? now.card : null); }, rank * dealStep());
       }
-      el.style.transitionDelay = rank === undefined ? '' : `${rank * DEAL_STEP}ms`;
+      el.style.transitionDelay = rank === undefined ? '' : `${rank * dealStep()}ms`;
       const tilted = pivot && selection.pile === p.pile && p.index >= selection.index;
       if (tilted) el.style.transformOrigin = `${pivot.x - p.x}px ${pivot.y - p.y}px`;   // left alone when the tilt is undone, so it unwinds about the same point
       el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${tilted ? SELECT_TILT : 0}deg)`;
@@ -2456,7 +2559,7 @@ const StandardDeck = (() => {
       el._at = { x: p.x, y: p.y };
       el.style.transitionDuration = '';
       if (moved && rank === undefined && el.classList.contains('ready') && !els.board.classList.contains('instant')) {
-        const ms = reducedMotion() ? 140 : Math.round(Math.min(MAX_FLIGHT_MS, MIN_FLIGHT_MS + Math.hypot(el._from.x - p.x, el._from.y - p.y) * 0.22));
+        const ms = motion() === 'reduced' ? 140 : Math.round(pace() * Math.min(MAX_FLIGHT_MS, MIN_FLIGHT_MS + Math.hypot(el._from.x - p.x, el._from.y - p.y) * 0.22));
         el.style.transitionDuration = `${ms}ms`;
         el.style.zIndex = FLY_Z + p.z;
         el.classList.add('flying');
@@ -2569,12 +2672,15 @@ const StandardDeck = (() => {
     h('button', { id: 'hint-btn', type: 'button', class: 'menu-item' },
       h('span', { class: 'icon', 'data-fallback': '?', 'aria-hidden': 'true' }, 'lightbulb'), ' Hint'),
     h('button', { id: 'stats-btn', type: 'button', class: 'menu-item', 'aria-haspopup': 'dialog' },
-      h('span', { class: 'icon', 'data-fallback': '★', 'aria-hidden': 'true' }, 'bar_chart'), ' Statistics'));
+      h('span', { class: 'icon', 'data-fallback': '★', 'aria-hidden': 'true' }, 'bar_chart'), ' Statistics'),
+    h('button', { id: 'settings-btn', type: 'button', class: 'menu-item', 'aria-haspopup': 'dialog' },
+      h('span', { class: 'icon', 'data-fallback': '⚙', 'aria-hidden': 'true' }, 'settings'), ' Settings'));
     els.hintBtn = $('hint-btn');
     els.hintBtn.hidden = !game.rules.moves;                 // a game that cannot list its moves cannot be searched
     els.hintBtn.addEventListener('click', () => { setOptionsOpen(false); startHint(); });
     els.statsBtn = $('stats-btn');
     els.statsBtn.addEventListener('click', () => { if (!busy) { setOptionsOpen(false); setRulesOpen(false); showStats(); } });
+    $('settings-btn').addEventListener('click', () => { setOptionsOpen(false); setRulesOpen(false); showSettings(); });
   }
 
   /* ---------- Playing ---------- */
@@ -2753,6 +2859,8 @@ const StandardDeck = (() => {
   document.fonts?.load("24px 'Material Symbols Outlined'", 'menu')
     .then(faces => { if (faces.length) document.documentElement.classList.add('icons'); })
     .catch(() => {});
+  els.settingsClose.addEventListener('click', () => hideSettings());
+  els.settings.addEventListener('pointerdown', e => { if (e.target === els.settings) hideSettings(); });
   els.statsClose.addEventListener('click', () => hideStats());
   els.statsReset.addEventListener('click', resetStats);
   els.stats.addEventListener('pointerdown', e => { if (e.target === els.stats) hideStats(); });
@@ -2799,6 +2907,10 @@ const StandardDeck = (() => {
   });
 
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !els.settings.hidden) {
+      hideSettings();
+      return;
+    }
     if (e.key === 'Escape' && !els.stats.hidden) {
       hideStats();
       return;
@@ -2816,7 +2928,7 @@ const StandardDeck = (() => {
       return;
     }
     if (e.key === 'Shift') setShift(true);
-    const typing = e.target.closest?.('select, input, textarea') || !els.rules.hidden || !els.busy.hidden || !els.stats.hidden;
+    const typing = e.target.closest?.('select, input, textarea') || !els.rules.hidden || !els.busy.hidden || !els.stats.hidden || !els.settings.hidden;
     const rank = e.ctrlKey || e.metaKey || e.altKey || typing ? null : rankOfKey(e);
     if (rank !== null) setRank(e.code, rank);
     if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'h' && els.options.hidden) startHint();

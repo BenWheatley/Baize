@@ -1,8 +1,9 @@
 """Browser checks for baize.html (needs Python Playwright with Chromium).
 
-Run from anywhere:  python3 test/ui.test.py
+Run from anywhere:  python3 test/ui.test.py [check_name ...]
 """
 import pathlib
+import sys
 import traceback
 from playwright.sync_api import sync_playwright
 
@@ -807,6 +808,70 @@ def check_hint(pg):
     assert pg.locator('.card.suggest, .slot.suggest-to').count() >= 1
 
 
+def open_settings(pg):
+    pg.click('#options-btn')
+    pg.click('#settings-btn')
+    assert pg.locator('#settings').is_visible() and not pg.locator('#options').is_visible()
+
+
+def setting(pg, name, value):
+    pg.click(f'#settings button[data-setting="{name}"][data-value="{value}"]')
+
+
+def root(pg, attribute):
+    return pg.evaluate(f"document.documentElement.dataset.{attribute}")
+
+
+def check_settings(pg):
+    start(pg, 'klondike')
+    assert (root(pg, 'felt'), root(pg, 'back'), root(pg, 'motion')) == ('green', 'red', 'normal')
+    open_settings(pg)
+    setting(pg, 'felt', 'blue')
+    assert root(pg, 'felt') == 'blue'
+    assert pg.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--felt').trim()") == '#2b5a7a'
+    assert pg.locator('#settings button[data-setting="felt"][data-value="blue"]').get_attribute('aria-pressed') == 'true'
+    assert pg.locator('#settings button[data-setting="felt"][data-value="green"]').get_attribute('aria-pressed') == 'false'
+    setting(pg, 'back', 'black')
+    assert pg.evaluate("getComputedStyle(document.querySelector('.back-base')).fill") == 'rgb(29, 29, 34)'
+    transition = lambda: pg.evaluate("getComputedStyle(document.querySelector('.card.ready')).transitionDuration.split(',')[0]")
+    assert transition() == '0.22s'
+    setting(pg, 'motion', 'fast')
+    assert transition() == '0.11s'
+    setting(pg, 'motion', 'off')
+    assert transition() == '0s'
+    setting(pg, 'motion', 'normal')
+    pg.keyboard.press('Escape')
+    assert pg.locator('#settings').is_hidden(), 'Escape closes the settings'
+    assert pg.evaluate("document.activeElement.id") == 'options-btn'
+    pg.reload()
+    pg.wait_for_timeout(700)
+    assert (root(pg, 'felt'), root(pg, 'back'), root(pg, 'motion')) == ('blue', 'black', 'normal'), 'settings are kept'
+    open_settings(pg)
+    assert pg.locator('#settings button[data-setting="back"][data-value="black"]').get_attribute('aria-pressed') == 'true'
+    corner = pg.locator('#table').bounding_box()
+    pg.mouse.click(corner['x'] + 6, corner['y'] + 6)
+    assert pg.locator('#settings').is_hidden(), 'clicking the table around the panel closes it'
+    pg.evaluate("localStorage.setItem('baize.settings', JSON.stringify({ felt: 'plaid', back: 'red' }))")
+    pg.reload()
+    pg.wait_for_timeout(700)
+    assert (root(pg, 'felt'), root(pg, 'back')) == ('green', 'red'), 'a value that is not a choice falls back to the default'
+
+
+def check_animation_setting_overrides_the_device(pg):
+    context = pg.context.browser.new_context(viewport={'width': 1000, 'height': 900}, reduced_motion='reduce')
+    context.route('**/fonts.googleapis.com/**', lambda route: route.abort())
+    page = context.new_page()
+    page.goto(URL)
+    page.wait_for_timeout(700)
+    assert root(page, 'motion') == 'reduced', 'Device follows the system'
+    open_settings(page)
+    setting(page, 'motion', 'normal')
+    assert root(page, 'motion') == 'normal', 'Normal overrides the system'
+    page.keyboard.press('Escape')
+    check_tap_moves_are_animated(page)
+    context.close()
+
+
 def check_game_menu_gives_up_focus(pg):
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
@@ -830,7 +895,10 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+
+if sys.argv[1:]:                       # run only the checks named on the command line
+    CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
