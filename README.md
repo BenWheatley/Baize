@@ -67,7 +67,16 @@ The Statistics button (the bar chart, at the right of the header) shows, for eac
 
 ## Hints
 
-Hint (its button in the header, or the H key) runs the solver from the current position on a worker, 12,000 positions at most, with a Cancel button if it takes a while. It sees the face-down cards too, so it is not a fair hint, only a useful one. If it finds a win, the first move of that line is lit (a ring on the cards to move, dashes where they go) and the message says a win is still possible. If not, the ruleset's own first-choice move is lit and the message says no win was found. Games whose ruleset has no `moves()` (Yukon) have no Hint. The message stays until the player moves, undoes, deals or presses its × button. Hints never go round in a circle: a winning line is kept (with any loop cut out by `planLine`) and followed for as long as the game stays on it, and a first-choice move is only offered if it reaches a position not yet seen in this deal (`freshMove`); both are tested in Node.
+Hint (its button in the header, or the H key) searches from the current position on a worker, 12,000 positions at most, with a Cancel button if it takes a while (the dialogue appears after 350 ms and, once up, stays for at least 500 ms, so it never just flashes). The search sees the face-down cards too, so it is not a fair hint, only a useful one. It is best-first, by each ruleset's `progress` score, and has two possible results (`hintLine` in the engine):
+
+- a line that wins: its first move is lit (a ring on the cards to move, dashes where they go) and the message says a win is still possible;
+- otherwise the line to the best position it reached, one that scores higher than the player's: its first move is lit, and the message says no win was found and the move heads for the best position.
+
+If neither exists, the hint turns the stock where there is one, or says there is nothing to gain. The first move of the ruleset's own move list is never offered as a plain "plausible move": that is what once made hints shuffle runs between equal columns without end.
+
+Hints do not change their minds. `HintBook` remembers every line found, for the position it came from and for each position along it, so following the hints follows one plan and needs no further search; asking twice at the same position, or asking at the first move of a deal chosen by the winnable search (which already found a line), searches nothing. A line that only gains ground is used only if its first move reaches a position not yet seen in this deal. To keep lines short, the search remembers every move it tried and takes the shortest route through them; because a position key may treat positions as equal that are not identical (FreeCell's cells), that route is replayed and the search's own route is used if it fails. Tested in Node: hints followed for 50 moves in Klondike never send a card straight back, and every line found in every game plays out on the real position.
+
+The message stays until the player moves, undoes, deals or presses its × button. The lit cards keep their place in the stack: a hint does not lift them above their neighbours. Games whose ruleset has no `moves()` (Yukon) have no Hint.
 
 ## Controls
 

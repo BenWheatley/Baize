@@ -344,7 +344,7 @@ button[aria-pressed="true"].toggle {
 .tools { display: flex; align-items: center; gap: 9px; margin-left: 6px; }
 /* The suggested move: a cool ring that breathes, on the cards to move; dashes mark where they go. */
 :root { --suggest: #7fdcff; }
-.card.suggest { animation: suggest 1.1s ease-in-out infinite; z-index: 150000 !important; }
+.card.suggest { animation: suggest 1.1s ease-in-out infinite; }
 @keyframes suggest {
   0%, 100% { box-shadow: 0 0 0 3px var(--suggest), 0 0 8px 2px rgba(127, 220, 255, 0.5), 0 5px 9px rgba(0, 0, 0, 0.4); }
   50% { box-shadow: 0 0 0 3px var(--suggest), 0 0 20px 7px rgba(127, 220, 255, 0.85), 0 5px 9px rgba(0, 0, 0, 0.4); }
@@ -1617,8 +1617,9 @@ const CardSim = (() => {
     return [...rest, ...interchangeable.map(text).sort()].join('|');
   }
 
-  /** Always expand the most promising position seen so far. */
-  function bestFirst(rules, options, state, { nodes, key }) {
+  /** Always expand the most promising position seen so far. Returns { path, won }: the way to a win if one
+      turned up, otherwise the way to the highest-scoring position that beats the start, otherwise null. */
+  function bestFirst(rules, options, state, { nodes, key, depthCost = 0 }) {
     const heap = [];
     const push = node => {
       heap.push(node);
@@ -1644,25 +1645,63 @@ const CardSim = (() => {
       }
       return best;
     };
-    const seen = new Set([key(state)]);
-    push({ state, parent: null, action: null, score: rules.progress(state) });
+    const startKey = key(state);
+    const seen = new Set([startKey]);
+    const start = { state, parent: null, action: null, depth: 0, score: rules.progress(state) };
+    // Every move tried is remembered, including those that reach a position already known. The order the search
+    // found things in wanders (it follows the score, not the distance), so the way to the goal is then taken
+    // as the shortest through everything seen, which is what keeps a line from going round in circles.
+    // A key may treat positions as equal that are not identical (FreeCell's cells are interchangeable), so the
+    // shortest way is replayed to make sure that it works, and the way the search actually came is used if not.
+    const edges = new Map();
+    const treePath = node => {
+      const path = [];
+      for (let at = node; at.parent; at = at.parent) path.push(at.action);
+      return path.reverse();
+    };
+    const replays = (path, goal) => {
+      let at = state;
+      for (const action of path) {
+        at = rules.reduce(at, action, options).state;
+        if (!at) return false;
+      }
+      return key(at) === goal;
+    };
+    const pathTo = node => {
+      const goal = key(node.state);
+      const via = new Map([[startKey, null]]);
+      for (let queue = [startKey], i = 0; i < queue.length && !via.has(goal); i++) {
+        for (const [action, child] of edges.get(queue[i]) ?? []) {
+          if (via.has(child)) continue;
+          via.set(child, [queue[i], action]);
+          queue.push(child);
+        }
+      }
+      const path = [];
+      for (let at = goal; via.get(at); at = via.get(at)[0]) path.push(via.get(at)[1]);
+      path.reverse();
+      return replays(path, goal) ? path : treePath(node);
+    };
+    let best = start;
+    push(start);
     for (let budget = nodes; heap.length && budget > 0; budget--) {
       const node = pop();
-      if (rules.isWon(node.state)) {
-        const path = [];
-        for (let at = node; at.parent; at = at.parent) path.push(at.action);
-        return path.reverse();
-      }
+      if (rules.isWon(node.state)) return { path: pathTo(node), won: true };
+      if (node.score > best.score) best = node;
+      const here = key(node.state);
+      const out = [];
+      edges.set(here, out);
       for (const action of rules.moves(node.state, options)) {
         const next = rules.reduce(node.state, action, options);
         if (!next.state) continue;
         const name = key(next.state);
+        out.push([action, name]);
         if (seen.has(name)) continue;
         seen.add(name);
-        push({ state: next.state, parent: node, action, score: rules.progress(next.state) });
+        push({ state: next.state, parent: node, action, depth: node.depth + 1, score: rules.progress(next.state) - depthCost * (node.depth + 1) });
       }
     }
-    return null;
+    return best === start ? null : { path: pathTo(best), won: false };
   }
 
   function solve(rules, options, state, { nodes = 20000, depth = 800 } = {}) {
@@ -1670,7 +1709,7 @@ const CardSim = (() => {
     const path = [];
     let budget = nodes;
     const key = rules.key ?? positionKey;
-    if (rules.progress) return bestFirst(rules, options, state, { nodes, key });
+    if (rules.progress) { const found = bestFirst(rules, options, state, { nodes, key }); return found?.won ? found.path : null; }
     const search = (position, level) => {
       if (rules.isWon(position)) return true;
       if (level >= depth) return false;
@@ -1689,6 +1728,17 @@ const CardSim = (() => {
       return false;
     };
     return search(state, 0) ? path : null;
+  }
+
+  /** What to suggest from `state`: { line, sure }. `sure` lines end in a win; the others end in the best position
+      the search found, which beats where the player is. Null when it found neither. */
+  function hintLine(rules, options, state, { nodes = 12000, depthCost = 1 } = {}) {
+    if (!rules.progress) {
+      const line = solve(rules, options, state, { nodes });
+      return line ? { line, sure: true } : null;
+    }
+    const found = bestFirst(rules, options, state, { nodes, key: rules.key ?? positionKey, depthCost });
+    return found ? { line: found.path, sure: found.won } : null;
   }
 
   /* ---------- Yukon ----------
@@ -1896,14 +1946,59 @@ const CardSim = (() => {
     return { line: kept, fps };
   }
 
-  /** The ruleset's first-choice move that reaches a position not yet seen in `states` (a game so far), or null. */
-  function freshMove(rules, options, states) {
+  /** The ruleset's first-choice move (of those `accept` allows) that reaches a position not yet seen in `states` (a game so far), or null. */
+  function freshMove(rules, options, states, accept = () => true) {
     const state = states[states.length - 1];
     const seen = new Set(states.map(fingerprint));
-    return rules.moves(state, options).find(action => {
-      const result = rules.reduce(state, action, options);
-      return !result.error && !seen.has(fingerprint(result.state));
-    }) ?? null;
+    return rules.moves(state, options).find(action => accept(action) && leadsSomewhereNew(rules, options, state, action, seen)) ?? null;
+  }
+
+  /** Does `action` reach a position not in `seen` (a set of fingerprints)? */
+  function leadsSomewhereNew(rules, options, state, action, seen) {
+    const result = rules.reduce(state, action, options);
+    return !result.error && !seen.has(fingerprint(result.state));
+  }
+
+  /** The hints given so far, remembered: a line found from one position serves every position along it, so that
+      following the hints follows one plan and they do not change their minds on the way. */
+  class HintBook {
+    static STOCK_ACTIONS = ['draw', 'recycle', 'deal'];   // moves that turn up new cards without changing the layout
+
+    constructor(limit = 2000) {
+      this.lines = new Map();   // position -> { line, sure }, or null once a search has found nothing
+      this.limit = limit;
+    }
+
+    key(rules, options, fp) { return `${rules.id}|${JSON.stringify({ ...options, winnable: undefined })}|${fp}`; }   // how a deal was chosen does not change play
+
+    /** What is known for this position: { line, sure }, null (searched, nothing), or undefined (never searched). */
+    get(rules, options, state) { return this.lines.get(this.key(rules, options, fingerprint(state))); }
+
+    /** Keep `found` ({ line, sure } from hintLine), for the position it was found from and each one along its way. */
+    remember(rules, options, state, found) {
+      if (this.lines.size > this.limit) this.lines.clear();
+      const plan = planLine(rules, options, state, found.line);
+      plan.fps.forEach((fp, i) => {
+        if (i < plan.line.length) this.lines.set(this.key(rules, options, fp), { line: plan.line.slice(i), sure: found.sure });
+      });
+    }
+
+    /** Keep that a full search from this position found nothing. */
+    rememberNone(rules, options, state) { this.lines.set(this.key(rules, options, fingerprint(state)), null); }
+
+    /** What to suggest at the end of `states` (the game so far), given `found` for that position:
+        { action, kind: 'win' | 'gain' | 'stock' } or { action: null, kind: 'none' }. A line that only gains ground
+        is used only if its first move goes somewhere new; failing that the stock is turned, or there is nothing. */
+    choose(rules, options, states, found) {
+      const state = states[states.length - 1];
+      const seen = new Set(states.map(fingerprint));
+      if (found?.line.length) {
+        if (found.sure) return { action: found.line[0], kind: 'win' };
+        if (leadsSomewhereNew(rules, options, state, found.line[0], seen)) return { action: found.line[0], kind: 'gain' };
+      }
+      const turn = freshMove(rules, options, states, action => HintBook.STOCK_ACTIONS.includes(action.type));
+      return turn ? { action: turn, kind: 'stock' } : { action: null, kind: 'none' };
+    }
   }
 
   /* ---------- Settings ----------
@@ -1932,7 +2027,7 @@ const CardSim = (() => {
     }));
   }
 
-  return { mulberry32, shuffle, Session, solve, recordResult, emptyRecord, fingerprint, planLine, freshMove, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
+  return { mulberry32, shuffle, Session, solve, recordResult, emptyRecord, hintLine, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
 })();
 </script>
 
@@ -2127,7 +2222,9 @@ const StandardDeck = (() => {
   const wantsWinnable = (rules, options) => Boolean(options.winnable) && Boolean(rules.canSolve?.(options));
 
   const BUSY_DELAY_MS = 350;  // a search quicker than this never shows its dialogue
+  const BUSY_MIN_MS = 500;    // and one that does shows it for at least this long, so it never just flashes
   let busyTimer = 0;
+  let busyShownAt = 0;
   let cancelSearch = null;    // set while a search runs: stops it, and the deal is random
   let cancelledByUser = false;
 
@@ -2136,10 +2233,11 @@ const StandardDeck = (() => {
     const body = `${document.getElementById('engine').textContent}
       self.onmessage = ({ data: { id, options, from, until, nodes, state } }) => {
         const rules = CardSim[id];
-        if (state) { self.postMessage({ actions: CardSim.solve(rules, options, state, { nodes }) }); return; }
+        if (state) { self.postMessage({ found: CardSim.hintLine(rules, options, state, { nodes }) }); return; }
         for (let k = 0; Date.now() < until; k++) {
           const seed = (from + k) % 1000000;
-          if (CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes })) { self.postMessage({ seed }); return; }
+          const actions = CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes });
+          if (actions) { self.postMessage({ seed, actions }); return; }
         }
         self.postMessage({ seed: null });
       };`;
@@ -2155,7 +2253,7 @@ const StandardDeck = (() => {
   }
 
   const searchInWorker = (rules, options, from) =>
-    inWorker({ id: rules.id, options, from, until: Date.now() + SEARCH_MS, nodes: SEARCH_NODES }).then(reply => reply?.seed ?? null);
+    inWorker({ id: rules.id, options, from, until: Date.now() + SEARCH_MS, nodes: SEARCH_NODES }).then(reply => (reply?.seed == null ? null : reply));
 
   async function searchHere(rules, options, from) {
     let cancelled = false;
@@ -2163,13 +2261,14 @@ const StandardDeck = (() => {
     for (let k = 0, until = Date.now() + SEARCH_MS; Date.now() < until && !cancelled; k++) {
       const seed = (from + k) % 1000000;
       const state = rules.setup(options, CardSim.mulberry32(seed));
-      if (CardSim.solve(rules, options, state, { nodes: SEARCH_NODES })) return seed;
+      const actions = CardSim.solve(rules, options, state, { nodes: SEARCH_NODES });
+      if (actions) return { seed, actions };
       await pause(0);
     }
     return null;
   }
 
-  /** A seed whose deal the solver wins, or null if it gave up. */
+  /** { seed, actions }: a seed whose deal the solver wins, and how; or null if it gave up. */
   async function findWinnableSeed(rules, options) {
     const from = newSeed();
     try {
@@ -2186,7 +2285,14 @@ const StandardDeck = (() => {
     els.busyText.textContent = text;
     els.busyBtn.textContent = button;
     els.busy.hidden = false;
+    busyShownAt = performance.now();
     els.busyBtn.focus();
+  }
+
+  /** If the searching dialogue is up, keep it up until it has been seen for BUSY_MIN_MS (unless the player cancelled). */
+  async function settleBusy() {
+    if (els.busy.hidden || els.busy.dataset.state !== 'searching' || cancelledByUser) return;
+    await pause(Math.max(0, BUSY_MIN_MS - (performance.now() - busyShownAt)));
   }
 
   function hideBusy() {
@@ -2216,10 +2322,12 @@ const StandardDeck = (() => {
         busyTimer = setTimeout(() => showBusy('searching', 'Finding a winnable deal',
           'This can take a little while. Cancel to take a random deal instead.', 'Cancel'), BUSY_DELAY_MS);
       }
-      const [found] = await Promise.all([picking ? findWinnableSeed(game.rules, options) : seed, animate ? gather() : null]);
+      const [found] = await Promise.all([picking ? findWinnableSeed(game.rules, options) : undefined, animate ? gather() : null]);
       stopped = picking && cancelledByUser;
       if (found === null) missed = true;
-      startGame(game, options, found ?? seed ?? newSeed(), [], animate);
+      await settleBusy();
+      startGame(game, options, picking ? (found?.seed ?? newSeed()) : (seed ?? newSeed()), [], animate);
+      if (found?.actions) book.remember(game.rules, options, session.state, { line: found.actions, sure: true });
       hideBusy();
       if (missed && !stopped) showBusy('miss', 'No winnable deal found',
         'The search ran out of time, so this deal is random.', 'OK');
@@ -2235,14 +2343,15 @@ const StandardDeck = (() => {
   }
 
   /* ---------- Hints ----------
-     The solver plays the position out, seeing the hidden cards as well. If it finds a win, the first move of
-     that line is the hint, and the position is certainly still winnable. If not, the hint is the ruleset's own
-     first-choice move, and the message says that no win was found. */
+     A search from the player's position, seeing the hidden cards as well: if it finds a win, the hint is the
+     first move of that line, and the position is certainly still winnable; if not, it is the first move on the
+     way to the best position the search reached, which beats where the player is. The line is remembered and
+     followed from then on, so that hints do not change their minds. With nothing to gain, the stock is turned. */
 
   const HINT_NODES = 12000;
-  let hint = null;            // { key, action, sure }
-  let plan = null;            // a winning line already found: { line, fps }, fps[i] being the position before line[i]
-  let toastKey = null;        // the position the message on show is about
+  const book = new CardSim.HintBook();   // lines already found, so asking again, or following a hint, needs no new search
+  let hint = null;                       // { key, action, sure }
+  let toastKey = null;                   // the position the message on show is about
   const situationKey = () => `${game.rules.id}:${session.seed}:${session.actions.length}`;
 
   /** The message stays until the player moves, undoes, deals, or dismisses it. */
@@ -2289,24 +2398,27 @@ const StandardDeck = (() => {
     const { rules } = game;
     const { options, state } = session;
     const key = situationKey();
-    busyTimer = setTimeout(() => showBusy('searching', 'Looking for a move',
-      'This can take a little while. Cancel to stop looking.', 'Cancel'), BUSY_DELAY_MS);
-    // A winning line found earlier is followed for as long as the game stays on it.
-    const onPlan = plan?.fps.indexOf(CardSim.fingerprint(state)) ?? -1;
-    let line = onPlan >= 0 && onPlan < plan.line.length ? plan.line.slice(onPlan) : null;
+    let found = book.get(rules, options, state);                          // a search already made, or part of a line already found
     try {
-      if (!line) {
+      if (found === undefined) {
+        busyTimer = setTimeout(() => showBusy('searching', 'Looking for a move',
+          'This can take a little while. Cancel to stop looking.', 'Cancel'), BUSY_DELAY_MS);
+        let complete = true;                                              // whether the whole budget was spent, so that an answer can be trusted
         try {
-          line = (await inWorker({ id: rules.id, options, state, nodes: HINT_NODES }))?.actions ?? null;
+          found = (await inWorker({ id: rules.id, options, state, nodes: HINT_NODES }))?.found ?? null;
         } catch {
           await pause(0);                                                 // no workers: look on the page, for less time
-          line = CardSim.solve(rules, options, state, { nodes: 3000 });
+          found = CardSim.hintLine(rules, options, state, { nodes: 3000 });
+          complete = false;
         }
-        plan = line ? CardSim.planLine(rules, options, state, line) : null;
-        line = plan?.line ?? null;
+        if (!cancelledByUser) {
+          if (found && (found.sure || complete)) book.remember(rules, options, state, found);
+          else if (!found && complete) book.rememberNone(rules, options, state);
+        }
       }
     } finally {
       const stopped = cancelledByUser;
+      if (!stopped) await settleBusy();
       cancelSearch = null;
       cancelledByUser = false;
       hideBusy();
@@ -2314,15 +2426,14 @@ const StandardDeck = (() => {
       syncChrome(session.state);
       if (stopped || situationKey() !== key) return;
     }
-    if (line?.length) {
-      hint = { key, action: line[0], sure: true };
-      showToast('A win is still possible. The lit cards are the next move.');
-    } else {
-      const fallback = CardSim.freshMove(rules, options, session.states);
-      if (!fallback) { hint = null; showToast('No move leads anywhere new from here. Undo, or start a new deal.'); return; }
-      hint = { key, action: fallback, sure: false };
-      showToast('No win found from here: it may be lost, or too hard for me to see. The lit move is only a plausible one.');
-    }
+    const { action, kind } = book.choose(rules, options, session.states, found);
+    hint = action ? { key, action, sure: kind === 'win' } : null;
+    showToast({
+      win: 'A win is still possible. The lit cards are the next move.',
+      gain: 'No win found from here: it may be lost, or too hard for me to see. The lit move heads for the best position I could find.',
+      stock: 'No win found, and no move gains anything I can see. Turning the stock over may help.',
+      none: 'No win found, and no move I can see gains anything. Undo, or start a new deal.',
+    }[kind]);
     syncSuggestion();
   }
 

@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, hintLine, HintBook, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -1418,6 +1418,63 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   assert.notStrictEqual(fingerprint(next), fingerprint(start), 'it never returns to a position already seen');
   assert.strictEqual(freshMove({ ...freecell, moves: () => [back] }, options, [start, parked]), null, 'with only a way back, there is nothing fresh to suggest');
   console.log('hint helpers ok');
+}
+
+{
+  // Following the hints, as the page does (a search, remembered, then followed), must not wander or turn a card
+  // straight round. Klondike, whose sideways moves are the temptation, a few deals, a few dozen hints each.
+  const options = { draw: 1, winnable: 0 };
+  for (const seed of [1, 2, 3]) {
+    const book = new HintBook();
+    const states = [klondike.setup(options, mulberry32(seed))];
+    const history = [];
+    let best = -Infinity;
+    for (let step = 0; step < 50 && !klondike.isWon(states.at(-1)); step++) {
+      const state = states.at(-1);
+      let found = book.get(klondike, options, state);
+      if (found === undefined) {
+        found = hintLine(klondike, options, state, { nodes: 3000 });
+        if (found) book.remember(klondike, options, state, found); else book.rememberNone(klondike, options, state);
+      }
+      const { action, kind } = book.choose(klondike, options, states, found);
+      if (!action) break;
+      if (action.type === 'move') {
+        const lead = state.piles[action.from][action.index].card.id;
+        const turnedBack = history.slice(-12).some(h => h.lead === lead && h.from === action.to && h.to === action.from);
+        assert(!turnedBack, `seed ${seed} step ${step}: ${lead} sent straight back from ${action.to} to ${action.from} (${kind})`);
+        history.push({ lead, from: action.from, to: action.to });
+      } else history.push({});
+      const next = klondike.reduce(state, action, options);
+      assert(next.state, 'the hint is a legal move');
+      assert(!states.some(old => fingerprint(old) === fingerprint(next.state)), `seed ${seed} step ${step}: the hint returned to a position already seen`);
+      states.push(next.state);
+      best = Math.max(best, klondike.progress(next.state));
+    }
+    assert(best > klondike.progress(states[0]), `seed ${seed}: following the hints made progress`);
+  }
+  console.log('hints do not circle');
+}
+
+{
+  // Whatever way the search records, the line it returns plays out on the real position: it wins if it says it does.
+  // (FreeCell is the case that once failed: its free cells are interchangeable in the position key.)
+  for (const rules of [freecell, klondike, golf, pyramid, tripeaks, spider, forty]) {
+    const options = Object.fromEntries(rules.options.map(o => [o.id, o.default]));
+    for (let seed = 1; seed <= (rules === freecell ? 40 : 6); seed++) {
+      const state = rules.setup(options, mulberry32(seed));
+      const found = hintLine(rules, options, state, { nodes: 1500 });
+      if (!found) continue;
+      let at = state;
+      for (const action of found.line) {
+        const next = rules.reduce(at, action, options);
+        assert(next.state, `${rules.id} seed ${seed}: the line plays: ${next.error}`);
+        at = next.state;
+      }
+      if (found.sure) assert(rules.isWon(at), `${rules.id} seed ${seed}: a sure line wins`);
+      else assert(rules.progress(at) > rules.progress(state), `${rules.id} seed ${seed}: a line that only gains ground does gain`);
+    }
+  }
+  console.log('hint lines play out');
 }
 
 // Every pile a deal creates has a slot to be drawn in, so no card can vanish from the table.

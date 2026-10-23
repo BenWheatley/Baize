@@ -776,8 +776,15 @@ def check_hint(pg):
     pg.reload()
     pg.wait_for_timeout(700)
     assert pg.locator('.card.suggest').count() == 0
+    pg.evaluate("() => { window.__workers = 0; const Native = Worker; window.Worker = class extends Native { constructor(...a) { window.__workers++; super(...a); } }; }")
     pg.click('#hint-btn')
     pg.wait_for_selector('.card.suggest, .slot.suggest-to', timeout=20000)
+    stacking = pg.evaluate("[...document.querySelectorAll('.card.suggest')].every(el => getComputedStyle(el).zIndex === el.style.zIndex)")
+    assert stacking, 'a lit card keeps its place in the stack: the hint does not lift it above its neighbours'
+    assert pg.evaluate("window.__workers") == 1, 'the first hint searches'
+    pg.click('#hint-btn')
+    pg.wait_for_timeout(300)
+    assert pg.evaluate("window.__workers") == 1, 'asking again for the same position does not search again'
     assert 'win is still possible' in pg.locator('#toast').inner_text(), pg.locator('#toast').inner_text()
     pg.wait_for_timeout(6500)
     assert pg.locator('#toast').is_visible(), 'the message stays until the player acts'
@@ -798,6 +805,7 @@ def check_hint(pg):
     # the H key does the same; the message has a close button; a game with no solver has no Hint
     pg.keyboard.press('h')
     pg.wait_for_selector('.card.suggest, .slot.suggest-to', timeout=20000)
+    assert pg.evaluate("window.__workers") == 1, 'the next hint along a line already found does not search either'
     assert pg.locator('#toast').is_visible()
     pg.click('#toast-close')
     assert pg.locator('#toast').is_hidden(), 'the close button dismisses the message'
@@ -890,6 +898,33 @@ def check_animation_setting_overrides_the_device(pg):
     context.close()
 
 
+def check_hint_dialogue_is_not_a_flash(pg):
+    start(pg, 'klondike')
+    pg.evaluate("""() => {
+        window.Worker = class { postMessage() { setTimeout(() => this.onmessage({ data: { actions: null } }), 420); } terminate() {} };
+        window.__busy = [];
+        new MutationObserver(() => window.__busy.push([performance.now(), !document.getElementById('busy').hidden]))
+            .observe(document.getElementById('busy'), { attributes: true, attributeFilter: ['hidden'] }); }""")
+    pg.click('#hint-btn')
+    pg.wait_for_selector('#toast:not([hidden])', timeout=10000)
+    log = pg.evaluate("window.__busy")
+    shown = [t for t, visible in log if visible]
+    hidden = [t for t, visible in log if not visible]
+    assert shown and hidden, log
+    assert hidden[-1] - shown[0] >= 480, f'the dialogue stays up for half a second once it appears: {hidden[-1] - shown[0]:.0f} ms'
+
+
+def check_hint_uses_what_the_winnable_search_found(pg):
+    start(pg, 'freecell')
+    choose(pg, 'winnable', 1)
+    wait_for_deal(pg)
+    pg.evaluate("() => { window.__workers = 0; const Native = Worker; window.Worker = class extends Native { constructor(...a) { window.__workers++; super(...a); } }; }")
+    pg.click('#hint-btn')
+    pg.wait_for_selector('.card.suggest, .slot.suggest-to', timeout=10000)
+    assert 'win is still possible' in pg.locator('#toast').inner_text()
+    assert pg.evaluate("window.__workers") == 0, 'the first hint of a winnable deal needs no search: the search that chose the deal found the line'
+
+
 def check_game_menu_gives_up_focus(pg):
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
@@ -913,7 +948,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]
@@ -926,7 +961,7 @@ with sync_playwright() as p:
         context.route('**/fonts.googleapis.com/**', lambda route: route.abort())
         page = context.new_page()
         errors = []
-        page.on('pageerror', lambda e: errors.append(str(e)))
+        page.on('pageerror', lambda e: errors.append(e.stack or str(e)))
         page.goto(URL)
         page.wait_for_timeout(700)
         try:
