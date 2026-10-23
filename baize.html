@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Baize</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,0,0&icon_names=bar_chart,lightbulb,menu,settings&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,0,0&icon_names=bar_chart,close,lightbulb,menu,settings&display=block">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@500;700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
 <style>
 /* Layout: one column. Header (name + controls) and a status line on a wooden desk, then the felt
@@ -364,10 +364,18 @@ html:not(.icons) .icon::before { content: attr(data-fallback); font-size: 22px; 
   0%, 100% { box-shadow: 0 0 0 3px var(--suggest), 0 0 8px 2px rgba(127, 220, 255, 0.5), 0 5px 9px rgba(0, 0, 0, 0.4); }
   50% { box-shadow: 0 0 0 3px var(--suggest), 0 0 20px 7px rgba(127, 220, 255, 0.85), 0 5px 9px rgba(0, 0, 0, 0.4); }
 }
+.icon-close {
+  flex: none; margin: 0; padding: 0; width: 26px; height: 26px; min-height: 0; display: grid; place-items: center; border-radius: 50%;
+  box-shadow: none; text-shadow: none; background: transparent; color: var(--enamel-ink); border: 1px solid rgba(42, 29, 16, 0.45);
+}
+.icon-close:hover:not(:disabled) { background: rgba(255, 245, 200, 0.45); }
+html.icons .icon-close .icon { font-size: 18px; }
+.icon-close .icon::before { font-size: 18px; }
 .card.suggest-to, .slot.suggest-to { outline: 3px dashed var(--suggest); outline-offset: 3px; }
 .toast {
   position: absolute; z-index: 190000; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: 90%; box-sizing: border-box;
-  padding: 8px 16px; border-radius: 9px; text-align: center; font-size: 14px;
+  padding: 8px 12px 8px 16px; border-radius: 9px; text-align: left; font-size: 14px;
+  display: flex; align-items: center; gap: 10px;
   color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
   background: linear-gradient(160deg, #f1d98e, #c9a24a 50%, #b48c36);
   box-shadow: 0 0 0 2px var(--brass-lo), 0 0 0 3px #0d0703, 0 8px 20px rgba(0, 0, 0, 0.5);
@@ -424,15 +432,15 @@ html[data-back="blue"] { --back: #1f3f7a; }
 html[data-back="green"] { --back: #1f5a3c; }
 html[data-back="black"] { --back: #1d1d22; }
 .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 235, 170, 0.6); vertical-align: -1px; }
-#settings .plaque { max-width: min(30rem, 94%); }
-#settings .seg { display: flex; margin: 0 0 10px; }
-#settings .seg-label { flex: 0 0 7.5em; justify-content: start; white-space: nowrap; }
-#settings .seg button { flex: 1 1 0; display: flex; align-items: center; justify-content: center; padding: 7px 6px; white-space: nowrap; }
-@media (max-width: 520px) {
-  #settings .plaque { padding: 22px 14px 20px; }
-  #settings .seg { flex-wrap: wrap; }
-  #settings .seg-label { flex: 1 0 100%; padding: 6px 0 2px 10px; }
-}
+/* Settings: a panel in the corner, not a dialogue, so the table can be seen changing behind it. */
+.settings { position: absolute; z-index: 195000; top: 12px; right: 12px; box-sizing: border-box; width: min(25rem, calc(100% - 24px)); padding: 14px 16px 6px; text-align: left; }
+.settings h2 { font-size: 22px; margin: 0 0 10px; }
+.settings .icon-close { position: absolute; top: 12px; right: 14px; }
+.settings .seg { display: grid; margin: 0 0 10px; }
+.settings .seg-label { padding: 6px 0 2px 10px; }
+.settings .seg-buttons { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
+.settings .seg button { display: flex; align-items: center; justify-content: center; padding: 7px 4px; white-space: nowrap; min-width: 0; }
+@media (max-width: 520px) { .settings .seg button { font-size: 13px; padding: 7px 1px; } }
 </style>
 
 <!-- Pattern for the card back. Zero-sized rather than display:none so it still resolves. -->
@@ -473,7 +481,7 @@ html[data-back="black"] { --back: #1d1d22; }
     </div>
     <div class="controls">
       <div class="menu">
-        <button id="options-btn" class="toggle options-btn" type="button" aria-label="Options" aria-haspopup="true" aria-expanded="false" aria-controls="options"><span class="icon" data-fallback="☰" aria-hidden="true">menu</span></button>
+        <button id="options-btn" class="toggle options-btn" type="button" aria-label="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="options"><span class="icon" data-fallback="☰" aria-hidden="true">menu</span></button>
         <div id="options" class="controls" hidden></div>
       </div>
       <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same. Hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to highlight every card of that rank; add Shift for only the movable ones." hidden>Show moves</button>
@@ -502,7 +510,10 @@ html[data-back="black"] { --back: #1d1d22; }
         <button id="win-new" type="button">New deal</button>
       </div>
     </div>
-    <div id="toast" class="toast" hidden role="status"></div>
+    <div id="toast" class="toast" hidden role="status">
+      <span id="toast-text"></span>
+      <button id="toast-close" type="button" class="icon-close" aria-label="Dismiss"><span class="icon" data-fallback="×" aria-hidden="true">close</span></button>
+    </div>
     <div id="stats" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="stats-title">
       <div class="plaque">
         <h2 id="stats-title">Statistics</h2>
@@ -513,14 +524,10 @@ html[data-back="black"] { --back: #1d1d22; }
         </div>
       </div>
     </div>
-    <div id="settings" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
-      <div class="plaque">
-        <h2 id="settings-title">Settings</h2>
-        <div id="settings-body"></div>
-        <div class="plaque-buttons">
-          <button id="settings-close" type="button" class="primary">Close</button>
-        </div>
-      </div>
+    <div id="settings" class="plaque settings" hidden role="dialog" aria-labelledby="settings-title">
+      <h2 id="settings-title">Settings</h2>
+      <button id="settings-close" type="button" class="icon-close" aria-label="Close settings"><span class="icon" data-fallback="×" aria-hidden="true">close</span></button>
+      <div id="settings-body"></div>
     </div>
     <div id="busy" class="modal" hidden role="alertdialog" aria-modal="true" aria-labelledby="busy-title" aria-describedby="busy-text">
       <div class="plaque">
@@ -1869,6 +1876,37 @@ const CardSim = (() => {
     return { ...stats, [gameId]: record };
   }
 
+  /* ---------- Hints ----------
+     Helpers for choosing what to suggest, so that following hints never goes round in a circle. */
+
+  /** A string equal for equal positions: every card, which way it faces, and the rest of the state. */
+  const fingerprint = state => Object.entries(state.piles)
+    .map(([id, pile]) => `${id}:${pile.map(e => `${e.card.id}${e.up ? 'u' : 'd'}`).join(',')}`).join('|')
+    + JSON.stringify({ ...state, piles: undefined });
+
+  /** A line of play with any loop cut out of it, and the fingerprint of the position before each of its moves. */
+  function planLine(rules, options, state, line) {
+    const kept = [], fps = [fingerprint(state)];
+    let at = state;
+    for (const action of line) {
+      at = rules.reduce(at, action, options).state;
+      const fp = fingerprint(at);
+      const back = fps.indexOf(fp);
+      if (back >= 0) { kept.length = back; fps.length = back + 1; } else { kept.push(action); fps.push(fp); }
+    }
+    return { line: kept, fps };
+  }
+
+  /** The ruleset's first-choice move that reaches a position not yet seen in `states` (a game so far), or null. */
+  function freshMove(rules, options, states) {
+    const state = states[states.length - 1];
+    const seen = new Set(states.map(fingerprint));
+    return rules.moves(state, options).find(action => {
+      const result = rules.reduce(state, action, options);
+      return !result.error && !seen.has(fingerprint(result.state));
+    }) ?? null;
+  }
+
   /* ---------- Settings ----------
      The player's preferences, kept apart from the rules. Each has a fixed set of choices, so a stored
      value that is missing, misspelt or from a future version falls back to the default. */
@@ -1895,7 +1933,7 @@ const CardSim = (() => {
     }));
   }
 
-  return { mulberry32, shuffle, Session, solve, recordResult, emptyRecord, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
+  return { mulberry32, shuffle, Session, solve, recordResult, emptyRecord, fingerprint, planLine, freshMove, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
 })();
 </script>
 
@@ -1986,7 +2024,7 @@ const StandardDeck = (() => {
     win: $('win'), winText: $('win-text'), winNew: $('win-new'),
     settings: $('settings'), settingsBody: $('settings-body'), settingsClose: $('settings-close'),
     stats: $('stats'), statsTable: $('stats-table'), statsReset: $('stats-reset'), statsClose: $('stats-close'),
-    toast: $('toast'),
+    toast: $('toast'), toastText: $('toast-text'), toastClose: $('toast-close'),
     busy: $('busy'), busyTitle: $('busy-title'), busyText: $('busy-text'), busyBtn: $('busy-btn'),
   };
 
@@ -2203,14 +2241,20 @@ const StandardDeck = (() => {
 
   const HINT_NODES = 12000;
   let hint = null;            // { key, action, sure }
-  let toastTimer = 0;
+  let plan = null;            // a winning line already found: { line, fps }, fps[i] being the position before line[i]
+  let toastKey = null;        // the position the message on show is about
   const situationKey = () => `${game.rules.id}:${session.seed}:${session.actions.length}`;
 
+  /** The message stays until the player moves, undoes, deals, or dismisses it. */
   function showToast(text) {
-    els.toast.textContent = text;
+    els.toastText.textContent = text;
     els.toast.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { els.toast.hidden = true; }, 5000);
+    toastKey = situationKey();
+  }
+
+  function hideToast() {
+    els.toast.hidden = true;
+    toastKey = null;
   }
 
   /** The cards a move takes, and the pile it goes to. */
@@ -2227,6 +2271,7 @@ const StandardDeck = (() => {
   function syncSuggestion() {
     cardEls.forEach(el => el.classList.remove('suggest', 'suggest-to'));
     slotEls.forEach(el => el.classList.remove('suggest-to'));
+    if (toastKey !== situationKey()) hideToast();
     if (!hint || hint.key !== situationKey()) return;
     const cells = suggestionCells(session.state, hint.action);
     for (const id of cells.from) cardEls.get(id)?.classList.add('suggest');
@@ -2246,13 +2291,19 @@ const StandardDeck = (() => {
     const key = situationKey();
     busyTimer = setTimeout(() => showBusy('searching', 'Looking for a move',
       'This can take a little while. Cancel to stop looking.', 'Cancel'), BUSY_DELAY_MS);
-    let line = null;
+    // A winning line found earlier is followed for as long as the game stays on it.
+    const onPlan = plan?.fps.indexOf(CardSim.fingerprint(state)) ?? -1;
+    let line = onPlan >= 0 && onPlan < plan.line.length ? plan.line.slice(onPlan) : null;
     try {
-      try {
-        line = (await inWorker({ id: rules.id, options, state, nodes: HINT_NODES }))?.actions ?? null;
-      } catch {
-        await pause(0);                                                   // no workers: look on the page, for less time
-        line = CardSim.solve(rules, options, state, { nodes: 3000 });
+      if (!line) {
+        try {
+          line = (await inWorker({ id: rules.id, options, state, nodes: HINT_NODES }))?.actions ?? null;
+        } catch {
+          await pause(0);                                                 // no workers: look on the page, for less time
+          line = CardSim.solve(rules, options, state, { nodes: 3000 });
+        }
+        plan = line ? CardSim.planLine(rules, options, state, line) : null;
+        line = plan?.line ?? null;
       }
     } finally {
       const stopped = cancelledByUser;
@@ -2267,8 +2318,8 @@ const StandardDeck = (() => {
       hint = { key, action: line[0], sure: true };
       showToast('A win is still possible. The lit cards are the next move.');
     } else {
-      const [fallback] = rules.moves(state, options);
-      if (!fallback) { hint = null; showToast('There are no moves left. Undo, or start a new deal.'); return; }
+      const fallback = CardSim.freshMove(rules, options, session.states);
+      if (!fallback) { hint = null; showToast('No move leads anywhere new from here. Undo, or start a new deal.'); return; }
       hint = { key, action: fallback, sure: false };
       showToast('No win found from here: it may be lost, or too hard for me to see. The lit move is only a plausible one.');
     }
@@ -2341,7 +2392,7 @@ const StandardDeck = (() => {
   function showSettings() {
     const rows = CardSim.SETTINGS.map(setting => h('div', { class: 'seg', role: 'group', 'aria-label': setting.label, 'data-setting-group': setting.id },
       h('span', { class: 'seg-label' }, setting.label),
-      ...setting.choices.map(choice => {
+      h('div', { class: 'seg-buttons' }, ...setting.choices.map(choice => {
         const button = h('button', { type: 'button', 'data-setting': setting.id, 'data-value': choice.value, 'aria-pressed': String(settings[setting.id] === choice.value) },
           ...(choice.swatch ? [h('span', { class: 'swatch', style: `background:${choice.swatch}` })] : []), choice.label);
         button.addEventListener('click', () => {
@@ -2353,7 +2404,7 @@ const StandardDeck = (() => {
           }
         });
         return button;
-      })));
+      }))));
     els.settingsBody.replaceChildren(...rows);
     els.settings.hidden = false;
     els.settingsClose.focus();
@@ -2860,7 +2911,7 @@ const StandardDeck = (() => {
     .then(faces => { if (faces.length) document.documentElement.classList.add('icons'); })
     .catch(() => {});
   els.settingsClose.addEventListener('click', () => hideSettings());
-  els.settings.addEventListener('pointerdown', e => { if (e.target === els.settings) hideSettings(); });
+  els.toastClose.addEventListener('click', hideToast);
   els.statsClose.addEventListener('click', () => hideStats());
   els.statsReset.addEventListener('click', resetStats);
   els.stats.addEventListener('pointerdown', e => { if (e.target === els.stats) hideStats(); });
@@ -2928,7 +2979,7 @@ const StandardDeck = (() => {
       return;
     }
     if (e.key === 'Shift') setShift(true);
-    const typing = e.target.closest?.('select, input, textarea') || !els.rules.hidden || !els.busy.hidden || !els.stats.hidden || !els.settings.hidden;
+    const typing = e.target.closest?.('select, input, textarea') || !els.rules.hidden || !els.busy.hidden || !els.stats.hidden;
     const rank = e.ctrlKey || e.metaKey || e.altKey || typing ? null : rankOfKey(e);
     if (rank !== null) setRank(e.code, rank);
     if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'h' && els.options.hidden) startHint();

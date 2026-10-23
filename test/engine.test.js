@@ -9,7 +9,7 @@ const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</scrip
 const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, recordResult, readSettings, SETTINGS, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, fanOffsets, movableCards, mulberry32 } = CardSim;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -1388,6 +1388,36 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     for (const c of setting.choices) same(readSettings(JSON.stringify({ [setting.id]: c.value }))[setting.id], c.value, `${setting.id}=${c.value} is accepted`);
   }
   console.log('settings ok');
+}
+
+{
+  // Hints must not go round in circles. In FreeCell, shifting a card from one cell to another and back is a loop.
+  const options = freecell.options.reduce((o, x) => ({ ...o, [x.id]: x.default }), {});
+  const begin = freecell.setup(options, mulberry32(1));
+  const park = freecell.moves(begin, options).find(a => a.type === 'move' && /^c\d$/.test(a.to));
+  assert(park, 'a card can be parked');
+  const start = freecell.reduce(begin, park, options).state;               // the card sits in cell `park.to`
+  const other = ['c0', 'c1', 'c2', 'c3'].find(c => c !== park.to);
+  const across = { type: 'move', from: park.to, index: 0, to: other };
+  const back = { type: 'move', from: other, index: 0, to: park.to };
+  const parked = freecell.reduce(start, across, options).state;
+  assert.strictEqual(fingerprint(freecell.reduce(parked, back, options).state), fingerprint(start), 'moving across and back restores the position exactly');
+
+  const winning = solve(freecell, options, start, { nodes: 3000 });
+  assert(winning && winning.length, 'a line to follow');
+  const looped = planLine(freecell, options, start, [across, back, ...winning]);
+  same(looped.line, winning, 'a loop at the start of a line is cut out');
+  same(looped.fps.length, winning.length + 1, 'with a position for each move and the last');
+  same(looped.fps[0], fingerprint(start));
+  same(planLine(freecell, options, start, [winning[0]]).line, [winning[0]], 'a line without loops is kept as it is');
+
+  const again = freshMove(freecell, options, [start, parked]);
+  assert(again, 'there is a move that goes somewhere new');
+  assert(!(again.from === back.from && again.to === back.to), 'but not straight back');
+  const next = freecell.reduce(parked, again, options).state;
+  assert.notStrictEqual(fingerprint(next), fingerprint(start), 'it never returns to a position already seen');
+  assert.strictEqual(freshMove({ ...freecell, moves: () => [back] }, options, [start, parked]), null, 'with only a way back, there is nothing fresh to suggest');
+  console.log('hint helpers ok');
 }
 
 // Every pile a deal creates has a slot to be drawn in, so no card can vanish from the table.

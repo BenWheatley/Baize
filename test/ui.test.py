@@ -779,6 +779,8 @@ def check_hint(pg):
     pg.click('#hint-btn')
     pg.wait_for_selector('.card.suggest, .slot.suggest-to', timeout=20000)
     assert 'win is still possible' in pg.locator('#toast').inner_text(), pg.locator('#toast').inner_text()
+    pg.wait_for_timeout(6500)
+    assert pg.locator('#toast').is_visible(), 'the message stays until the player acts'
     first = saved['actions'][0]
     if first['type'] == 'play':
         lit_ids = pg.evaluate("[...document.querySelectorAll('.card.suggest')].map(c => c.dataset.id)")
@@ -792,9 +794,14 @@ def check_hint(pg):
     pg.wait_for_timeout(400)
     assert 'Moves 1' in status(pg), status(pg)
     assert pg.locator('.card.suggest').count() == 0 and pg.locator('.suggest-to').count() == 0, 'the hint goes once it is taken'
-    # the H key does the same, and a game with no solver has no Hint
+    assert pg.locator('#toast').is_hidden(), 'and so does its message'
+    # the H key does the same; the message has a close button; a game with no solver has no Hint
     pg.keyboard.press('h')
     pg.wait_for_selector('.card.suggest, .slot.suggest-to', timeout=20000)
+    assert pg.locator('#toast').is_visible()
+    pg.click('#toast-close')
+    assert pg.locator('#toast').is_hidden(), 'the close button dismisses the message'
+    assert pg.locator('.card.suggest, .slot.suggest-to').count() >= 1, 'the lit move stays'
     start(pg, 'yukon')
     pg.click('#options-btn')
     assert pg.locator('#hint-btn').is_hidden(), 'Yukon cannot be searched'
@@ -848,9 +855,14 @@ def check_settings(pg):
     assert (root(pg, 'felt'), root(pg, 'back'), root(pg, 'motion')) == ('blue', 'black', 'normal'), 'settings are kept'
     open_settings(pg)
     assert pg.locator('#settings button[data-setting="back"][data-value="black"]').get_attribute('aria-pressed') == 'true'
-    corner = pg.locator('#table').bounding_box()
-    pg.mouse.click(corner['x'] + 6, corner['y'] + 6)
-    assert pg.locator('#settings').is_hidden(), 'clicking the table around the panel closes it'
+    assert pg.locator('#settings').is_visible()
+    box = pg.locator('#settings').bounding_box()
+    table = pg.locator('#table').bounding_box()
+    assert box['x'] >= table['x'] and box['x'] + box['width'] <= table['x'] + table['width'] + 1, f'the panel fits the table {box} {table}'
+    overflow = pg.evaluate("[...document.querySelectorAll('#settings button')].filter(b => { const p = document.getElementById('settings').getBoundingClientRect(), r = b.getBoundingClientRect(); return r.right > p.right || r.left < p.left; }).length")
+    assert overflow == 0, 'no button sticks out of the panel'
+    pg.click('#settings-close')
+    assert pg.locator('#settings').is_hidden(), 'the close button closes the panel'
     pg.evaluate("localStorage.setItem('baize.settings', JSON.stringify({ felt: 'plaid', back: 'red' }))")
     pg.reload()
     pg.wait_for_timeout(700)
