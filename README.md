@@ -45,6 +45,10 @@ Klondike, FreeCell, Golf, Pyramid, TriPeaks and one-suit Spider offer Deals: Win
 
 The faces are Adrian Kennard's playing cards (<https://www.me.uk/cards/>), dedicated to the public domain under CC0 1.0, taken from `@letele/playing-cards` 0.1.0 (CC0-1.0). The card back is drawn for this page and is also CC0. To regenerate the embedded faces, run `tools/art/build.sh`.
 
+## Icons
+
+The icons are Google's Material Symbols (outlined, weight 500), licensed under the Apache License 2.0, copied unchanged from `@material-symbols/svg-500` 0.48.1 into an inline SVG sprite near the top of `baize.html`. No font is loaded, so there is nothing to fetch and no fallback glyph. To change the set, edit the list in `tools/icons/embed.mjs`, then run `npm install && node embed.mjs` in `tools/icons`. `NOTICE` and `LICENSE-material-symbols.txt` carry the attribution and the licence text.
+
 ## Working on it
 
 Commit each change on its own, run `npm test` first, and keep diffs small. The history before the first test commit was rebuilt from saved snapshots of each published version, so some early commits bundle several changes.
