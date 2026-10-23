@@ -503,10 +503,17 @@ def check_redeal_order(pg):
         assert pg.evaluate("document.querySelectorAll('.card').length") == len(before)
 
 
+def open_settings(pg):
+    if pg.locator('#settings').is_hidden():
+        pg.click('#settings-btn')
+    assert pg.locator('#settings').is_visible()
+
+
 def choose(pg, option, value):
-    """Pick an option the way a person does: open the menu, then press the button."""
-    pg.click('#options-btn')
+    """Pick a game option the way a person does: open Settings, press the button, put the panel away."""
+    open_settings(pg)
     pg.click(f'button[data-option="{option}"][data-value="{value}"]')
+    pg.click('#settings-close')
 
 
 def check_winnable_deals(pg):
@@ -534,22 +541,18 @@ def check_winnable_deals(pg):
         CardSim.freecell.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 }))""", last), 'fallback deal can be won'
     # Spider can only promise winnable deals with one suit, so the setting is not offered otherwise.
     start(pg, 'spider')
-    pg.click('#options-btn')
+    open_settings(pg)
     assert pg.locator('[data-option-group="winnable"]').is_visible()
     pg.click('button[data-option="suits"][data-value="2"]')
     wait_for_deal(pg)
-    assert not pg.locator('#options').is_visible(), 'choosing an option closes the menu'
-    pg.click('#options-btn')
+    assert pg.locator('#settings').is_visible(), 'changing an option leaves the panel open, to try another'
     assert not pg.locator('[data-option-group="winnable"]').is_visible()
     pg.keyboard.press('Escape')
-    assert not pg.locator('#options').is_visible(), 'Escape closes the menu'
-    assert pg.evaluate("document.activeElement.id") == 'options-btn'
-    pg.click('#options-btn')
-    pg.mouse.click(5, 5)
-    assert not pg.locator('#options').is_visible(), 'clicking elsewhere closes the menu'
-    pg.click('#options-btn')
+    assert pg.locator('#settings').is_hidden(), 'Escape closes the panel'
+    assert pg.evaluate("document.activeElement.id") == 'settings-btn'
+    pg.click('#settings-btn')
     pg.click('#rules-btn')
-    assert not pg.locator('#options').is_visible() and pg.locator('#rules').is_visible(), 'only one popover at a time'
+    assert pg.locator('#settings').is_hidden() and pg.locator('#rules').is_visible(), 'only one popover at a time'
 
 
 VIEWPORTS = {'phone': (390, 844, True), 'phone landscape': (844, 390, True), 'tablet': (820, 1180, True),
@@ -587,14 +590,13 @@ def check_responsive(pg):
                 .filter(b => b.offsetParent !== null && b.getBoundingClientRect().height < 43).map(b => b.id || b.textContent)""")
             assert not small, f'{label}: buttons under 44 px: {small}'
         start(page, 'klondike')
-        assert not page.locator('#options').is_visible(), f'{label}: options start closed'
-        page.click('#options-btn')
-        menu = page.evaluate("""() => { const r = document.getElementById('options').getBoundingClientRect();
-            return { left: r.left, right: r.right, bottom: r.bottom, w: innerWidth, h: innerHeight }; }""")
-        assert menu['left'] >= 0 and menu['right'] <= menu['w'] and menu['bottom'] <= menu['h'], f'{label}: the menu fits the screen {menu}'
-        near = page.evaluate("""() => { const m = document.getElementById('options').getBoundingClientRect(), b = document.getElementById('options-btn').getBoundingClientRect();
-            return { gap: m.top - b.bottom, overlap: Math.min(m.right, b.right) - Math.max(m.left, b.left) }; }""")
-        assert 0 <= near['gap'] <= 16 and near['overlap'] > 0, f'{label}: the menu hangs from its button {near}'
+        assert page.locator('#settings').is_hidden(), f'{label}: settings start closed'
+        page.click('#settings-btn')
+        panel = page.evaluate("""() => { const r = document.getElementById('settings').getBoundingClientRect(), t = document.getElementById('table').getBoundingClientRect();
+            return { left: r.left - t.left, right: t.right - r.right, top: r.top - t.top, bottom: t.bottom - r.bottom }; }""")
+        assert min(panel.values()) >= 0, f'{label}: the settings panel fits the table {panel}'
+        reach = page.evaluate("[...document.querySelectorAll('#settings button')].filter(b => b.getBoundingClientRect().width < 20 || b.getBoundingClientRect().height < 20).length")
+        assert reach == 0, f'{label}: every settings button can be hit'
         body = page.evaluate("(() => { const r = document.body.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, innerWidth, innerHeight]; })()")
         assert body[:2] == [0, 0] and body[2:4] == body[4:], f'{label}: the page fills the screen exactly {body}'
         context.close()
@@ -704,7 +706,6 @@ def check_rules_text_stays_inside_the_frame(pg):
 
 
 def stats_rows(pg):
-    pg.click('#options-btn')
     pg.click('#stats-btn')
     rows = pg.evaluate("[...document.querySelectorAll('#stats-table tr')].map(r => [...r.children].map(c => c.textContent))")
     return {r[0]: r[1:] for r in rows}
@@ -714,7 +715,7 @@ def check_statistics(pg):
     assert stats_rows(pg)['Golf'] == ['–'] * 5, 'nothing played yet'
     pg.keyboard.press('Escape')
     assert pg.locator('#stats').is_hidden(), 'Escape closes the panel'
-    assert pg.evaluate("document.activeElement.id") == 'options-btn'
+    assert pg.evaluate("document.activeElement.id") == 'settings-btn'
     # A saved, already-won Golf deal: load it and the win is counted, once.
     saved = pg.evaluate("""() => {
         const options = { wrap: 1, winnable: 0 }, rules = CardSim.golf;
@@ -775,7 +776,6 @@ def check_hint(pg):
     pg.reload()
     pg.wait_for_timeout(700)
     assert pg.locator('.card.suggest').count() == 0
-    pg.click('#options-btn')
     pg.click('#hint-btn')
     pg.wait_for_selector('.card.suggest, .slot.suggest-to', timeout=20000)
     assert 'win is still possible' in pg.locator('#toast').inner_text(), pg.locator('#toast').inner_text()
@@ -803,9 +803,7 @@ def check_hint(pg):
     assert pg.locator('#toast').is_hidden(), 'the close button dismisses the message'
     assert pg.locator('.card.suggest, .slot.suggest-to').count() >= 1, 'the lit move stays'
     start(pg, 'yukon')
-    pg.click('#options-btn')
     assert pg.locator('#hint-btn').is_hidden(), 'Yukon cannot be searched'
-    pg.keyboard.press('Escape')
     # a position the solver cannot win still gets a plausible move, and says so
     start(pg, 'forty')
     pg.keyboard.press('h')
@@ -813,12 +811,6 @@ def check_hint(pg):
     text = pg.locator('#toast').inner_text()
     assert 'win is still possible' in text or 'No win found' in text, text
     assert pg.locator('.card.suggest, .slot.suggest-to').count() >= 1
-
-
-def open_settings(pg):
-    pg.click('#options-btn')
-    pg.click('#settings-btn')
-    assert pg.locator('#settings').is_visible() and not pg.locator('#options').is_visible()
 
 
 def setting(pg, name, value):
@@ -849,7 +841,7 @@ def check_settings(pg):
     setting(pg, 'motion', 'normal')
     pg.keyboard.press('Escape')
     assert pg.locator('#settings').is_hidden(), 'Escape closes the settings'
-    assert pg.evaluate("document.activeElement.id") == 'options-btn'
+    assert pg.evaluate("document.activeElement.id") == 'settings-btn'
     pg.reload()
     pg.wait_for_timeout(700)
     assert (root(pg, 'felt'), root(pg, 'back'), root(pg, 'motion')) == ('blue', 'black', 'normal'), 'settings are kept'
@@ -867,6 +859,20 @@ def check_settings(pg):
     pg.reload()
     pg.wait_for_timeout(700)
     assert (root(pg, 'felt'), root(pg, 'back')) == ('green', 'red'), 'a value that is not a choice falls back to the default'
+
+
+def check_restart_lives_in_settings(pg):
+    start(pg, 'klondike')
+    deal = status(pg).split('Moves')[0]
+    tap(pg, '.slot[data-pile="stock"]')
+    assert 'Moves 1' in status(pg), status(pg)
+    assert pg.locator('#restart').is_hidden(), 'Restart is not in the way until Settings is open'
+    open_settings(pg)
+    assert pg.locator('#restart').is_visible()
+    pg.click('#restart')
+    pg.wait_for_timeout(1200)
+    assert pg.locator('#settings').is_hidden(), 'restarting puts the panel away'
+    assert 'Moves 0' in status(pg) and status(pg).split('Moves')[0] == deal, ('the same deal again', status(pg))
 
 
 def check_animation_setting_overrides_the_device(pg):
@@ -907,7 +913,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]
