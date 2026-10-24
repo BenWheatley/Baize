@@ -1491,7 +1491,7 @@ const CardSim = (() => {
     status: (state, options) => [
       { label: 'Left', value: `${PYRAMID_IDS.filter(id => state.piles[id].length).length} / ${PYRAMID_IDS.length}` },
       { label: 'Stock', value: state.piles.stock.length },
-      { label: 'Redeals', value: options.redeals >= UNLIMITED_REDEALS ? 'unlimited' : Math.max(0, options.redeals - state.redeals) },
+      { label: 'Redeals', value: options.redeals >= UNLIMITED_REDEALS ? 'Unlimited' : Math.max(0, options.redeals - state.redeals) },
     ],
   });
 
@@ -2968,11 +2968,13 @@ const StandardDeck = (() => {
 
   function syncChrome(state) {
     const { rules } = game;
+    const counts = rules.status(state, session.options);
     const items = [
       ['Deal', `#${String(session.seed).padStart(6, '0')}`],
       ['Moves', session.actions.length],
-      ...rules.status(state, session.options).map(s => [s.label, s.value]),
-      ...rules.options.filter(o => !o.when || o.when(session.options))
+      ...counts.map(s => [s.label, s.value]),
+      // an option the status line already reports as a live count (Redeals) is not shown a second time
+      ...rules.options.filter(o => (!o.when || o.when(session.options)) && !counts.some(s => s.label === o.label))
         .map(o => [o.label, o.choices.find(c => c.value === session.options[o.id])?.label ?? '']),
     ];
     els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))));

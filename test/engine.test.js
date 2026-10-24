@@ -588,7 +588,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   const st = pyramid.status(dealt, o2);
   same(st.map(x => x.value), ['28 / 28', 24, 2]);
   same(pyramid.status(r1, o2).map(x => x.value), ['0 / 28', 2, 1]);
-  assert.strictEqual(pyramid.status(dealt, { redeals: 99 })[2].value, 'unlimited');
+  assert.strictEqual(pyramid.status(dealt, { redeals: 99 })[2].value, 'Unlimited');
   assert(pyramid.isWon(blankPy()));
   assert(!pyramid.isWon(h));
 
