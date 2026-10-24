@@ -32,6 +32,7 @@ def lit(pg):
 
 
 def open_game(pg, name):
+    open_settings(pg)
     pg.select_option('#game', GAMES[name])
     pg.wait_for_timeout(900)
 
@@ -118,6 +119,7 @@ def check_rank_keys(pg):
         assert FACE_DOWN not in lit(pg), f'key {key} lit a face-down card'
         pg.keyboard.up(key)
 
+    open_settings(pg)
     pg.focus('#game')
     pg.keyboard.press('k')
     assert count(pg, 'hint') == 0, 'rank keys are ignored while the menu has focus'
@@ -230,8 +232,8 @@ def check_rules_card(pg):
     start(pg, 'klondike')
     assert pg.locator('.notes').count() == 0, 'the old bottom notes are gone'
     assert not pg.is_visible('#rules')
-    pg.click('#rules-btn')
-    assert pg.is_visible('#rules') and pg.get_attribute('#rules-btn', 'aria-expanded') == 'true'
+    via_menu(pg, '#rules-btn')
+    assert pg.is_visible('#rules')
     assert pg.inner_text('#rules-title') == 'Klondike' and 'foundations' in pg.inner_text('#rules-text')
     assert pg.evaluate("document.activeElement.id") == 'rules-close', 'focus moves into the card'
     # nothing from the table may paint over the card: sample points across it
@@ -251,19 +253,19 @@ def check_rules_card(pg):
     assert box['x'] >= 0 and box['x'] + box['width'] <= 1000, box
     # Escape closes it and returns focus to the button
     pg.keyboard.press('Escape')
-    assert not pg.is_visible('#rules') and pg.evaluate("document.activeElement.id") == 'rules-btn'
+    assert not pg.is_visible('#rules') and pg.evaluate("document.activeElement.id") == 'settings-btn'
     # the close button works
-    pg.click('#rules-btn')
+    via_menu(pg, '#rules-btn')
     pg.click('#rules-close')
     assert not pg.is_visible('#rules')
     # a click outside closes it
-    pg.click('#rules-btn')
+    via_menu(pg, '#rules-btn')
     pg.mouse.click(900, 700)
     assert not pg.is_visible('#rules'), 'clicking elsewhere closes the card'
     # it follows the game while open
-    pg.click('#rules-btn')
-    pg.select_option('#game', GAMES['golf'])
-    pg.wait_for_timeout(500)
+    open_game(pg, 'golf')
+    pg.click('#settings-btn')
+    via_menu(pg, '#rules-btn')
     assert pg.inner_text('#rules-title') == 'Golf' and 'column' in pg.inner_text('#rules-text')
     # on a phone it stays inside the screen
     pg.set_viewport_size({'width': 400, 'height': 760})
@@ -503,6 +505,12 @@ def check_redeal_order(pg):
         assert pg.evaluate("document.querySelectorAll('.card').length") == len(before)
 
 
+def via_menu(pg, selector):
+    """Press a button that lives in the menu, opening the menu first if it is not open."""
+    open_settings(pg)
+    pg.click(selector)
+
+
 def open_settings(pg):
     if pg.locator('#settings').is_hidden():
         pg.click('#settings-btn')
@@ -551,7 +559,7 @@ def check_winnable_deals(pg):
     assert pg.locator('#settings').is_hidden(), 'Escape closes the panel'
     assert pg.evaluate("document.activeElement.id") == 'settings-btn'
     pg.click('#settings-btn')
-    pg.click('#rules-btn')
+    via_menu(pg, '#rules-btn')
     assert pg.locator('#settings').is_hidden() and pg.locator('#rules').is_visible(), 'only one popover at a time'
 
 
@@ -639,7 +647,7 @@ def check_search_can_be_cancelled(pg):
 def check_page_cannot_zoom(pg):
     assert pg.evaluate("document.querySelector('meta[name=viewport]').content") .count('user-scalable=no') == 1
     # the rules card still scrolls on its own
-    pg.click('#rules-btn')
+    via_menu(pg, '#rules-btn')
     assert pg.evaluate("getComputedStyle(document.querySelector('.rules-scroll')).overflowY") == 'auto'
     assert pg.evaluate("getComputedStyle(document.querySelector('.rules-scroll')).touchAction") == 'pan-y'
     assert pg.evaluate("getComputedStyle(document.body).touchAction") == 'none'
@@ -687,7 +695,7 @@ def check_rules_text_stays_inside_the_frame(pg):
     """However far the rules are scrolled, the text (the credit line included) sits inside the gold frame."""
     pg.set_viewport_size({'width': 420, 'height': 560})
     pg.wait_for_timeout(300)
-    pg.click('#rules-btn')
+    via_menu(pg, '#rules-btn')
     for position in (0, 1):
         pg.evaluate("p => { const s = document.querySelector('.rules-scroll'); s.scrollTop = p * s.scrollHeight; }", position)
         pg.wait_for_timeout(100)
@@ -707,7 +715,7 @@ def check_rules_text_stays_inside_the_frame(pg):
 
 def stats_rows(pg):
     if pg.locator('#stats').is_hidden():                # after a win the Cleared panel is this panel, already open
-        pg.click('#stats-btn')
+        via_menu(pg, '#stats-btn')
     rows = pg.evaluate("[...document.querySelectorAll('#stats-table tr')].map(r => [...r.children].map(c => c.textContent))")
     return {r[0]: r[1:] for r in rows}
 
@@ -716,7 +724,7 @@ def check_statistics(pg):
     assert stats_rows(pg)['Golf'] == ['–'] * 5, 'nothing played yet'
     pg.keyboard.press('Escape')
     assert pg.locator('#stats').is_hidden(), 'Escape closes the panel'
-    assert pg.evaluate("document.activeElement.id") == 'stats-btn'
+    assert pg.evaluate("document.activeElement.id") == 'settings-btn'
     # A saved, already-won Golf deal: load it and the win is counted, once.
     saved = pg.evaluate("""() => {
         const options = { wrap: 1, winnable: 0 }, rules = CardSim.golf;
@@ -942,16 +950,16 @@ def won_golf(pg):
 def check_panels_are_exclusive(pg):
     visible = lambda: pg.evaluate("['rules', 'stats', 'settings'].filter(id => !document.getElementById(id).hidden)")
     start(pg, 'klondike')
-    pg.click('#stats-btn')
+    via_menu(pg, '#stats-btn')
     assert visible() == ['stats']
     pg.click('#settings-btn', force=True)             # the table's own overlay is not in the way of the header
     assert visible() == ['settings'], 'opening Settings closes Statistics'
     pg.click('#stats-btn')
-    assert visible() == ['stats'], 'and the other way round'
-    pg.click('#stats-btn')
-    assert visible() == [], 'a panel\'s own button closes it'
+    assert visible() == ['stats'], 'and the other way round: the menu gives way to Statistics'
     pg.click('#settings-btn')
-    pg.click('#rules-btn')
+    pg.click('#settings-btn')
+    assert visible() == [], 'the menu button closes the menu'
+    via_menu(pg, '#rules-btn')
     assert visible() == ['rules']
     pg.click('#settings-btn')
     assert visible() == ['settings']
@@ -971,7 +979,7 @@ def check_cleared_is_the_statistics_panel(pg):
     pg.click('#stats-close')
     assert pg.locator('#stats').is_hidden(), 'the close button puts it away'
     assert pg.locator('#settings-btn').is_enabled()
-    pg.click('#stats-btn')
+    via_menu(pg, '#stats-btn')
     assert pg.locator('#stats-title').inner_text().lower() == 'statistics' and pg.locator('#stats-result').is_hidden()
     assert pg.locator('#stats-reset').is_visible() and pg.locator('#win-new').is_hidden(), 'the same panel, now showing only the record'
     pg.keyboard.press('Escape')
@@ -989,17 +997,16 @@ def check_panels_look_alike(pg):
     pg.click('#settings-btn')
     size = lambda sel: pg.evaluate(f"getComputedStyle(document.querySelector('{sel}')).fontSize")
     settings_title = size('#settings-title')
-    pg.click('#stats-btn')
+    via_menu(pg, '#stats-btn')
     assert size('#stats-title') == settings_title, 'one title size for every panel'
     for close in ('#stats-close', '#settings-close', '#rules-close'):
         assert pg.evaluate(f"document.querySelector('{close}').classList.contains('icon-close') && !document.querySelector('{close}').classList.contains('primary')"), f'{close} is a plain close mark'
     pad = lambda sel: pg.evaluate(f"(() => {{ const s = getComputedStyle(document.querySelector('{sel}')); return [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(' '); }})()")
-    pg.click('#stats-btn')
     pg.click('#settings-btn')
     reference = pad('#undo')
     for sel in ('#new', '#rules-btn', '#restart', '#settings button[data-setting="motion"]', '#options button'):
         assert pad(sel) == reference, f'{sel} pads like every other button: {pad(sel)} against {reference}'
-    pg.click('#stats-btn')
+    via_menu(pg, '#stats-btn')
     assert pad('#stats-reset') == reference
 
 
@@ -1035,6 +1042,7 @@ def check_hover_never_hides_a_button(pg):
 
 
 def check_game_menu_gives_up_focus(pg):
+    open_settings(pg)
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
     pg.wait_for_timeout(900)

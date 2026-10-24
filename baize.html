@@ -430,7 +430,10 @@ html[data-back="black"] { --back: #1d1d22; }
 /* Settings is a plaque like the others, but a panel in the corner rather than a dialogue, so the table can be seen changing behind it. */
 .settings { position: absolute; z-index: 195000; top: 12px; right: 12px; box-sizing: border-box; width: min(30rem, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .panel-heading { margin: 4px 0 8px 2px; font: 700 12px/1 var(--font-ui); letter-spacing: 0.16em; text-transform: uppercase; }
-.panel-note { margin: -4px 0 8px 2px; font-size: 12px; text-align: left; }
+.panel-links { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 12px; }
+.settings .pick { display: block; margin: 0 0 10px; }
+.settings #game { width: 100%; }
+.game-name { font: 700 12.5px/1 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--cream); }
 .panel-action { display: block; width: 100%; margin: 0 0 12px; }
 .settings .seg { display: grid; margin: 0 0 10px; }
 .settings .seg-label { padding: 6px 0 2px 10px; }
@@ -440,10 +443,9 @@ html[data-back="black"] { --back: #1d1d22; }
 
 <!-- icons:start -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-<symbol id="i-bar_chart" viewBox="0 -960 960 960"><path d="M660.48-154.02v-288.61h145.74v288.61H660.48Zm-253.11 0v-652.2h145.26v652.2H407.37Zm-253.35 0v-452.2h145.5v452.2h-145.5Z"/></symbol>
 <symbol id="i-close" viewBox="0 -960 960 960"><path d="M249-201.26 201.26-249l231-231-231-231L249-758.74l231 231 231-231L758.74-711l-231 231 231 231L711-201.26l-231-231-231 231Z"/></symbol>
 <symbol id="i-lightbulb" viewBox="0 -960 960 960"><path d="M421.07-93.7q-24.22-24.69-24.22-60.6h166.3q0 35.91-24.22 60.6Q514.7-69 479.99-69q-34.71 0-58.92-24.7ZM316.33-217.74v-62.87h327.34v62.87H316.33Zm5-125.3Q253.89-387 213.96-453.01q-39.94-66-39.94-149.01 0-124.33 90.72-215.16Q355.47-908 479.93-908t215.37 90.82q90.92 90.83 90.92 215.16 0 82.91-39.44 148.97Q707.35-387 638.67-343.04H321.33Zm24.7-68.13h269.01q47.51-31.71 75.16-82.02 27.65-50.31 27.65-108.78 0-98.1-69.9-167.88-69.91-69.78-167.95-69.78-98.04 0-167.95 69.78-69.9 69.78-69.9 167.88 0 58.47 27.76 108.75 27.76 50.29 76.12 82.05Zm133.97 0Z"/></symbol>
-<symbol id="i-settings" viewBox="0 -960 960 960"><path d="M382.74-74.02 362.5-201.93q-17.57-6.29-37.49-17.69-19.92-11.4-34.73-23.45l-119.67 54.96-98.5-173.8 109.43-79.96q-1.76-8.28-2.26-19.06-.5-10.79-.5-19.07 0-8.28.5-19.07.5-10.78 2.26-19.06l-109.43-80.2 98.5-173.32 120.15 54.72q14.57-11.81 34.37-23.09 19.8-11.28 37.37-16.81l20.24-129.39h194.52l20.24 128.39q17.57 6.53 37.87 17.31 20.3 10.78 34.35 23.59l119.91-54.72 98.26 173.32-109.67 78.2q1.76 9.28 2.38 20.06.62 10.79.62 20.07 0 9.28-.62 19.57-.62 10.28-2.38 19.56l109.67 78.96-98.5 173.8-119.91-54.96q-14.81 12.05-34.11 23.83-19.3 11.78-37.87 17.31L577.26-74.02H382.74Zm55.17-68.13h83.94l14.24-111.76q33.24-8 63.09-25 29.86-17 53.86-41.72l106 46 37.85-68.89-93.52-68.52q4-17.24 6.62-33.98t2.62-33.98q0-17.24-2.12-33.98t-7.12-33.98l93.76-68.52-38.09-68.89-105.76 46q-23-26.48-52.48-44.34-29.47-17.86-64.71-22.62l-14-111.52h-84.18l-13.76 111.52q-34.48 6.76-64.45 24.12-29.98 17.36-53.22 42.84l-105.52-46-38.09 68.89 93.28 68.28q-4 17.24-6.62 34.1-2.62 16.86-2.62 34.1 0 17.24 2.62 34.22t6.62 33.98l-93.28 68.28 38.09 68.89 105.52-46q24.24 24.48 54.22 41.72 29.97 17.24 63.45 25.24l13.76 111.52ZM479.52-350q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm.48-130Z"/></symbol>
+<symbol id="i-menu" viewBox="0 -960 960 960"><path d="M114.02-231.15v-68.37h732.2v68.37h-732.2Zm0-214.78v-68.14h732.2v68.14h-732.2Zm0-214.55v-68.37h732.2v68.37h-732.2Z"/></symbol>
 <symbol id="i-undo" viewBox="0 -960 960 960"><path d="M261.15-194.02v-68.13h311.68q67.84 0 116.43-45.78 48.59-45.79 48.59-112.99 0-67.21-48.59-113.11-48.59-45.9-116.43-45.9H283.8l110.18 110.17-47.74 47.74L154.02-614l192.22-192.22 47.74 47.74L283.8-648.07h288.03q96.19 0 165.29 65.68 69.1 65.67 69.1 161.23 0 95.55-69.1 161.34-69.1 65.8-165.29 65.8H261.15Z"/></symbol>
 <symbol id="i-visibility" viewBox="0 -960 960 960"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-197.25-43.71q-31.42-31.38-31.42-76.75 0-45.37 31.38-76.79 31.38-31.42 76.75-31.42 45.37 0 76.79 31.38 31.42 31.38 31.42 76.75 0 45.37-31.38 76.79-31.38 31.42-76.75 31.42-45.37 0-76.79-31.38Zm-190.6 144.04Q93.22-363.85 34.5-500q58.72-136.15 178.15-220.83Q332.09-805.5 480-805.5q147.91 0 267.35 84.67Q866.78-636.15 925.5-500q-58.72 136.15-178.15 220.83Q627.91-194.5 480-194.5q-147.91 0-267.35-84.67ZM480-500Zm222.14 174.5Q803.52-391 856.52-500q-53-109-154.4-174.5T479.98-740q-120.74 0-222.12 65.5Q156.48-609 102.48-500q54 109 155.4 174.5T480.02-260q120.74 0 222.12-65.5Z"/></symbol>
 </svg>
@@ -460,8 +462,7 @@ html[data-back="black"] { --back: #1d1d22; }
   <header class="bar">
     <div class="brand">
       <h1>Baize</h1>
-      <span class="pick"><select id="game" aria-label="Game rules"></select></span>
-      <button id="rules-btn" type="button" aria-expanded="false" aria-controls="rules">Rules</button>
+      <span id="game-name" class="game-name"></span>
     </div>
     <div id="rules" class="rules" role="dialog" aria-labelledby="rules-title" hidden>
       <span class="rules-index top" aria-hidden="true"><span>A</span><span>♠</span></span>
@@ -492,8 +493,7 @@ html[data-back="black"] { --back: #1d1d22; }
       <button id="new" type="button" class="primary">New deal</button>
       <span class="tools">
         <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same. Hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to highlight every card of that rank; add Shift for only the movable ones." hidden><svg class="icon" aria-hidden="true"><use href="#i-visibility"/></svg><span class="label">Show moves</span></button>
-        <button id="stats-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-label="Statistics" title="Statistics"><svg class="icon" aria-hidden="true"><use href="#i-bar_chart"/></svg></button>
-        <button id="settings-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-controls="settings" aria-label="Settings" title="Settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg></button>
+        <button id="settings-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-controls="settings" aria-label="Menu" title="Menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
       </span>
     </div>
   </header>
@@ -526,12 +526,15 @@ html[data-back="black"] { --back: #1d1d22; }
       </div>
     </div>
     <div id="settings" class="plaque settings" hidden role="dialog" aria-labelledby="settings-title">
-      <h2 id="settings-title">Settings</h2>
+      <h2 id="settings-title">Menu</h2>
       <button id="settings-close" type="button" class="icon-close" aria-label="Close settings"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
-      <h3 id="game-section-title" class="panel-heading"></h3>
-      <p id="game-note" class="panel-note">Changing one of these deals again.</p>
+      <div class="panel-links">
+        <button id="rules-btn" type="button" aria-controls="rules">Rules</button>
+        <button id="stats-btn" type="button" aria-haspopup="dialog">Statistics</button>
+      </div>
+      <span class="pick"><select id="game" aria-label="Game"></select></span>
       <div id="options"></div>
-      <button id="restart" type="button" class="panel-action">Restart this deal</button>
+      <button id="restart" type="button" class="panel-action primary">Restart this deal</button>
       <h3 class="panel-heading">Appearance</h3>
       <div id="settings-body"></div>
     </div>
@@ -2119,7 +2122,7 @@ const StandardDeck = (() => {
     bar: document.querySelector('.bar'),
     hintBtn: $('hint-btn'), statsBtn: $('stats-btn'), settingsBtn: $('settings-btn'),
     table: $('table'), board: $('board'), status: $('status'), options: $('options'),
-    game: $('game'),
+    game: $('game'), gameName: $('game-name'),
     rules: $('rules'), rulesBtn: $('rules-btn'), rulesClose: $('rules-close'),
     rulesTitle: $('rules-title'), rulesText: $('rules-text'),
     hints: $('hints'), undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
@@ -2538,10 +2541,9 @@ const StandardDeck = (() => {
      runs or the Cleared panel is up. All of it goes through showPanel and closePanel. */
 
   const PANELS = {
-    rules: { el: els.rules, button: els.rulesBtn, show: () => { els.rules.hidden = false; els.rulesBtn.setAttribute('aria-expanded', 'true'); els.rulesClose.focus(); },
-      hide: () => { els.rules.hidden = true; els.rulesBtn.setAttribute('aria-expanded', 'false'); } },
-    stats: { el: els.stats, button: els.statsBtn, show: showStats, hide: () => { els.stats.hidden = true; clearTimeout(resetTimer); } },
-    settings: { el: els.settings, button: els.settingsBtn, show: showSettings, hide: () => { els.settings.hidden = true; } },
+    rules: { el: els.rules, show: () => { els.rules.hidden = false; els.rulesClose.focus(); }, hide: () => { els.rules.hidden = true; } },
+    stats: { el: els.stats, show: showStats, hide: () => { els.stats.hidden = true; clearTimeout(resetTimer); } },
+    settings: { el: els.settings, show: showSettings, hide: () => { els.settings.hidden = true; } },
   };
   let panel = null;             // the name of the one that is open
   let returnTo = null;          // where focus goes when it closes
@@ -2552,7 +2554,7 @@ const StandardDeck = (() => {
     if (!options?.won && (busy || clearedShowing())) return;
     closePanel({ returnFocus: false });
     panel = name;
-    returnTo = options?.won ? els.fresh : PANELS[name].button;
+    returnTo = options?.won ? els.fresh : els.settingsBtn;
     PANELS[name].show(options);
     syncChrome(session.state);
   }
@@ -2804,6 +2806,7 @@ const StandardDeck = (() => {
     });
     for (const button of [els.rulesBtn, els.statsBtn, els.settingsBtn]) button.disabled = busy || clearedShowing();   // not while something else has the table
     els.game.value = String(GAMES.indexOf(game));
+    els.gameName.textContent = game.rules.name;
   }
 
   /** Highlight the movable cards and dim the rest, for games that support it. */
@@ -2855,8 +2858,6 @@ const StandardDeck = (() => {
   }
 
   function buildOptions() {
-    $('game-section-title').textContent = 'This game';
-    $('game-note').hidden = !game.rules.options.length;
     els.options.replaceChildren(...game.rules.options.map(option =>
       h('div', { class: 'seg', role: 'group', 'aria-label': option.label, 'data-option-group': option.id },
         h('span', { class: 'seg-label' }, option.label),
@@ -3102,6 +3103,7 @@ const StandardDeck = (() => {
     if (!menuUsedKeyboard) els.game.blur();
     if (busy) { els.game.value = String(GAMES.indexOf(game)); return; }
     open(GAMES[Number(els.game.value)]);
+    closePanel({ returnFocus: false });
   });
 
   /* Lay the cards out again when the room changes: the width, or the height beyond a small tolerance

@@ -7,6 +7,7 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 - 2. Hints (solver-backed)
 - 7. Settings panel: table colour, card back colour, animation (device, normal, fast, off)
 - 9. Panels: one open at a time, shared × / title / padding, Cleared screen is the Statistics panel
+- 10. One flat menu (hamburger) holding the game picker, Rules, Statistics, options, Restart and appearance
 - 5. Cleanup: shared engine helpers and `defineRules` (backed by `test/golden.test.js`), unused CSS removed, one tap helper in the browser tests; the card art has nothing unused
 
 ## Open
