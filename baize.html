@@ -37,6 +37,7 @@
   --ink-soft: #55606b;
   --back: #7b2231;
   --back-line: #d8b45a;
+  --btn-pad: 7px 12px;          /* every button, whatever it sits in */
   --font-display: 'Bodoni Moda', 'Bodoni 72', Didot, Georgia, serif;
   --font-ui: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --tex-wood: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='260'%3E%3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .16' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.4 0 0 0 .07  .26 0 0 0 .03  .14 0 0 0 .012  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
@@ -98,7 +99,7 @@ button, #game {
   background: linear-gradient(180deg, var(--enamel-hi), var(--enamel-lo));
   border: 0;
   border-radius: 8px;
-  padding: 7px 12px;
+  padding: var(--btn-pad);
   cursor: pointer;
   box-shadow:
     0 0 0 1.5px var(--brass), 0 0 0 2.5px var(--brass-lo),                 /* bezel */
@@ -108,7 +109,14 @@ button, #game {
   margin: 3px;
   transition: transform 0.06s, box-shadow 0.06s;
 }
-button:hover:not(:disabled), #game:hover { background: linear-gradient(180deg, #fff, #ebe0c2); }
+/* Hover lifts a button: lighter face, brighter brass and a glow, so it stands out from the dark wood and from the other buttons */
+button:hover:not(:disabled), #game:hover {
+  background: linear-gradient(180deg, #fffef7, #f4e7b8);
+  box-shadow:
+    0 0 0 1.5px var(--brass-hi), 0 0 0 2.5px var(--brass),
+    0 3px 5px 2px rgba(0, 0, 0, 0.5), 0 0 14px 3px rgba(255, 225, 140, 0.5),
+    inset 0 1px 0 #fff, inset 0 -2px 3px rgba(80, 55, 15, 0.2);
+}
 button:active:not(:disabled) {
   transform: translateY(1.5px);
   box-shadow:
@@ -126,7 +134,13 @@ button.primary {
     0 3px 5px 2px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 190, 190, 0.45), inset 0 -2px 3px rgba(0, 0, 0, 0.4);
 }
-button.primary:hover:not(:disabled) { background: linear-gradient(180deg, #b8404f, #7a1f2f); }
+button.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #c64a5b, #8a2638);
+  box-shadow:
+    0 0 0 1.5px var(--brass-hi), 0 0 0 2.5px var(--brass),
+    0 3px 5px 2px rgba(0, 0, 0, 0.5), 0 0 14px 3px rgba(255, 140, 140, 0.45),
+    inset 0 1px 0 rgba(255, 210, 210, 0.55), inset 0 -2px 3px rgba(0, 0, 0, 0.35);
+}
 /* A toggle that is on glows like a lit lamp */
 button[aria-pressed="true"].toggle {
   background: linear-gradient(180deg, #ffe9a2, #e3b13f);
@@ -146,16 +160,17 @@ button[aria-pressed="true"].toggle {
 }
 .seg-label { display: grid; place-items: center; padding: 0 9px 0 8px; color: var(--cream-dim); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; text-shadow: 0 1px 0 #000; }
 .seg button {
-  margin: 0; padding: 6px 11px; color: var(--cream-dim); font-weight: 500; text-shadow: 0 1px 0 #000;
+  margin: 0; color: var(--cream-dim); font-weight: 500; text-shadow: 0 1px 0 #000;
   background: transparent; box-shadow: none; border-radius: 7px;
 }
-.seg button:hover:not(:disabled) { background: rgba(255, 235, 170, 0.1); color: var(--cream); }
+.seg button:hover:not(:disabled) { background: rgba(255, 235, 170, 0.2); box-shadow: none; color: var(--cream); }
 .seg button:active:not(:disabled) { transform: none; box-shadow: none; }
-.seg button[aria-pressed="true"] {
+.seg button[aria-pressed="true"], .seg button[aria-pressed="true"]:hover:not(:disabled) {
   color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.7);
   background: linear-gradient(180deg, #f0d98c, #c19a3e);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 2px rgba(111, 82, 24, 0.5);
 }
+.seg button[aria-pressed="true"]:hover:not(:disabled) { background: linear-gradient(180deg, #fbe9a8, #d8b150); }   /* the chosen one brightens, never darkens */
 
 .status {
   display: flex; flex-wrap: wrap; gap: 2px 20px; margin: 2px 4px 0; color: var(--cream-dim);
@@ -253,10 +268,10 @@ button[aria-pressed="true"].toggle {
   box-shadow: 0 0 0 2px var(--brass-lo), 0 0 0 3px #0d0703, 0 10px 24px rgba(0, 0, 0, 0.55);
 }
 
-/* Win panel and search dialogue: a brass plaque, screwed down, on a darkened table */
-.win, .modal { position: absolute; inset: 0; z-index: 200000; display: grid; place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
+/* Panels (Statistics and Cleared, Settings, the search dialogue): a brass plaque, screwed down; the modal ones on a darkened table */
+.modal { position: absolute; inset: 0; z-index: 200000; display: grid; place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
 .plaque {
-  position: relative; padding: 26px 40px 24px; max-width: min(24rem, 90%); border-radius: 10px; text-align: center;
+  position: relative; padding: 18px 22px 16px; max-width: min(24rem, 90%); border-radius: 10px; text-align: left;
   color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
   background:
     radial-gradient(circle at 12px 12px, #6f5218 0 2.5px, #f3dc98 3px 4.5px, transparent 5px),
@@ -266,8 +281,11 @@ button[aria-pressed="true"].toggle {
     linear-gradient(160deg, #f1d98e 0%, #c9a24a 45%, #e2c57a 70%, #b48c36 100%);
   box-shadow: 0 0 0 2px var(--brass-lo), 0 0 0 3px #0d0703, inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 4px rgba(111, 82, 24, 0.6), 0 20px 40px rgba(0, 0, 0, 0.6);
 }
-.plaque h2 { margin: 0 0 4px; font: 700 36px/1.1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
-.plaque p { margin: 0 0 16px; }
+.plaque h2 { margin: 0 34px 10px 0; font: 700 24px/1.1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
+.plaque > .icon-close { position: absolute; top: 14px; right: 16px; }
+.plaque p { margin: 0 0 14px; }
+#busy .plaque { text-align: center; }
+#busy h2 { margin-right: 0; }
 .spinner {
   width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 50%;
   border: 5px solid rgba(111, 82, 24, 0.35); border-top-color: #4a1220;
@@ -275,14 +293,13 @@ button[aria-pressed="true"].toggle {
 }
 .modal[data-state="miss"] .spinner { display: none; }
 #stats .plaque { max-width: min(34rem, 94%); }
-#stats h2 { margin-bottom: 8px; }
+#stats[data-mode="stats"] #win-new, #stats[data-mode="won"] #stats-reset, #stats[data-mode="stats"] #stats-result { display: none; }
 .stats-table { border-collapse: collapse; margin: 0 auto 16px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .stats-table th { padding: 2px 8px 5px; font: 600 10.5px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; text-align: right; border-bottom: 1px solid rgba(74, 18, 32, 0.45); }
 .stats-table td { padding: 3px 8px; text-align: right; }
 .stats-table th:first-child, .stats-table td:first-child { text-align: left; }
 .stats-table tr.current td { font-weight: 700; }
-.plaque-buttons { display: flex; justify-content: center; gap: 12px; }
-.modal h2 { font-size: 26px; }
+.plaque-buttons { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Rules card: a popover styled as an ivory playing card with a brass inner frame. */
@@ -310,15 +327,7 @@ button[aria-pressed="true"].toggle {
 .rules-index { position: absolute; display: grid; justify-items: center; font: 700 15px/1 var(--font-display); }
 .rules-index.top { top: 14px; left: 15px; }
 .rules-index.bottom { bottom: 14px; right: 15px; transform: rotate(180deg); }
-.rules-close {
-  position: absolute; top: 12px; right: 14px;
-  margin: 0; box-shadow: none; text-shadow: none; background: transparent; border: 1px solid var(--card-edge);
-  width: 28px; height: 28px; padding: 0;
-  display: grid; place-items: center;
-  border-radius: 50%; border-color: var(--card-edge);
-  color: var(--ink); background: transparent;
-  font-size: 18px; line-height: 1;
-}
+.rules > .icon-close { position: absolute; top: 12px; right: 14px; }
 .rules h2 { margin: 0 0 8px; font: 700 28px/1.1 var(--font-display); text-align: center; text-wrap: balance; }
 .rules h3 { margin: 16px 0 6px; font: 600 11px var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
 .rules p, .rules li { margin: 0; font-size: 14px; line-height: 1.5; }
@@ -339,6 +348,7 @@ button[aria-pressed="true"].toggle {
 /* Icons are Material Symbols (Apache 2.0), drawn from the sprite in the page: see NOTICE. */
 .icon { width: 1.3em; height: 1.3em; fill: currentColor; flex: none; vertical-align: middle; }
 .controls button > .icon { margin: -2px 6px 0 -2px; }
+.controls button > .icon:only-child { margin: -2px 0; }
 .icon-btn { padding: 4px 8px; }
 .icon-btn > .icon { width: 24px; height: 24px; margin: 0 !important; }
 .tools { display: flex; align-items: center; gap: 9px; margin-left: 6px; }
@@ -370,7 +380,13 @@ button[aria-pressed="true"].toggle {
   .rail { padding: 9px; border-radius: 16px; }
   .table { padding: 6px; }
   .controls { gap: 6px 4px; }
-  .controls > button { padding: 6px 4px; font-size: 13.5px; flex: 1 1 auto; }
+}
+/* Narrow screens: buttons that have an icon keep only the icon (the words stay for screen readers and in the tooltip). */
+@media (max-width: 560px) {
+  .controls button:not(.primary) .label, .settings .seg button[data-swatch] .label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .controls button > .icon { margin: 0; }
 }
 /* Short screens (a phone on its side): every pixel of height goes to the table. */
 @media (max-height: 500px) {
@@ -384,13 +400,12 @@ button[aria-pressed="true"].toggle {
 /* Fingers need bigger targets than a mouse. */
 @media (pointer: coarse) {
   button, #game { min-height: 44px; touch-action: manipulation; }
-  .rules-close { min-height: 0; width: 36px; height: 36px; }
+  .icon-close { width: 36px; height: 36px; }
   .icon-btn { min-width: 44px; }
 }
 @media (max-width: 520px) {
   .stats-table { font-size: 12.5px; }
   .stats-table th, .stats-table td { padding-left: 4px; padding-right: 4px; }
-  #stats .plaque { padding: 22px 16px 20px; }
 }
 /* The Animation setting: Device follows the system's Reduce Motion, and the script writes the result to data-motion. */
 html[data-motion="fast"] { --flight: 0.11s; }
@@ -412,18 +427,15 @@ html[data-back="green"] { --back: #1f5a3c; }
 html[data-back="black"] { --back: #1d1d22; }
 .swatch { flex: none; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 235, 170, 0.6); vertical-align: -1px; }
 /* Settings: a panel in the corner, not a dialogue, so the table can be seen changing behind it. */
-.settings { position: absolute; z-index: 195000; top: 12px; right: 12px; box-sizing: border-box; width: min(25rem, calc(100% - 24px)); padding: 14px 16px 6px; text-align: left; }
-.settings { max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
-.settings h2 { font-size: 22px; margin: 0 0 10px; }
+/* Settings is a plaque like the others, but a panel in the corner rather than a dialogue, so the table can be seen changing behind it. */
+.settings { position: absolute; z-index: 195000; top: 12px; right: 12px; box-sizing: border-box; width: min(30rem, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .panel-heading { margin: 4px 0 8px 2px; font: 700 12px/1 var(--font-ui); letter-spacing: 0.16em; text-transform: uppercase; }
 .panel-note { margin: -4px 0 8px 2px; font-size: 12px; text-align: left; }
 .panel-action { display: block; width: 100%; margin: 0 0 12px; }
-.settings .icon-close { position: absolute; top: 12px; right: 14px; }
 .settings .seg { display: grid; margin: 0 0 10px; }
 .settings .seg-label { padding: 6px 0 2px 10px; }
 .settings .seg-buttons { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
-.settings .seg button { display: flex; align-items: center; justify-content: center; padding: 7px 4px; white-space: nowrap; min-width: 0; }
-@media (max-width: 520px) { .settings .seg button { font-size: 13px; padding: 7px 1px; } }
+.settings .seg button { display: flex; align-items: center; justify-content: center; white-space: nowrap; min-width: 0; }
 </style>
 
 <!-- icons:start -->
@@ -454,7 +466,7 @@ html[data-back="black"] { --back: #1d1d22; }
     <div id="rules" class="rules" role="dialog" aria-labelledby="rules-title" hidden>
       <span class="rules-index top" aria-hidden="true"><span>A</span><span>♠</span></span>
       <span class="rules-index bottom" aria-hidden="true"><span>A</span><span>♠</span></span>
-      <button id="rules-close" class="rules-close" type="button" aria-label="Close rules">×</button>
+      <button id="rules-close" class="icon-close" type="button" aria-label="Close rules"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
       <div class="rules-scroll">
       <h2 id="rules-title"></h2>
       <p id="rules-text"></p>
@@ -474,12 +486,12 @@ html[data-back="black"] { --back: #1d1d22; }
       </div>
     </div>
     <div class="controls">
-      <button id="hint-btn" type="button" hidden><svg class="icon" aria-hidden="true"><use href="#i-lightbulb"/></svg>Hint</button>
-      <button id="undo" type="button"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>Undo</button>
+      <button id="hint-btn" type="button" title="Hint" hidden><svg class="icon" aria-hidden="true"><use href="#i-lightbulb"/></svg><span class="label">Hint</span></button>
+      <button id="undo" type="button" title="Undo"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
       <button id="finish" type="button" hidden>Auto-finish</button>
       <button id="new" type="button" class="primary">New deal</button>
       <span class="tools">
-        <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same. Hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to highlight every card of that rank; add Shift for only the movable ones." hidden><svg class="icon" aria-hidden="true"><use href="#i-visibility"/></svg>Show moves</button>
+        <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same. Hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to highlight every card of that rank; add Shift for only the movable ones." hidden><svg class="icon" aria-hidden="true"><use href="#i-visibility"/></svg><span class="label">Show moves</span></button>
         <button id="stats-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-label="Statistics" title="Statistics"><svg class="icon" aria-hidden="true"><use href="#i-bar_chart"/></svg></button>
         <button id="settings-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-controls="settings" aria-label="Settings" title="Settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg></button>
       </span>
@@ -497,24 +509,19 @@ html[data-back="black"] { --back: #1d1d22; }
   <div class="rail">
   <main id="table" class="table">
     <div id="board" class="board"></div>
-    <div id="win" class="win" hidden role="status">
-      <div class="plaque">
-        <h2>Cleared</h2>
-        <p id="win-text"></p>
-        <button id="win-new" type="button">New deal</button>
-      </div>
-    </div>
     <div id="toast" class="toast" hidden role="status">
       <span id="toast-text"></span>
       <button id="toast-close" type="button" class="icon-close" aria-label="Dismiss"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <div id="stats" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="stats-title">
       <div class="plaque">
+        <button id="stats-close" type="button" class="icon-close" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
         <h2 id="stats-title">Statistics</h2>
+        <p id="stats-result"></p>
         <table id="stats-table" class="stats-table"></table>
         <div class="plaque-buttons">
           <button id="stats-reset" type="button">Reset</button>
-          <button id="stats-close" type="button" class="primary">Close</button>
+          <button id="win-new" type="button" class="primary">New deal</button>
         </div>
       </div>
     </div>
@@ -2116,7 +2123,7 @@ const StandardDeck = (() => {
     rules: $('rules'), rulesBtn: $('rules-btn'), rulesClose: $('rules-close'),
     rulesTitle: $('rules-title'), rulesText: $('rules-text'),
     hints: $('hints'), undo: $('undo'), finish: $('finish'), restart: $('restart'), fresh: $('new'),
-    win: $('win'), winText: $('win-text'), winNew: $('win-new'),
+    winNew: $('win-new'), statsResult: $('stats-result'),
     settings: $('settings'), settingsBody: $('settings-body'), settingsClose: $('settings-close'),
     stats: $('stats'), statsTable: $('stats-table'), statsReset: $('stats-reset'), statsClose: $('stats-close'),
     toast: $('toast'), toastText: $('toast-text'), toastClose: $('toast-close'),
@@ -2477,7 +2484,8 @@ const StandardDeck = (() => {
     if (after !== before) writeStats(after);
   }
 
-  function showStats() {
+  /** The record of every game. After a win it opens as the Cleared panel: the same table, with this result above it. */
+  function showStats({ won = false } = {}) {
     const stats = readStats();
     const cell = (value, tag = 'td') => h(tag, {}, String(value));
     const rows = GAMES.map(g => {
@@ -2495,8 +2503,11 @@ const StandardDeck = (() => {
       h('tr', {}, ...['Game', 'Played', 'Won', 'Win', 'Best', 'Streak'].map(title => cell(title, 'th'))),
       ...rows);
     els.statsReset.textContent = 'Reset';
+    els.stats.dataset.mode = won ? 'won' : 'stats';
+    $('stats-title').textContent = won ? 'Cleared' : 'Statistics';
+    els.statsResult.textContent = won ? `${game.rules.name}, deal #${String(session.seed).padStart(6, '0')}, in ${session.actions.length} moves.` : '';
     els.stats.hidden = false;
-    els.statsClose.focus();
+    (won ? els.winNew : els.statsClose).focus();
   }
 
   /** The preferences, each a row of buttons; choosing one applies and keeps it at once. */
@@ -2504,8 +2515,8 @@ const StandardDeck = (() => {
     const rows = CardSim.SETTINGS.map(setting => h('div', { class: 'seg', role: 'group', 'aria-label': setting.label, 'data-setting-group': setting.id },
       h('span', { class: 'seg-label' }, setting.label),
       h('div', { class: 'seg-buttons' }, ...setting.choices.map(choice => {
-        const button = h('button', { type: 'button', 'data-setting': setting.id, 'data-value': choice.value, 'aria-pressed': String(settings[setting.id] === choice.value) },
-          ...(choice.swatch ? [h('span', { class: 'swatch', style: `background:${choice.swatch}` })] : []), choice.label);
+        const button = h('button', { type: 'button', title: choice.label, 'data-setting': setting.id, 'data-value': choice.value, 'aria-pressed': String(settings[setting.id] === choice.value), ...(choice.swatch ? { 'data-swatch': choice.swatch } : {}) },
+          ...(choice.swatch ? [h('span', { class: 'swatch', style: `background:${choice.swatch}` })] : []), h('span', { class: 'label' }, choice.label));
         button.addEventListener('click', () => {
           settings = { ...settings, [setting.id]: choice.value };
           try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* optional */ }
@@ -2521,18 +2532,41 @@ const StandardDeck = (() => {
     els.settingsClose.focus();
   }
 
-  function hideSettings({ returnFocus = true } = {}) {
-    if (els.settings.hidden) return;
-    els.settings.hidden = true;
-    if (returnFocus) els.settingsBtn.focus();
+  /* ---------- Panels ----------
+     Rules, Statistics (which is also the Cleared panel) and Settings are shown one at a time: opening one
+     closes the one that was open, pressing a panel's own button closes it, and nothing opens while a search
+     runs or the Cleared panel is up. All of it goes through showPanel and closePanel. */
+
+  const PANELS = {
+    rules: { el: els.rules, button: els.rulesBtn, show: () => { els.rules.hidden = false; els.rulesBtn.setAttribute('aria-expanded', 'true'); els.rulesClose.focus(); },
+      hide: () => { els.rules.hidden = true; els.rulesBtn.setAttribute('aria-expanded', 'false'); } },
+    stats: { el: els.stats, button: els.statsBtn, show: showStats, hide: () => { els.stats.hidden = true; clearTimeout(resetTimer); } },
+    settings: { el: els.settings, button: els.settingsBtn, show: showSettings, hide: () => { els.settings.hidden = true; } },
+  };
+  let panel = null;             // the name of the one that is open
+  let returnTo = null;          // where focus goes when it closes
+  const clearedShowing = () => panel === 'stats' && els.stats.dataset.mode === 'won';
+
+  function showPanel(name, options) {
+    if (panel === name) return;
+    if (!options?.won && (busy || clearedShowing())) return;
+    closePanel({ returnFocus: false });
+    panel = name;
+    returnTo = options?.won ? els.fresh : PANELS[name].button;
+    PANELS[name].show(options);
+    syncChrome(session.state);
   }
 
-  function hideStats({ returnFocus = true } = {}) {
-    if (els.stats.hidden) return;
-    els.stats.hidden = true;
-    clearTimeout(resetTimer);
-    if (returnFocus) els.settingsBtn.focus();
+  function closePanel({ returnFocus = true } = {}) {
+    if (!panel) return;
+    const name = panel;
+    panel = null;
+    PANELS[name].hide();
+    if (returnFocus) returnTo?.focus();
+    syncChrome(session.state);
   }
+
+  const togglePanel = name => (panel === name ? closePanel() : showPanel(name));
 
   /** Wiping the record takes two presses, the second within three seconds of the first. */
   let resetTimer = 0;
@@ -2638,7 +2672,12 @@ const StandardDeck = (() => {
     syncSuggestion();
     save();
     if (session.won) noteResult({ outcome: 'won', moves: session.actions.length });
+    // A win opens the Cleared panel once; undoing the win takes it away.
+    if (session.won && !wasWon) showPanel('stats', { won: true });
+    if (!session.won && clearedShowing()) closePanel({ returnFocus: false });
+    wasWon = session.won;
   }
+  let wasWon = false;
 
   function syncSlots() {
     const live = new Set();
@@ -2763,8 +2802,7 @@ const StandardDeck = (() => {
       const pressed = String(session.options[button.dataset.option]) === button.dataset.value;
       button.setAttribute('aria-pressed', String(pressed));
     });
-    els.win.hidden = !session.won;
-    if (session.won) els.winText.textContent = `${rules.name}, deal #${String(session.seed).padStart(6, '0')}, in ${session.actions.length} moves.`;
+    for (const button of [els.rulesBtn, els.statsBtn, els.settingsBtn]) button.disabled = busy || clearedShowing();   // not while something else has the table
     els.game.value = String(GAMES.indexOf(game));
   }
 
@@ -2817,7 +2855,7 @@ const StandardDeck = (() => {
   }
 
   function buildOptions() {
-    $('game-section-title').textContent = game.rules.name;
+    $('game-section-title').textContent = 'This game';
     $('game-note').hidden = !game.rules.options.length;
     els.options.replaceChildren(...game.rules.options.map(option =>
       h('div', { class: 'seg', role: 'group', 'aria-label': option.label, 'data-option-group': option.id },
@@ -2993,19 +3031,19 @@ const StandardDeck = (() => {
   document.addEventListener('dblclick', e => { if (!e.target.closest('input, textarea')) e.preventDefault(); });
 
   els.hintBtn.addEventListener('click', startHint);
-  els.statsBtn.addEventListener('click', () => { if (!busy) { hideSettings({ returnFocus: false }); setRulesOpen(false); showStats(); } });
-  els.settingsBtn.addEventListener('click', () => { if (els.settings.hidden) { setRulesOpen(false); showSettings(); } else hideSettings(); });
-  els.settingsClose.addEventListener('click', () => hideSettings());
+  els.statsBtn.addEventListener('click', () => togglePanel('stats'));
+  els.settingsBtn.addEventListener('click', () => togglePanel('settings'));
+  els.settingsClose.addEventListener('click', () => closePanel());
   els.toastClose.addEventListener('click', hideToast);
-  els.statsClose.addEventListener('click', () => hideStats());
+  els.statsClose.addEventListener('click', () => closePanel());
   els.statsReset.addEventListener('click', resetStats);
-  els.stats.addEventListener('pointerdown', e => { if (e.target === els.stats) hideStats(); });
+  els.stats.addEventListener('pointerdown', e => { if (e.target === els.stats) closePanel(); });
   els.undo.addEventListener('click', undo);
   els.finish.addEventListener('click', autoFinish);
-  els.restart.addEventListener('click', () => { if (!busy) { hideSettings({ returnFocus: false }); redeal(session.options, session.seed); } });
+  els.restart.addEventListener('click', () => { if (!busy) { closePanel({ returnFocus: false }); redeal(session.options, session.seed); } });
   const newDeal = () => {
     if (cancelSearch) { dismissBusy(); return; }                           // New deal while searching gives up too
-    if (!busy) redeal(session.options);
+    if (!busy) { closePanel({ returnFocus: false }); redeal(session.options); }
   };
   els.fresh.addEventListener('click', newDeal);
   els.winNew.addEventListener('click', newDeal);
@@ -3028,34 +3066,19 @@ const StandardDeck = (() => {
 
   /* ---------- Rules card ---------- */
 
-  function setRulesOpen(open, { returnFocus = false } = {}) {
-    els.rules.hidden = !open;
-    els.rulesBtn.setAttribute('aria-expanded', String(open));
-    if (open) els.rulesClose.focus();
-    else if (returnFocus) els.rulesBtn.focus();
-  }
-
-  els.rulesBtn.addEventListener('click', () => { setRulesOpen(els.rules.hidden); if (!els.rules.hidden) hideSettings({ returnFocus: false }); });
-  els.rulesClose.addEventListener('click', () => setRulesOpen(false, { returnFocus: true }));
+  els.rulesBtn.addEventListener('click', () => togglePanel('rules'));
+  els.rulesClose.addEventListener('click', () => closePanel());
   document.addEventListener('pointerdown', e => {
-    if (!els.rules.hidden && !e.target.closest('#rules, #rules-btn')) setRulesOpen(false);
+    if (panel === 'rules' && !e.target.closest('#rules, #rules-btn')) closePanel({ returnFocus: false });
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !els.settings.hidden) {
-      hideSettings();
-      return;
-    }
-    if (e.key === 'Escape' && !els.stats.hidden) {
-      hideStats();
-      return;
-    }
     if (e.key === 'Escape' && !els.busy.hidden) {
       dismissBusy();
       return;
     }
-    if (e.key === 'Escape' && !els.rules.hidden) {
-      setRulesOpen(false, { returnFocus: true });
+    if (e.key === 'Escape' && panel) {
+      closePanel();
       return;
     }
     if (e.key === 'Shift') setShift(true);

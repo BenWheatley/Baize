@@ -706,7 +706,8 @@ def check_rules_text_stays_inside_the_frame(pg):
 
 
 def stats_rows(pg):
-    pg.click('#stats-btn')
+    if pg.locator('#stats').is_hidden():                # after a win the Cleared panel is this panel, already open
+        pg.click('#stats-btn')
     rows = pg.evaluate("[...document.querySelectorAll('#stats-table tr')].map(r => [...r.children].map(c => c.textContent))")
     return {r[0]: r[1:] for r in rows}
 
@@ -715,7 +716,7 @@ def check_statistics(pg):
     assert stats_rows(pg)['Golf'] == ['–'] * 5, 'nothing played yet'
     pg.keyboard.press('Escape')
     assert pg.locator('#stats').is_hidden(), 'Escape closes the panel'
-    assert pg.evaluate("document.activeElement.id") == 'settings-btn'
+    assert pg.evaluate("document.activeElement.id") == 'stats-btn'
     # A saved, already-won Golf deal: load it and the win is counted, once.
     saved = pg.evaluate("""() => {
         const options = { wrap: 1, winnable: 0 }, rules = CardSim.golf;
@@ -925,6 +926,114 @@ def check_hint_uses_what_the_winnable_search_found(pg):
     assert pg.evaluate("window.__workers") == 0, 'the first hint of a winnable deal needs no search: the search that chose the deal found the line'
 
 
+def won_golf(pg):
+    """Load a Golf deal that is already won, which opens the Cleared panel."""
+    saved = pg.evaluate("""() => {
+        const options = { wrap: 1, winnable: 0 }, rules = CardSim.golf;
+        for (let seed = 0; seed < 300; seed++) {
+            const actions = CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 });
+            if (actions) return { seed, options, actions };
+        } }""")
+    pg.evaluate("s => localStorage.setItem('baize.v2', JSON.stringify({ current: 'golf', games: { golf: s } }))", saved)
+    pg.reload()
+    pg.wait_for_timeout(1000)
+
+
+def check_panels_are_exclusive(pg):
+    visible = lambda: pg.evaluate("['rules', 'stats', 'settings'].filter(id => !document.getElementById(id).hidden)")
+    start(pg, 'klondike')
+    pg.click('#stats-btn')
+    assert visible() == ['stats']
+    pg.click('#settings-btn', force=True)             # the table's own overlay is not in the way of the header
+    assert visible() == ['settings'], 'opening Settings closes Statistics'
+    pg.click('#stats-btn')
+    assert visible() == ['stats'], 'and the other way round'
+    pg.click('#stats-btn')
+    assert visible() == [], 'a panel\'s own button closes it'
+    pg.click('#settings-btn')
+    pg.click('#rules-btn')
+    assert visible() == ['rules']
+    pg.click('#settings-btn')
+    assert visible() == ['settings']
+    pg.keyboard.press('Escape')
+    assert visible() == [] and pg.evaluate("document.activeElement.id") == 'settings-btn'
+
+
+def check_cleared_is_the_statistics_panel(pg):
+    won_golf(pg)
+    assert pg.locator('#stats').is_visible() and pg.locator('#stats-title').inner_text().lower() == 'cleared'
+    assert 'Golf' in pg.locator('#stats-result').inner_text() and 'moves' in pg.locator('#stats-result').inner_text()
+    assert pg.evaluate("[...document.querySelectorAll('#stats-table tr.current td')].map(c => c.textContent)")[:3] == ['Golf', '1', '1'], 'the table has this win in it'
+    assert pg.locator('#win-new').is_visible() and pg.locator('#stats-reset').is_hidden(), 'New deal in place of Reset'
+    for button in ('#settings-btn', '#stats-btn', '#rules-btn'):
+        assert pg.locator(button).is_disabled(), f'{button} cannot be pressed while Cleared shows'
+    pg.keyboard.press('h')
+    pg.click('#stats-close')
+    assert pg.locator('#stats').is_hidden(), 'the close button puts it away'
+    assert pg.locator('#settings-btn').is_enabled()
+    pg.click('#stats-btn')
+    assert pg.locator('#stats-title').inner_text().lower() == 'statistics' and pg.locator('#stats-result').is_hidden()
+    assert pg.locator('#stats-reset').is_visible() and pg.locator('#win-new').is_hidden(), 'the same panel, now showing only the record'
+    pg.keyboard.press('Escape')
+    pg.click('#undo')
+    pg.wait_for_timeout(300)
+    assert pg.locator('#stats').is_hidden()
+    won_golf(pg)
+    pg.click('#undo', force=True)
+    pg.wait_for_timeout(300)
+    assert pg.locator('#stats').is_hidden(), 'undoing the win takes the panel away'
+
+
+def check_panels_look_alike(pg):
+    start(pg, 'klondike')
+    pg.click('#settings-btn')
+    size = lambda sel: pg.evaluate(f"getComputedStyle(document.querySelector('{sel}')).fontSize")
+    settings_title = size('#settings-title')
+    pg.click('#stats-btn')
+    assert size('#stats-title') == settings_title, 'one title size for every panel'
+    for close in ('#stats-close', '#settings-close', '#rules-close'):
+        assert pg.evaluate(f"document.querySelector('{close}').classList.contains('icon-close') && !document.querySelector('{close}').classList.contains('primary')"), f'{close} is a plain close mark'
+    pad = lambda sel: pg.evaluate(f"(() => {{ const s = getComputedStyle(document.querySelector('{sel}')); return [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(' '); }})()")
+    pg.click('#stats-btn')
+    pg.click('#settings-btn')
+    reference = pad('#undo')
+    for sel in ('#new', '#rules-btn', '#restart', '#settings button[data-setting="motion"]', '#options button'):
+        assert pad(sel) == reference, f'{sel} pads like every other button: {pad(sel)} against {reference}'
+    pg.click('#stats-btn')
+    assert pad('#stats-reset') == reference
+
+
+def check_buttons_lose_their_words_when_narrow(pg):
+    pg.set_viewport_size({'width': 390, 'height': 800})
+    pg.wait_for_timeout(300)
+    for label in ('Undo', 'Show moves'):
+        button = pg.get_by_role('button', name=label)
+        assert button.is_visible(), f'{label} is still a button with its name'
+        assert button.bounding_box()['width'] < 60, f'{label} shows only its icon'
+    assert pg.locator('#new').bounding_box()['width'] > 70, 'the main button keeps its words'
+    top = pg.evaluate("[...document.querySelectorAll('.controls > *')].filter(e => e.offsetParent).map(e => Math.round(e.getBoundingClientRect().top))")
+    assert max(top) - min(top) < 6, f'the header controls fit on one row {top}'
+    pg.set_viewport_size({'width': 1000, 'height': 800})
+    pg.wait_for_timeout(300)
+    assert pg.locator('#undo').bounding_box()['width'] > 70, 'wide screens keep the words'
+
+
+def check_hover_never_hides_a_button(pg):
+    start(pg, 'klondike')
+    pg.click('#settings-btn')
+    chosen = pg.locator('#settings button[data-setting="felt"][aria-pressed="true"]')
+    before = chosen.evaluate("b => getComputedStyle(b).backgroundImage")
+    chosen.hover()
+    pg.wait_for_timeout(200)
+    after = chosen.evaluate("b => getComputedStyle(b).backgroundImage")
+    assert 'gradient' in after and 'rgb(251, 233, 168)' in after, f'the chosen button brightens on hover: {after}'
+    other = pg.locator('#settings button[data-setting="felt"][aria-pressed="false"]').first
+    resting = other.evaluate("b => getComputedStyle(b).backgroundColor")
+    other.hover()
+    pg.wait_for_timeout(200)
+    assert other.evaluate("b => getComputedStyle(b).backgroundColor") != resting, 'an unchosen one shows hover too'
+
+
 def check_game_menu_gives_up_focus(pg):
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
@@ -938,17 +1047,17 @@ def check_win_panel_is_on_top(pg):
     """The plaque that announces a win must not be painted over by cards."""
     for name in ('klondike', 'freecell', 'spider'):
         start(pg, name)
-        pg.evaluate("() => { document.getElementById('win').hidden = false; }")
+        pg.evaluate("() => { document.getElementById('stats').hidden = false; }")
         covered = pg.evaluate("""() => {
-            const r = document.querySelector('#win .plaque').getBoundingClientRect();
+            const r = document.querySelector('#stats .plaque').getBoundingClientRect();
             const points = [[.1, .1], [.5, .5], [.9, .9], [.1, .9], [.9, .1]];
-            return points.filter(([x, y]) => !document.elementFromPoint(r.left + r.width * x, r.top + r.height * y)?.closest('.win')).length;
+            return points.filter(([x, y]) => !document.elementFromPoint(r.left + r.width * x, r.top + r.height * y)?.closest('.modal')).length;
         }""")
         assert covered == 0, f'{name}: cards paint over the win plaque at {covered} of 5 points'
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]
