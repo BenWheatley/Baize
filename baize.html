@@ -46,10 +46,14 @@
   --tex-felt-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='2' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .75  0 0 0 0 1  0 0 0 0 .85  1.1 0 0 0 -.66'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --tex-felt-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.006' numOctaves='3' seed='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .55 0 0 0 -.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --desk: radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%), var(--tex-wood), var(--wood);
+  --scroll-thumb: var(--brass); --scroll-track: rgba(0, 0, 0, 0.3);   /* scrollbars, wherever one appears */
   color-scheme: dark;
 }
 
 [hidden] { display: none !important; }
+* { scrollbar-color: var(--scroll-thumb) var(--scroll-track); scrollbar-width: thin; }
+.rules { --scroll-track: #ece3cb; }
+.plaque { --scroll-thumb: var(--brass-lo); --scroll-track: rgba(111, 82, 24, 0.28); }
 
 /* The page itself never scrolls or zooms: the table is sized to fit the screen. Only the rules card scrolls. */
 html {
@@ -630,6 +634,20 @@ html[data-theme="retro"] .rules h3 { letter-spacing: 0; text-transform: none; fo
 html[data-theme="retro"] .rules kbd { background: #c0c0c0; border: 0; border-radius: 0; box-shadow: var(--bevel-out); }
 html[data-theme="retro"] .rules > .icon-close { top: 3px; right: 3px; width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); z-index: 1; }
 html[data-theme="retro"] .rules > .icon-close .icon { width: 12px; height: 12px; }
+/* Scrollbars follow the style (scrollbar-color and scrollbar-width, which every current browser has). */
+html[data-theme="cyberpunk"] { --scroll-thumb: var(--neon-c); --scroll-track: #05040c; }
+html[data-theme="cyberpunk"] .rules, html[data-theme="cyberpunk"] .plaque { --scroll-thumb: var(--neon-m); --scroll-track: #05040c; }
+html[data-theme="scifi"] { --scroll-thumb: var(--lc-orange); --scroll-track: #000; }
+html[data-theme="scifi"] .rules, html[data-theme="scifi"] .plaque { --scroll-thumb: var(--lc-violet); --scroll-track: #000; }
+html[data-theme="retro"] { --scroll-thumb: #c0c0c0; --scroll-track: #dfdfdf; }
+html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thumb: #c0c0c0; --scroll-track: #dfdfdf; }
+/* Retro, where the engine can draw it: a chequered trough and a bevelled thumb. */
+@supports selector(::-webkit-scrollbar) {
+  html[data-theme="retro"] * { scrollbar-color: auto; scrollbar-width: auto; }
+  html[data-theme="retro"] ::-webkit-scrollbar { width: 16px; height: 16px; }
+  html[data-theme="retro"] ::-webkit-scrollbar-track { background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px; }
+  html[data-theme="retro"] ::-webkit-scrollbar-thumb { background: #c0c0c0; box-shadow: var(--bevel-out); }
+}
 </style>
 
 <!-- icons:start -->

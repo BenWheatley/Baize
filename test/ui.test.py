@@ -1063,6 +1063,13 @@ def check_styles(pg):
             assert pg.evaluate("(() => { const s = document.getElementById('settings'); return s.scrollWidth <= s.clientWidth; })()"), f'{value} at {width}px: the menu does not scroll sideways'
             face = pg.evaluate("(() => { const s = getComputedStyle(document.querySelector('#undo')); return s.backgroundImage !== 'none' || s.backgroundColor !== 'rgba(0, 0, 0, 0)'; })()")
             assert face, f'{value}: buttons have a face'
+    seen = set()
+    for value in ('steampunk', 'cyberpunk', 'scifi', 'retro'):
+        pg.click(f'#settings button[data-setting="theme"][data-value="{value}"]')
+        colours = pg.evaluate("[document.documentElement, document.getElementById('settings'), document.getElementById('rules-scroll') || document.querySelector('.rules-scroll')].map(e => getComputedStyle(e).scrollbarColor)")
+        assert all(c != 'auto' for c in colours) or value == 'retro', f'{value}: scrollbars are coloured {colours}'
+        seen.add(colours[0])
+    assert len(seen) >= 3, f'the styles colour their scrollbars differently: {seen}'
     pg.click('#settings button[data-setting="theme"][data-value="retro"]')
     close = pg.evaluate("(() => { const b = document.getElementById('settings-close').getBoundingClientRect(), h = document.getElementById('settings-title').getBoundingClientRect(); return [b.top - h.top, h.bottom - b.bottom, h.right - b.right]; })()")
     assert abs(close[0] - close[1]) <= 1.5 and close[2] >= 2, f'in the retro title bar the close button is centred and inside it {close}'
