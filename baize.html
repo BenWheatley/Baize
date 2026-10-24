@@ -569,17 +569,18 @@ html[data-theme="retro"] h1 {
 html[data-theme="retro"] .game-name { color: #fff; font-weight: 400; }
 html[data-theme="retro"] button, html[data-theme="retro"] #game {
   font: 400 13px var(--font-ui); letter-spacing: 0; text-transform: none; color: #000; text-shadow: none;
-  background: #c0c0c0; border-radius: 0; box-shadow: var(--bevel-out); margin: 2px;
+  background: #c0c0c0; border-radius: 0; box-shadow: var(--bevel-out);
 }
 html[data-theme="retro"] #game { padding-right: 28px; }
 html[data-theme="retro"] button:hover:not(:disabled), html[data-theme="retro"] #game:hover { background: #c8c8c8; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] button:active:not(:disabled) { transform: none; box-shadow: var(--bevel-in); padding: 7px 11px 5px 13px; }
+html[data-theme="retro"] button:active:not(:disabled) { transform: none; box-shadow: var(--bevel-in); }
+html[data-theme="retro"] button:active:not(:disabled) > .icon, html[data-theme="retro"] button:active:not(:disabled) > .label { transform: translate(1px, 1px); }   /* the face moves, the button does not change size */
 html[data-theme="retro"] button:disabled { opacity: 1; color: #808080; text-shadow: 1px 1px #fff; box-shadow: var(--bevel-out); }
 html[data-theme="retro"] button:focus-visible, html[data-theme="retro"] #game:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }
 html[data-theme="retro"] button.primary { color: #800000; font-weight: 700; text-shadow: none; background: #c0c0c0; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
 html[data-theme="retro"] button.primary:hover:not(:disabled) { background: #c8c8c8; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
 html[data-theme="retro"] button[aria-pressed="true"].toggle { background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px; box-shadow: var(--bevel-in); }
-html[data-theme="retro"] .seg { background: #c0c0c0; border-radius: 0; box-shadow: var(--bevel-in); padding: 3px; margin: 2px; }
+html[data-theme="retro"] .seg { background: #c0c0c0; border-radius: 0; box-shadow: var(--bevel-in); padding: 3px; }
 html[data-theme="retro"] .seg-label { color: #000; text-shadow: none; letter-spacing: 0; text-transform: none; font-size: 12px; }
 html[data-theme="retro"] .seg button { border-radius: 0; margin: 0; color: #000; text-shadow: none; background: #c0c0c0; box-shadow: var(--bevel-out); }
 html[data-theme="retro"] .seg button:hover:not(:disabled) { background: #cfcfcf; color: #000; box-shadow: var(--bevel-out); }
@@ -597,16 +598,38 @@ html[data-theme="retro"] .plaque, html[data-theme="retro"] .update, html[data-th
 }
 html[data-theme="retro"] .plaque { padding: 0 14px 14px; }
 html[data-theme="retro"] .plaque h2 {
-  margin: 0 -14px 14px; padding: 4px 36px 4px 6px; font: 700 14px/1.2 var(--font-display); letter-spacing: 0; text-transform: none; color: #fff; background: var(--title-bar);
+  margin: 0 -14px 14px; padding: 3px 30px 3px 6px; font: 700 14px/18px var(--font-display); letter-spacing: 0; text-transform: none; color: #fff; background: var(--title-bar);
 }
-html[data-theme="retro"] .plaque > .icon-close { top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] .plaque > .icon-close .icon { width: 14px; height: 14px; }
+html[data-theme="retro"] .plaque > .icon-close { top: 3px; right: 3px; width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); }
+html[data-theme="retro"] .plaque > .icon-close .icon { width: 12px; height: 12px; }
 html[data-theme="retro"] .plaque > .icon-close:active { box-shadow: var(--bevel-in); }
 html[data-theme="retro"] .icon-close:hover:not(:disabled) { background: #cfcfcf; }
 html[data-theme="retro"] .panel-heading { letter-spacing: 0; text-transform: none; font-size: 13px; }
 html[data-theme="retro"] .stats-table th { letter-spacing: 0; text-transform: none; border-bottom-color: #808080; }
 html[data-theme="retro"] .spinner { border-color: #808080; border-top-color: #000080; border-radius: 0; }
 html[data-theme="retro"] .update { color: #000; }
+/* The rules card takes its colours from tokens, so each style only has to set them (and a few shapes). */
+html[data-theme="cyberpunk"] .rules { --card: #0b0a1a; --ink: #d9faff; --ink-soft: #7fc9d3; --card-edge: var(--neon-m); --back-line: var(--neon-c);
+  border-radius: 3px; box-shadow: 0 0 0 1px var(--neon-m), 0 0 22px rgba(255, 46, 151, 0.5), inset 0 0 22px rgba(255, 46, 151, 0.15); }
+html[data-theme="cyberpunk"] .rules::before { border-radius: 2px; }
+html[data-theme="cyberpunk"] .rules h2 { color: var(--neon-m); text-shadow: 0 0 8px rgba(255, 46, 151, 0.7); text-transform: uppercase; letter-spacing: 0.08em; }
+html[data-theme="cyberpunk"] .rules kbd { background: #05040c; color: var(--neon-c); border-radius: 2px; }
+html[data-theme="cyberpunk"] .rules .icon-close { color: var(--neon-c); border-color: var(--neon-c); border-radius: 2px; }
+html[data-theme="scifi"] .rules { --card: #000; --ink: #ffcc99; --ink-soft: #9999ff; --card-edge: #9999ff; --back-line: #cc99cc;
+  border-radius: 28px 8px 28px 8px; box-shadow: 0 0 0 4px var(--lc-blue), 0 18px 44px rgba(0, 0, 0, 0.5); }
+html[data-theme="scifi"] .rules::before { border-radius: 22px 4px 22px 4px; }
+html[data-theme="scifi"] .rules h2 { color: var(--lc-orange); text-transform: uppercase; letter-spacing: 0.08em; }
+html[data-theme="scifi"] .rules kbd { background: #000; color: var(--lc-peach); border-radius: 8px; }
+html[data-theme="scifi"] .rules .icon-close { color: #000; background: var(--lc-orange); border: 0; }
+html[data-theme="retro"] .rules { --card: #c0c0c0; --ink: #000; --ink-soft: #404040; --card-edge: #808080; border-radius: 0; font-family: var(--font-ui);
+  box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out), 4px 4px 0 1px rgba(0, 0, 0, 0.45); }
+html[data-theme="retro"] .rules::before, html[data-theme="retro"] .rules-index, html[data-theme="retro"] .rules-divider { display: none; }
+html[data-theme="retro"] .rules-scroll { margin: 0; padding: 14px 18px 12px; }
+html[data-theme="retro"] .rules h2 { margin: -14px -18px 12px; padding: 3px 30px 3px 6px; font: 700 14px/18px var(--font-display); text-align: left; color: #fff; background: var(--title-bar); }
+html[data-theme="retro"] .rules h3 { letter-spacing: 0; text-transform: none; font-size: 13px; color: #000; }
+html[data-theme="retro"] .rules kbd { background: #c0c0c0; border: 0; border-radius: 0; box-shadow: var(--bevel-out); }
+html[data-theme="retro"] .rules > .icon-close { top: 3px; right: 3px; width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); z-index: 1; }
+html[data-theme="retro"] .rules > .icon-close .icon { width: 12px; height: 12px; }
 </style>
 
 <!-- icons:start -->

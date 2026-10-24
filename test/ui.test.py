@@ -277,6 +277,8 @@ def check_rules_card(pg):
 
 def check_pyramid(pg):
     start(pg, 'pyramid')
+    assert status(pg).count('Redeals') == 1 and 'Redeals 2' in status(pg), f'one Redeals figure, as a number: {status(pg)}'
+    start(pg, 'pyramid')
     assert 'Left 28 / 28' in status(pg), status(pg)
     assert pg.locator('.slot').count() == 3, 'the stock, waste and removed pile have outlines'
     shift(pg, True)
@@ -1058,9 +1060,17 @@ def check_styles(pg):
             assert root() == value
             overflow = pg.evaluate("[...document.querySelectorAll('#settings button')].filter(b => { const p = document.getElementById('settings').getBoundingClientRect(), r = b.getBoundingClientRect(); return r.right > p.right + 1 || r.left < p.left - 1; }).length")
             assert overflow == 0, f'{value} at {width}px: no menu button sticks out'
+            assert pg.evaluate("(() => { const s = document.getElementById('settings'); return s.scrollWidth <= s.clientWidth; })()"), f'{value} at {width}px: the menu does not scroll sideways'
             face = pg.evaluate("(() => { const s = getComputedStyle(document.querySelector('#undo')); return s.backgroundImage !== 'none' || s.backgroundColor !== 'rgba(0, 0, 0, 0)'; })()")
             assert face, f'{value}: buttons have a face'
     pg.click('#settings button[data-setting="theme"][data-value="retro"]')
+    close = pg.evaluate("(() => { const b = document.getElementById('settings-close').getBoundingClientRect(), h = document.getElementById('settings-title').getBoundingClientRect(); return [b.top - h.top, h.bottom - b.bottom, h.right - b.right]; })()")
+    assert abs(close[0] - close[1]) <= 1.5 and close[2] >= 2, f'in the retro title bar the close button is centred and inside it {close}'
+    size = lambda: pg.evaluate("(() => { const r = document.getElementById('settings-btn').getBoundingClientRect(); return [r.width, r.height]; })()")
+    before = size()
+    pg.hover('#settings-btn'); pg.mouse.down()
+    assert size() == before, 'a pressed button keeps its size'
+    pg.mouse.up()
     pg.reload()
     pg.wait_for_timeout(700)
     assert root() == 'retro', 'the style is kept'
