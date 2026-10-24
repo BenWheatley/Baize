@@ -1046,6 +1046,27 @@ def check_deals_default_to_winnable(pg):
         assert pressed == 'Winnable', f'{name} defaults to winnable deals, not {pressed}'
 
 
+def check_styles(pg):
+    root = lambda: pg.evaluate("document.documentElement.dataset.theme")
+    start(pg, 'klondike')
+    assert root() == 'steampunk', 'steampunk is the default style'
+    for width in (1000, 390):
+        pg.set_viewport_size({'width': width, 'height': 800})
+        for value in ('cyberpunk', 'scifi', 'retro', 'steampunk'):
+            open_settings(pg)
+            pg.click(f'#settings button[data-setting="theme"][data-value="{value}"]')
+            assert root() == value
+            overflow = pg.evaluate("[...document.querySelectorAll('#settings button')].filter(b => { const p = document.getElementById('settings').getBoundingClientRect(), r = b.getBoundingClientRect(); return r.right > p.right + 1 || r.left < p.left - 1; }).length")
+            assert overflow == 0, f'{value} at {width}px: no menu button sticks out'
+            face = pg.evaluate("(() => { const s = getComputedStyle(document.querySelector('#undo')); return s.backgroundImage !== 'none' || s.backgroundColor !== 'rgba(0, 0, 0, 0)'; })()")
+            assert face, f'{value}: buttons have a face'
+    pg.click('#settings button[data-setting="theme"][data-value="retro"]')
+    pg.reload()
+    pg.wait_for_timeout(700)
+    assert root() == 'retro', 'the style is kept'
+    assert pg.evaluate("document.querySelector('meta[name=theme-color]').content") == '#008080'
+
+
 def check_buttons_lose_their_words_when_narrow(pg):
     pg.set_viewport_size({'width': 390, 'height': 800})
     pg.wait_for_timeout(300)
@@ -1102,7 +1123,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]
