@@ -1010,6 +1010,35 @@ def check_panels_look_alike(pg):
     assert pad('#stats-reset') == reference
 
 
+def check_header_layout(pg):
+    start(pg, 'golf')
+    ids = lambda: pg.evaluate("[...document.querySelectorAll('.controls button')].filter(b => b.offsetParent).map(b => b.id)")
+    assert ids() == ['hints', 'hint-btn', 'undo', 'finish', 'new', 'settings-btn'], ids()
+    assert pg.locator('#finish').is_visible() and pg.locator('#finish').is_disabled(), 'Auto-finish is always there, faded when it cannot act'
+    rows = lambda: pg.evaluate("[...document.querySelectorAll('h1, .controls button')].filter(b => b.offsetParent).map(b => Math.round(b.getBoundingClientRect().top + b.getBoundingClientRect().height / 2 + scrollY))")
+    for width in (1280, 820, 600):
+        pg.set_viewport_size({'width': width, 'height': 800})
+        pg.wait_for_timeout(300)
+        centres = rows()
+        assert max(centres) - min(centres) < 30, f'the title and every button share a row at {width}px: {centres}'
+    assert pg.evaluate("document.querySelector('#settings-btn').getBoundingClientRect().right") > 560 - 30, 'the menu is at the far right'
+    assert pg.text_content('#game-name') == 'Golf'
+    pg.set_viewport_size({'width': 375, 'height': 800})
+    pg.wait_for_timeout(300)
+    h1 = pg.evaluate("(() => { const r = document.querySelector('h1').getBoundingClientRect(); const n = document.getElementById('game-name').getBoundingClientRect(); return [r.width, r.right - n.right, n.top - r.top]; })()")
+    assert h1[0] > 340 and h1[1] < 30, f'on a very narrow screen the title plate spans the width with the game at its right: {h1}'
+    assert pg.get_by_role('button', name='New deal').bounding_box()['width'] < 70, 'and New deal is only an icon'
+
+
+def check_deals_default_to_winnable(pg):
+    for name in ('klondike', 'freecell', 'golf', 'pyramid', 'spider', 'tripeaks'):
+        start(pg, name)
+        open_settings(pg)
+        pressed = pg.inner_text('[data-option-group="winnable"] button[aria-pressed="true"]')
+        pg.click('#settings-close')
+        assert pressed == 'Winnable', f'{name} defaults to winnable deals, not {pressed}'
+
+
 def check_buttons_lose_their_words_when_narrow(pg):
     pg.set_viewport_size({'width': 390, 'height': 800})
     pg.wait_for_timeout(300)
@@ -1065,7 +1094,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]

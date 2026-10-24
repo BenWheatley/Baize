@@ -16,5 +16,8 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 - 6. Accessibility: keyboard play (arrow keys and Enter), screen-reader announcements for moves, a high-contrast card option
 - 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion, Clock, Accordion; Hanabi (multiplayer, hidden information) much later
 
+## Conventions for new games
+- Where a game can be solved, offer the shared `WINNABLE_OPTION`; it defaults to Winnable (`default: 1`), as every game's does.
+
 ## Resolved
 - iPad bottom band: fixed by the black status bar style.

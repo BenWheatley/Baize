@@ -2,7 +2,7 @@
 // The icons are Google's Material Symbols (outlined, weight 500), Apache License 2.0; see NOTICE.
 import fs from 'fs';
 
-const ICONS = ['close', 'lightbulb', 'menu', 'undo', 'visibility'];
+const ICONS = ['close', 'fast_forward', 'lightbulb', 'menu', 'playing_cards', 'undo', 'visibility'];
 
 const symbol = name => {
   const svg = fs.readFileSync(new URL(`./node_modules/@material-symbols/svg-500/outlined/${name}.svg`, import.meta.url), 'utf8');

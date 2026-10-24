@@ -77,7 +77,6 @@ body {
 
 /* Header */
 .bar { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 h1 {
   margin: 0; padding: 6px 15px 7px; font: 700 30px/1 var(--font-display); letter-spacing: 0.03em;
   /* gold letters on a black enamel plate in a brass bezel: readable on any wood */
@@ -87,10 +86,11 @@ h1 {
   border-radius: 9px;
   box-shadow: 0 0 0 1.5px var(--brass), 0 0 0 2.5px var(--brass-lo), 0 3px 5px 2px rgba(0, 0, 0, 0.5), inset 0 2px 5px rgba(0, 0, 0, 0.85);
   margin: 3px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
 }
 .pick { position: relative; display: inline-block; }
 .pick::after { content: "▾"; position: absolute; right: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--enamel-ink); font-size: 12px; }
-.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; min-width: 0; }
+.controls { display: flex; flex: 1 1 auto; justify-content: flex-end; align-items: center; gap: 9px; min-width: 0; }
 
 /* Enamel pushbuttons in brass bezels */
 button, #game {
@@ -351,7 +351,6 @@ button[aria-pressed="true"].toggle {
 .controls button > .icon:only-child { margin: -2px 0; }
 .icon-btn { padding: 4px 8px; }
 .icon-btn > .icon { width: 24px; height: 24px; margin: 0 !important; }
-.tools { display: flex; align-items: center; gap: 9px; margin-left: 6px; }
 /* The suggested move: a cool ring that breathes, on the cards to move; dashes mark where they go. */
 :root { --suggest: #7fdcff; }
 .card.suggest { animation: suggest 1.1s ease-in-out infinite; }
@@ -381,12 +380,19 @@ button[aria-pressed="true"].toggle {
   .table { padding: 6px; }
   .controls { gap: 6px 4px; }
 }
-/* Narrow screens: buttons that have an icon keep only the icon (the words stay for screen readers and in the tooltip). */
-@media (max-width: 560px) {
-  .controls button:not(.primary) .label, .settings .seg button[data-swatch] .label {
-    position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
-  }
-  .controls button > .icon { margin: 0; }
+/* Narrower screens: header buttons keep only their icons (the words stay for screen readers and in the tooltip), New deal last of all. */
+@media (max-width: 780px) {
+  .controls button:not(.primary) .label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .controls button:not(.primary) > .icon { margin: 0; }
+}
+@media (max-width: 560px) { .settings .seg button[data-swatch] .label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
+/* Too narrow for everything on one row: the title plate takes a row of its own, game name on its right. */
+@media (max-width: 480px) {
+  h1 { flex: 1 0 100%; flex-direction: row; align-items: baseline; justify-content: space-between; box-sizing: border-box; }
+}
+@media (max-width: 380px) {
+  .controls .primary .label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .controls .primary > .icon { margin: 0; }
 }
 /* Short screens (a phone on its side): every pixel of height goes to the table. */
 @media (max-height: 500px) {
@@ -433,7 +439,7 @@ html[data-back="black"] { --back: #1d1d22; }
 .panel-links { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 12px; }
 .settings .pick { display: block; margin: 0 0 10px; }
 .settings #game { width: 100%; }
-.game-name { font: 700 12.5px/1 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--cream); }
+.game-name { font: 700 11px/1 var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: #c9ad62; text-shadow: none; }
 .panel-action { display: block; width: 100%; margin: 0 0 12px; }
 .settings .seg { display: grid; margin: 0 0 10px; }
 .settings .seg-label { padding: 6px 0 2px 10px; }
@@ -444,8 +450,10 @@ html[data-back="black"] { --back: #1d1d22; }
 <!-- icons:start -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-close" viewBox="0 -960 960 960"><path d="M249-201.26 201.26-249l231-231-231-231L249-758.74l231 231 231-231L758.74-711l-231 231 231 231L711-201.26l-231-231-231 231Z"/></symbol>
+<symbol id="i-fast_forward" viewBox="0 -960 960 960"><path d="M88.93-228.76v-502.48L451.91-480 88.93-228.76Zm420.16 0v-502.48L872.07-480 509.09-228.76ZM157.3-480Zm419.92 0ZM157.3-359.07 332.09-480 157.3-600.93v241.86Zm419.92 0L752.48-480 577.22-600.93v241.86Z"/></symbol>
 <symbol id="i-lightbulb" viewBox="0 -960 960 960"><path d="M421.07-93.7q-24.22-24.69-24.22-60.6h166.3q0 35.91-24.22 60.6Q514.7-69 479.99-69q-34.71 0-58.92-24.7ZM316.33-217.74v-62.87h327.34v62.87H316.33Zm5-125.3Q253.89-387 213.96-453.01q-39.94-66-39.94-149.01 0-124.33 90.72-215.16Q355.47-908 479.93-908t215.37 90.82q90.92 90.83 90.92 215.16 0 82.91-39.44 148.97Q707.35-387 638.67-343.04H321.33Zm24.7-68.13h269.01q47.51-31.71 75.16-82.02 27.65-50.31 27.65-108.78 0-98.1-69.9-167.88-69.91-69.78-167.95-69.78-98.04 0-167.95 69.78-69.9 69.78-69.9 167.88 0 58.47 27.76 108.75 27.76 50.29 76.12 82.05Zm133.97 0Z"/></symbol>
 <symbol id="i-menu" viewBox="0 -960 960 960"><path d="M114.02-231.15v-68.37h732.2v68.37h-732.2Zm0-214.78v-68.14h732.2v68.14h-732.2Zm0-214.55v-68.37h732.2v68.37h-732.2Z"/></symbol>
+<symbol id="i-playing_cards" viewBox="0 -960 960 960"><path d="m605.2-386.37 40.95-148.35-127.11-86.91-40.71 148.35 126.87 86.91ZM189.02-158.09l-66.24-26.52q-32.31-14.02-43.65-48.09-11.35-34.07 6.89-67.15l103-245v386.76Zm142.12 58.24q-33.94 0-58.03-23.93-24.09-23.93-24.09-57.83v-313.24l136.77 368q2.93 8 6.63 14 3.7 6 9.6 13h-70.88Zm192.45-21.89q-26.35 9.2-52.03-2.44-25.68-11.64-35.26-37.58L245.26-680.17q-9.19-26.35 2.65-52.14t38.37-35.39L601.7-881.5q26.34-9.2 52.71 2.36 26.37 11.55 35.81 37.66l191.56 517.41q9.44 26.35-2.2 52.22-11.64 25.86-37.58 35.31l-318.41 114.8Zm-22.63-64.89 313.93-114.8-189.56-514.94-313.94 113.8 189.57 515.94ZM563.76-502Z"/></symbol>
 <symbol id="i-undo" viewBox="0 -960 960 960"><path d="M261.15-194.02v-68.13h311.68q67.84 0 116.43-45.78 48.59-45.79 48.59-112.99 0-67.21-48.59-113.11-48.59-45.9-116.43-45.9H283.8l110.18 110.17-47.74 47.74L154.02-614l192.22-192.22 47.74 47.74L283.8-648.07h288.03q96.19 0 165.29 65.68 69.1 65.67 69.1 161.23 0 95.55-69.1 161.34-69.1 65.8-165.29 65.8H261.15Z"/></symbol>
 <symbol id="i-visibility" viewBox="0 -960 960 960"><path d="M600.5-379.5Q650-429 650-500t-49.5-120.5Q551-670 480-670t-120.5 49.5Q310-571 310-500t49.5 120.5Q409-330 480-330t120.5-49.5Zm-197.25-43.71q-31.42-31.38-31.42-76.75 0-45.37 31.38-76.79 31.38-31.42 76.75-31.42 45.37 0 76.79 31.38 31.42 31.38 31.42 76.75 0 45.37-31.38 76.79-31.38 31.42-76.75 31.42-45.37 0-76.79-31.38Zm-190.6 144.04Q93.22-363.85 34.5-500q58.72-136.15 178.15-220.83Q332.09-805.5 480-805.5q147.91 0 267.35 84.67Q866.78-636.15 925.5-500q-58.72 136.15-178.15 220.83Q627.91-194.5 480-194.5q-147.91 0-267.35-84.67ZM480-500Zm222.14 174.5Q803.52-391 856.52-500q-53-109-154.4-174.5T479.98-740q-120.74 0-222.12 65.5Q156.48-609 102.48-500q54 109 155.4 174.5T480.02-260q120.74 0 222.12-65.5Z"/></symbol>
 </svg>
@@ -460,10 +468,7 @@ html[data-back="black"] { --back: #1d1d22; }
 
 <div class="app">
   <header class="bar">
-    <div class="brand">
-      <h1>Baize</h1>
-      <span id="game-name" class="game-name"></span>
-    </div>
+    <h1><span>Baize</span><span id="game-name" class="game-name"></span></h1>
     <div id="rules" class="rules" role="dialog" aria-labelledby="rules-title" hidden>
       <span class="rules-index top" aria-hidden="true"><span>A</span><span>♠</span></span>
       <span class="rules-index bottom" aria-hidden="true"><span>A</span><span>♠</span></span>
@@ -487,14 +492,12 @@ html[data-back="black"] { --back: #1d1d22; }
       </div>
     </div>
     <div class="controls">
+      <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same. Hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to highlight every card of that rank; add Shift for only the movable ones." hidden><svg class="icon" aria-hidden="true"><use href="#i-visibility"/></svg><span class="label">Show moves</span></button>
       <button id="hint-btn" type="button" title="Hint" hidden><svg class="icon" aria-hidden="true"><use href="#i-lightbulb"/></svg><span class="label">Hint</span></button>
       <button id="undo" type="button" title="Undo"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
-      <button id="finish" type="button" hidden>Auto-finish</button>
-      <button id="new" type="button" class="primary">New deal</button>
-      <span class="tools">
-        <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same. Hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to highlight every card of that rank; add Shift for only the movable ones." hidden><svg class="icon" aria-hidden="true"><use href="#i-visibility"/></svg><span class="label">Show moves</span></button>
-        <button id="settings-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-controls="settings" aria-label="Menu" title="Menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
-      </span>
+      <button id="finish" type="button" title="Auto-finish" disabled><svg class="icon" aria-hidden="true"><use href="#i-fast_forward"/></svg><span class="label">Auto-finish</span></button>
+      <button id="new" type="button" class="primary" title="New deal"><svg class="icon" aria-hidden="true"><use href="#i-playing_cards"/></svg><span class="label">New deal</span></button>
+      <button id="settings-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-controls="settings" aria-label="Menu" title="Menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
     </div>
   </header>
 
@@ -2794,7 +2797,7 @@ const StandardDeck = (() => {
     ];
     els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))));
     els.undo.disabled = busy || session.actions.length === 0;
-    els.finish.hidden = busy || !rules.autoAction(state);
+    els.finish.disabled = busy || !rules.autoAction(state);
     els.hints.hidden = !rules.showsMovable;
     els.hints.setAttribute('aria-pressed', String(hintsOn));
     for (const option of rules.options) {
