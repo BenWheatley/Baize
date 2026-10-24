@@ -45,6 +45,7 @@
   --tex-felt-fine: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.0 0 0 0 -.46'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --tex-felt-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='2' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .75  0 0 0 0 1  0 0 0 0 .85  1.1 0 0 0 -.66'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --tex-felt-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.006' numOctaves='3' seed='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .55 0 0 0 -.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --desk: radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%), var(--tex-wood), var(--wood);
   color-scheme: dark;
 }
 
@@ -54,13 +55,12 @@
 html {
   height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: none;
   /* The desk is painted on the page's canvas, which always reaches the screen's edges. */
-  background:
-    radial-gradient(130% 100% at 50% 30%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%),
-    var(--tex-wood), var(--wood);
+  background: var(--desk);
   background-repeat: no-repeat, repeat, repeat;
 }
 
 body {
+  background: var(--desk); background-repeat: no-repeat, repeat, repeat;   /* as well as the page's canvas, for hosts that paint the canvas white */
   margin: 0;
   box-sizing: border-box;
   position: fixed; inset: 0;   /* the layout viewport itself, whatever the browser's toolbars are doing */
@@ -386,8 +386,8 @@ button[aria-pressed="true"].toggle {
   .controls button:not(.primary) > .icon { margin: 0; }
 }
 @media (max-width: 560px) { .settings .seg button[data-swatch] .label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
-/* Too narrow for everything on one row: the title plate takes a row of its own, game name on its right. */
-@media (max-width: 480px) {
+/* Too narrow for everything on one row (about 560 px with New deal's word on it): the title plate takes a row of its own, game name on its right. */
+@media (max-width: 560px) {
   h1 { flex: 1 0 100%; flex-direction: row; align-items: baseline; justify-content: space-between; box-sizing: border-box; }
 }
 @media (max-width: 380px) {
@@ -432,9 +432,8 @@ html[data-back="blue"] { --back: #1f3f7a; }
 html[data-back="green"] { --back: #1f5a3c; }
 html[data-back="black"] { --back: #1d1d22; }
 .swatch { flex: none; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 235, 170, 0.6); vertical-align: -1px; }
-/* Settings: a panel in the corner, not a dialogue, so the table can be seen changing behind it. */
-/* Settings is a plaque like the others, but a panel in the corner rather than a dialogue, so the table can be seen changing behind it. */
-.settings { position: absolute; z-index: 195000; top: 12px; right: 12px; box-sizing: border-box; width: min(30rem, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+/* The menu is a plaque like the others, but a popover hung from its button (in the browser's top layer, so nothing clips it), not a dialogue: the table can be seen changing behind it. */
+.settings { position: fixed; inset: auto; margin: 0; border: 0; box-sizing: border-box; width: min(30rem, calc(100% - 16px)); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .panel-heading { margin: 4px 0 8px 2px; font: 700 12px/1 var(--font-ui); letter-spacing: 0.16em; text-transform: uppercase; }
 .panel-links { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 12px; }
 .settings .pick { display: block; margin: 0 0 10px; }
@@ -528,7 +527,7 @@ html[data-back="black"] { --back: #1d1d22; }
         </div>
       </div>
     </div>
-    <div id="settings" class="plaque settings" hidden role="dialog" aria-labelledby="settings-title">
+    <div id="settings" class="plaque settings" popover="manual" hidden role="dialog" aria-labelledby="settings-title">
       <h2 id="settings-title">Menu</h2>
       <button id="settings-close" type="button" class="icon-close" aria-label="Close settings"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
       <div class="panel-links">
@@ -2516,6 +2515,16 @@ const StandardDeck = (() => {
     (won ? els.winNew : els.statsClose).focus();
   }
 
+  /** Hang the menu under its button, its right edge level with the button's. */
+  function placeMenu() {
+    const r = els.settingsBtn.getBoundingClientRect();
+    const style = els.settings.style;
+    style.top = `${r.bottom + 10}px`;
+    style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+    style.maxHeight = `${window.innerHeight - r.bottom - 22}px`;
+  }
+  window.addEventListener('resize', () => { if (!els.settings.hidden) placeMenu(); });
+
   /** The preferences, each a row of buttons; choosing one applies and keeps it at once. */
   function showSettings() {
     const rows = CardSim.SETTINGS.map(setting => h('div', { class: 'seg', role: 'group', 'aria-label': setting.label, 'data-setting-group': setting.id },
@@ -2535,6 +2544,8 @@ const StandardDeck = (() => {
       }))));
     els.settingsBody.replaceChildren(...rows);
     els.settings.hidden = false;
+    els.settings.showPopover?.();
+    placeMenu();
     els.settingsClose.focus();
   }
 
@@ -2546,7 +2557,7 @@ const StandardDeck = (() => {
   const PANELS = {
     rules: { el: els.rules, show: () => { els.rules.hidden = false; els.rulesClose.focus(); }, hide: () => { els.rules.hidden = true; } },
     stats: { el: els.stats, show: showStats, hide: () => { els.stats.hidden = true; clearTimeout(resetTimer); } },
-    settings: { el: els.settings, show: showSettings, hide: () => { els.settings.hidden = true; } },
+    settings: { el: els.settings, show: showSettings, hide: () => { els.settings.hidePopover?.(); els.settings.hidden = true; } },
   };
   let panel = null;             // the name of the one that is open
   let returnTo = null;          // where focus goes when it closes
@@ -3106,7 +3117,6 @@ const StandardDeck = (() => {
     if (!menuUsedKeyboard) els.game.blur();
     if (busy) { els.game.value = String(GAMES.indexOf(game)); return; }
     open(GAMES[Number(els.game.value)]);
-    closePanel({ returnFocus: false });
   });
 
   /* Lay the cards out again when the room changes: the width, or the height beyond a small tolerance

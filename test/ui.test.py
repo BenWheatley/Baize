@@ -600,9 +600,9 @@ def check_responsive(pg):
         start(page, 'klondike')
         assert page.locator('#settings').is_hidden(), f'{label}: settings start closed'
         page.click('#settings-btn')
-        panel = page.evaluate("""() => { const r = document.getElementById('settings').getBoundingClientRect(), t = document.getElementById('table').getBoundingClientRect();
-            return { left: r.left - t.left, right: t.right - r.right, top: r.top - t.top, bottom: t.bottom - r.bottom }; }""")
-        assert min(panel.values()) >= 0, f'{label}: the settings panel fits the table {panel}'
+        panel = page.evaluate("""() => { const r = document.getElementById('settings').getBoundingClientRect(), b = document.getElementById('settings-btn').getBoundingClientRect();
+            return { left: r.left, right: innerWidth - r.right, bottom: innerHeight - r.bottom, belowButton: r.top - b.bottom, rightEdge: Math.abs(r.right - b.right) }; }""")
+        assert min(panel['left'], panel['right'], panel['bottom'], panel['belowButton']) >= 0 and panel['rightEdge'] < 12, f'{label}: the menu hangs from its button, inside the screen {panel}'
         reach = page.evaluate("[...document.querySelectorAll('#settings button')].filter(b => b.getBoundingClientRect().width < 20 || b.getBoundingClientRect().height < 20).length")
         assert reach == 0, f'{label}: every settings button can be hit'
         body = page.evaluate("(() => { const r = document.body.getBoundingClientRect(); return [r.left, r.top, r.width, r.height, innerWidth, innerHeight]; })()")
@@ -866,8 +866,8 @@ def check_settings(pg):
     assert pg.locator('#settings button[data-setting="back"][data-value="black"]').get_attribute('aria-pressed') == 'true'
     assert pg.locator('#settings').is_visible()
     box = pg.locator('#settings').bounding_box()
-    table = pg.locator('#table').bounding_box()
-    assert box['x'] >= table['x'] and box['x'] + box['width'] <= table['x'] + table['width'] + 1, f'the panel fits the table {box} {table}'
+    button = pg.locator('#settings-btn').bounding_box()
+    assert box['y'] >= button['y'] + button['height'] and abs(box['x'] + box['width'] - button['x'] - button['width']) < 12, f'the menu hangs from its button {box} {button}'
     overflow = pg.evaluate("[...document.querySelectorAll('#settings button')].filter(b => { const p = document.getElementById('settings').getBoundingClientRect(), r = b.getBoundingClientRect(); return r.right > p.right || r.left < p.left; }).length")
     assert overflow == 0, 'no button sticks out of the panel'
     pg.click('#settings-close')
@@ -1023,6 +1023,13 @@ def check_header_layout(pg):
         assert max(centres) - min(centres) < 30, f'the title and every button share a row at {width}px: {centres}'
     assert pg.evaluate("document.querySelector('#settings-btn').getBoundingClientRect().right") > 560 - 30, 'the menu is at the far right'
     assert pg.text_content('#game-name') == 'Golf'
+    for width in range(380, 800, 20):          # no width leaves the buttons wrapped under a plate that is only part-width
+        pg.set_viewport_size({'width': width, 'height': 800})
+        pg.wait_for_timeout(120)
+        geometry = pg.evaluate("(() => { const h = document.querySelector('h1').getBoundingClientRect(); const tops = [...document.querySelectorAll('.controls button')].filter(b => b.offsetParent).map(b => b.getBoundingClientRect().top); return [h.width, h.top, Math.max(...tops) - Math.min(...tops), Math.min(...tops) - h.top, innerWidth]; })()")
+        plate, plate_top, spread, below, inner = geometry
+        assert spread < 30, f'{width}px: the buttons are on one row'
+        assert below < 30 or plate > inner - 40, f'{width}px: the buttons wrap under a plate that does not span the width {geometry}'
     pg.set_viewport_size({'width': 375, 'height': 800})
     pg.wait_for_timeout(300)
     h1 = pg.evaluate("(() => { const r = document.querySelector('h1').getBoundingClientRect(); const n = document.getElementById('game-name').getBoundingClientRect(); return [r.width, r.right - n.right, n.top - r.top]; })()")
@@ -1075,6 +1082,7 @@ def check_game_menu_gives_up_focus(pg):
     pg.focus('#game')
     pg.select_option('#game', GAMES['golf'])
     pg.wait_for_timeout(900)
+    assert pg.locator('#settings').is_visible(), 'choosing a game leaves the menu open'
     assert pg.evaluate("document.activeElement.id") != 'game', 'rank keys would be typed into the menu'
     pg.keyboard.press('Shift')                       # and the keys reach the game
     pg.keyboard.up('Shift')
