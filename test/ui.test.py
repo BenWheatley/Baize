@@ -1163,6 +1163,9 @@ def check_keyboard_play(pg):
     assert 'Nothing to send home' in announced(pg)
     pg.keyboard.press('Enter')
     assert announced(pg) == 'Drew from the stock'
+    pg.evaluate("document.querySelector('#board [tabindex=\"0\"]').click()")
+    pg.wait_for_timeout(300)
+    assert 'Moves 2' in status(pg), 'a screen reader\'s activate (a click with no pointer) acts like Enter: ' + status(pg)
     pg.keyboard.press('ArrowRight')
     ring = pg.evaluate("(() => { const r = document.querySelector('.cursor'); return r && !r.hidden; })()")
     assert ring, 'the cursor ring shows while the keyboard is in use'
@@ -1208,6 +1211,32 @@ def check_more_contrast_asked_for(pg):
     page.wait_for_timeout(800)
     assert page.evaluate("document.documentElement.dataset.faces") == 'standard', 'a choice already made wins'
     ctx.close()
+
+
+def check_titles_stay_put(pg):
+    start(pg, 'klondike')
+    pg.set_viewport_size({'width': 700, 'height': 360})        # short: every panel has to scroll
+    pg.wait_for_timeout(300)
+    top = lambda sel: pg.evaluate(f"document.querySelector('{sel}').getBoundingClientRect().top")
+    for theme in ('steampunk', 'cyberpunk', 'scifi', 'retro'):
+        open_settings(pg)
+        pg.click(f'#settings button[data-setting="theme"][data-value="{theme}"]')
+        before = (top('#settings-title'), top('#settings-close'))
+        pg.evaluate("document.querySelector('#settings .plaque-body').scrollTop = 9999")
+        assert pg.evaluate("document.querySelector('#settings .plaque-body').scrollTop") > 0, f'{theme}: the menu scrolls on a short screen'
+        assert (top('#settings-title'), top('#settings-close')) == before, f'{theme}: the menu keeps its title and close button in view'
+        via_menu(pg, '#stats-btn')
+        before = (top('#stats-title'), top('#stats-close'))
+        pg.evaluate("document.querySelector('#stats .plaque-body').scrollTop = 9999")
+        assert (top('#stats-title'), top('#stats-close')) == before, f'{theme}: Statistics keeps its title and close button in view'
+        assert pg.evaluate("(() => { const r = document.querySelector('#stats .plaque').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()"), f'{theme}: Statistics fits a short screen'
+        pg.keyboard.press('Escape')
+        via_menu(pg, '#rules-btn')
+        pg.wait_for_timeout(400)                                  # the card eases in
+        before = (top('#rules-title'), top('#rules-close'))
+        pg.evaluate("document.querySelector('.rules-scroll').scrollTop = 9999")
+        assert (top('#rules-title'), top('#rules-close')) == before, f'{theme}: the rules card keeps its title and close button in view'
+        pg.keyboard.press('Escape')
 
 
 def check_buttons_lose_their_words_when_narrow(pg):
@@ -1266,7 +1295,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]

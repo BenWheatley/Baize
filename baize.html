@@ -281,7 +281,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 }
 
 /* Panels (Statistics and Cleared, Settings, the search dialogue): a brass plaque, screwed down; the modal ones on a darkened table */
-.modal { position: absolute; inset: 0; z-index: 200000; display: grid; place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
+.modal { position: absolute; inset: 0; z-index: 200000; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
 .plaque {
   position: relative; padding: 18px 22px 16px; max-width: min(24rem, 90%); border-radius: 10px; text-align: left;
   color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
@@ -305,6 +305,11 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 }
 .modal[data-state="miss"] .spinner { display: none; }
 #stats .plaque { max-width: min(34rem, 94%); }
+/* A panel's title and its × stay put; what is under them scrolls, so the × is never out of reach on a short screen. */
+.settings, #stats .plaque { display: flex; flex-direction: column; }
+#stats .plaque { max-height: calc(100% - 24px); box-sizing: border-box; }
+.plaque-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+#stats .plaque-buttons { flex: none; }
 #stats[data-mode="stats"] #win-new, #stats[data-mode="won"] #stats-reset, #stats[data-mode="stats"] #stats-result { display: none; }
 .stats-table { border-collapse: collapse; margin: 0 auto 16px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .stats-table th { padding: 2px 8px 5px; font: 600 10.5px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; text-align: right; border-bottom: 1px solid rgba(74, 18, 32, 0.45); }
@@ -329,8 +334,9 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
   animation: rules-in 0.18s ease-out;
 }
 /* The text scrolls inside the frame, so the frame never scrolls away from it. */
+.rules > h2 { margin: 0; padding: 30px 32px 8px; }
 .rules-scroll {
-  box-sizing: border-box; margin: 8px; padding: 22px 24px 14px;
+  box-sizing: border-box; margin: 0 8px 8px; padding: 0 24px 14px;
   max-height: min(75vh, 34rem); overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
 }
 .rules::before {
@@ -342,7 +348,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 .rules-index.top { top: 14px; left: 15px; }
 .rules-index.bottom { bottom: 14px; right: 15px; transform: rotate(180deg); }
 .rules > .icon-close { position: absolute; top: 12px; right: 14px; }
-.rules h2 { margin: 0 0 8px; font: 700 28px/1.1 var(--font-display); text-align: center; text-wrap: balance; }
+.rules h2 { font: 700 28px/1.1 var(--font-display); text-align: center; text-wrap: balance; }
 .rules h3 { margin: 16px 0 6px; font: 600 11px var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
 .rules p, .rules li { margin: 0; font-size: 14px; line-height: 1.5; }
 .rules ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
@@ -447,7 +453,7 @@ html[data-back="green"] { --back: #1f5a3c; }
 html[data-back="black"] { --back: #1d1d22; }
 .swatch { flex: none; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 235, 170, 0.6); vertical-align: -1px; }
 /* The menu is a plaque like the others, but a popover hung from its button (in the browser's top layer, so nothing clips it), not a dialogue: the table can be seen changing behind it. */
-.settings { position: fixed; inset: auto; margin: 0; border: 0; box-sizing: border-box; width: min(30rem, calc(100% - 16px)); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.settings { position: fixed; inset: auto; margin: 0; border: 0; box-sizing: border-box; width: min(30rem, calc(100% - 16px)); overflow: hidden; }
 .panel-heading { margin: 4px 0 8px 2px; font: 700 12px/1 var(--font-ui); letter-spacing: 0.16em; text-transform: uppercase; }
 .panel-links { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 12px; }
 .settings .pick { display: block; margin: 0 0 10px; }
@@ -639,7 +645,7 @@ html[data-theme="retro"] .rules { --card: #c0c0c0; --ink: #000; --ink-soft: #404
   box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out), 4px 4px 0 1px rgba(0, 0, 0, 0.45); }
 html[data-theme="retro"] .rules::before, html[data-theme="retro"] .rules-index, html[data-theme="retro"] .rules-divider { display: none; }
 html[data-theme="retro"] .rules-scroll { margin: 0; padding: 14px 18px 12px; }
-html[data-theme="retro"] .rules h2 { margin: -14px -18px 12px; padding: 3px 30px 3px 6px; font: 700 14px/18px var(--font-display); text-align: left; color: #fff; background: var(--title-bar); }
+html[data-theme="retro"] .rules h2 { margin: 0; padding: 3px 30px 3px 6px; font: 700 14px/18px var(--font-display); text-align: left; color: #fff; background: var(--title-bar); }
 html[data-theme="retro"] .rules h3 { letter-spacing: 0; text-transform: none; font-size: 13px; color: #000; }
 html[data-theme="retro"] .rules kbd { background: #c0c0c0; border: 0; border-radius: 0; box-shadow: var(--bevel-out); }
 html[data-theme="retro"] .rules > .icon-close { top: 3px; right: 3px; width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); z-index: 1; }
@@ -686,8 +692,8 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
       <span class="rules-index top" aria-hidden="true"><span>A</span><span>♠</span></span>
       <span class="rules-index bottom" aria-hidden="true"><span>A</span><span>♠</span></span>
       <button id="rules-close" class="icon-close" type="button" aria-label="Close rules" title="Close rules"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
-      <div class="rules-scroll">
       <h2 id="rules-title"></h2>
+      <div class="rules-scroll">
       <p id="rules-text"></p>
       <div class="rules-divider" aria-hidden="true">◆ ◆ ◆</div>
       <h3>Highlighting</h3>
@@ -736,8 +742,10 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
       <div class="plaque">
         <button id="stats-close" type="button" class="icon-close" aria-label="Close" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
         <h2 id="stats-title">Statistics</h2>
-        <p id="stats-result"></p>
-        <table id="stats-table" class="stats-table"></table>
+        <div class="plaque-body">
+          <p id="stats-result"></p>
+          <table id="stats-table" class="stats-table"></table>
+        </div>
         <div class="plaque-buttons">
           <button id="stats-reset" type="button">Reset</button>
           <button id="win-new" type="button" class="primary">New deal</button>
@@ -747,15 +755,17 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
     <div id="settings" class="plaque settings" popover="manual" hidden role="dialog" aria-labelledby="settings-title">
       <h2 id="settings-title">Menu</h2>
       <button id="settings-close" type="button" class="icon-close" aria-label="Close settings" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      <div class="plaque-body">
       <div class="panel-links">
-        <button id="rules-btn" type="button" aria-controls="rules">Rules</button>
-        <button id="stats-btn" type="button" aria-haspopup="dialog">Statistics</button>
+          <button id="rules-btn" type="button" aria-controls="rules">Rules</button>
+          <button id="stats-btn" type="button" aria-haspopup="dialog">Statistics</button>
+        </div>
+        <span class="pick"><select id="game" aria-label="Game"></select></span>
+        <div id="options"></div>
+        <button id="restart" type="button" class="panel-action primary">Restart this deal</button>
+        <h3 class="panel-heading">Appearance</h3>
+        <div id="settings-body"></div>
       </div>
-      <span class="pick"><select id="game" aria-label="Game"></select></span>
-      <div id="options"></div>
-      <button id="restart" type="button" class="panel-action primary">Restart this deal</button>
-      <h3 class="panel-heading">Appearance</h3>
-      <div id="settings-body"></div>
     </div>
     <div id="busy" class="modal" hidden role="alertdialog" aria-modal="true" aria-labelledby="busy-title" aria-describedby="busy-text">
       <div class="plaque">
@@ -3420,6 +3430,12 @@ const StandardDeck = (() => {
     }
     if (handled) e.preventDefault();
     positionCursor();
+  });
+  // A click with no pointer behind it (detail 0) is a screen reader's "activate": VoiceOver's VO+Space, a switch, voice control.
+  els.board.addEventListener('click', e => {
+    if (e.detail !== 0 || busy) return;
+    const hit = hitTest(e.target);
+    if (hit) { cursor.pile = hit.pile; cursor.index = hit.index; handleTap(hit, { key: true }); }
   });
   els.board.addEventListener('focusin', e => {
     const hit = hitTest(e.target);
