@@ -1,1 +1,0 @@
-{ "name": "baize-contrast-deck", "private": true, "type": "module", "dependencies": { "svgo": "3.3.2" } }

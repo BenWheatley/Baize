@@ -1097,15 +1097,15 @@ def check_high_contrast_faces(pg):
     assert pg.evaluate("document.documentElement.dataset.faces") == 'contrast'
     contrast = faces()
     assert contrast != standard and len(contrast) == len(standard), 'the face-up cards were redrawn in place'
-    assert pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] text').length") >= 1, 'jumbo indices are drawn as text'
+    assert pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] rect[stroke-width=\"10\"]').length") >= 1, 'the faces have the thick border'
     ids = pg.evaluate("[...document.querySelectorAll('svg [id]')].map(e => e.id)")
     assert len(ids) == len(set(ids)), 'no two cards share an id (a shared gradient would draw from the wrong card)'
     pg.click('#new')
     pg.wait_for_timeout(1200)
-    assert pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] text').length") >= 1, 'new cards use the chosen set'
+    assert pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] rect[stroke-width=\"10\"]').length") >= 1, 'new cards use the chosen set'
     pg.reload()
     pg.wait_for_timeout(800)
-    assert pg.evaluate("document.documentElement.dataset.faces") == 'contrast' and pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] text').length") >= 1, 'it is kept'
+    assert pg.evaluate("document.documentElement.dataset.faces") == 'contrast' and pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] rect[stroke-width=\"10\"]').length") >= 1, 'it is kept'
 
 
 def announced(pg):
