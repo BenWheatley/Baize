@@ -1084,6 +1084,26 @@ def check_styles(pg):
     assert pg.evaluate("document.querySelector('meta[name=theme-color]').content") == '#008080'
 
 
+def check_high_contrast_faces(pg):
+    start(pg, 'klondike')
+    faces = lambda: pg.evaluate("[...document.querySelectorAll('.card[data-up=\"true\"] svg')].map(s => s.innerHTML.length)")
+    standard = faces()
+    open_settings(pg)
+    pg.click('#settings button[data-setting="faces"][data-value="contrast"]')
+    assert pg.evaluate("document.documentElement.dataset.faces") == 'contrast'
+    contrast = faces()
+    assert contrast != standard and len(contrast) == len(standard), 'the face-up cards were redrawn in place'
+    assert pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] text').length") >= 1, 'jumbo indices are drawn as text'
+    ids = pg.evaluate("[...document.querySelectorAll('svg [id]')].map(e => e.id)")
+    assert len(ids) == len(set(ids)), 'no two cards share an id (a shared gradient would draw from the wrong card)'
+    pg.click('#new')
+    pg.wait_for_timeout(1200)
+    assert pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] text').length") >= 1, 'new cards use the chosen set'
+    pg.reload()
+    pg.wait_for_timeout(800)
+    assert pg.evaluate("document.documentElement.dataset.faces") == 'contrast' and pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] text').length") >= 1, 'it is kept'
+
+
 def check_buttons_lose_their_words_when_narrow(pg):
     pg.set_viewport_size({'width': 390, 'height': 800})
     pg.wait_for_timeout(300)
@@ -1140,7 +1160,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]

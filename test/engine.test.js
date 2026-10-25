@@ -1377,12 +1377,12 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 }
 
 {
-  const defaults = { theme: 'steampunk', felt: 'green', back: 'red', motion: 'device' };
+  const defaults = { theme: 'steampunk', faces: 'standard', felt: 'green', back: 'red', motion: 'device' };
   same(readSettings(null), defaults, 'nothing stored gives the defaults');
   same(readSettings('not json'), defaults, 'unreadable storage gives the defaults');
   same(readSettings('42'), defaults, 'a stored number is no settings');
-  same(readSettings(JSON.stringify({ felt: 'blue', motion: 'off' })), { theme: 'steampunk', felt: 'blue', back: 'red', motion: 'off' }, 'a partial record keeps what it has');
-  same(readSettings(JSON.stringify({ felt: 'plaid', back: 7, motion: 'fast', extra: 1 })), { theme: 'steampunk', felt: 'green', back: 'red', motion: 'fast' }, 'invalid values and unknown keys are dropped');
+  same(readSettings(JSON.stringify({ felt: 'blue', motion: 'off' })), { theme: 'steampunk', faces: 'standard', felt: 'blue', back: 'red', motion: 'off' }, 'a partial record keeps what it has');
+  same(readSettings(JSON.stringify({ felt: 'plaid', back: 7, motion: 'fast', extra: 1 })), { theme: 'steampunk', faces: 'standard', felt: 'green', back: 'red', motion: 'fast' }, 'invalid values and unknown keys are dropped');
   for (const setting of SETTINGS) {
     assert(setting.choices.some(c => c.value === setting.default), `${setting.id}: the default is one of the choices`);
     for (const c of setting.choices) same(readSettings(JSON.stringify({ [setting.id]: c.value }))[setting.id], c.value, `${setting.id}=${c.value} is accepted`);

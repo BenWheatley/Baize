@@ -45,6 +45,10 @@ Klondike, FreeCell, Golf, Pyramid, TriPeaks and one-suit Spider offer Deals: Win
 
 The faces are Adrian Kennard's playing cards (<https://www.me.uk/cards/>), dedicated to the public domain under CC0 1.0, taken from `@letele/playing-cards` 0.1.0 (CC0-1.0). The card back is drawn for this page and is also CC0. To regenerate the embedded faces, run `tools/art/build.sh`.
 
+## High-contrast cards
+
+The Card faces setting (in the menu) swaps the standard faces for the "Accessible" horizontal deck from [SVGCards](https://github.com/saulspatz/SVGCards) (public domain): jumbo indices, one colour per suit (black spades, crimson hearts, blue diamonds, green clubs). Its court portraits are 100-400 KB of traced art each and the hardest part of a card to read, so `tools/contrast-deck/prepare.py` replaces them with a big letter over a small suit mark, and `build.mjs` optimises the faces with svgo (ids prefixed per card, since every card lives in one page) and writes them into `baize.html` between the `contrast-art` markers: about 280 KB, less than the standard faces. The deck is 2:3 and the table's cards 5:7, so the faces are stretched about 7%. `useHighContrast` on the deck switches sets and `refreshFaces` redraws the cards on the table.
+
 ## Icons
 
 The icons are Google's Material Symbols (outlined, weight 500), licensed under the Apache License 2.0, copied unchanged from `@material-symbols/svg-500` 0.48.1 into an inline SVG sprite near the top of `baize.html`. No font is loaded, so there is nothing to fetch and no fallback glyph. To change the set, edit the list in `tools/icons/embed.mjs`, then run `npm install && node embed.mjs` in `tools/icons`. `NOTICE` and `LICENSE-material-symbols.txt` carry the attribution and the licence text.
