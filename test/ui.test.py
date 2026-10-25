@@ -28,7 +28,7 @@ def count(pg, cls):
 
 
 def lit(pg):
-    return sorted(pg.evaluate("[...document.querySelectorAll('.card.hint')].map(c => c.getAttribute('aria-label'))"))
+    return sorted(pg.evaluate("[...document.querySelectorAll('.card.hint')].map(c => c.getAttribute('data-name'))"))
 
 
 def open_game(pg, name):
@@ -143,7 +143,7 @@ def check_golf_tap_and_undo(pg):
     shift(pg, True)
     labels = [l for l in lit(pg) if l != FACE_DOWN]
     assert labels, 'a Golf deal should offer a playable card'
-    box = pg.locator(f'.card[aria-label="{labels[0]}"]').bounding_box()
+    box = pg.locator(f'.card[data-name="{labels[0]}"]').bounding_box()
     shift(pg, False)
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.2)
     pg.wait_for_timeout(300)
@@ -188,9 +188,9 @@ def check_tap_moves_are_animated(pg):
     start(pg, 'golf')
     shift(pg, True)
     label = [l for l in lit(pg) if l != FACE_DOWN][0]
-    box = pg.locator(f'.card[aria-label="{label}"]').bounding_box()
+    box = pg.locator(f'.card[data-name="{label}"]').bounding_box()
     shift(pg, False)
-    pg.evaluate("""label => { const el = document.querySelector(`.card[aria-label="${label}"]`);
+    pg.evaluate("""label => { const el = document.querySelector(`.card[data-name="${label}"]`);
         window.__track = []; const t0 = performance.now();
         const sample = () => { const m = new DOMMatrix(getComputedStyle(el).transform);
             window.__track.push({ t: performance.now() - t0, x: m.m41, y: m.m42, z: +getComputedStyle(el).zIndex });
@@ -286,7 +286,7 @@ def check_pyramid(pg):
     shift(pg, False)
 
     def tap_label(label):
-        tap(pg, f'.card[aria-label="{label}"]', wait=250)
+        tap(pg, f'.card[data-name="{label}"]', wait=250)
 
     tap_label('Queen of spades')
     assert pg.locator('.card.selected').count() == 1, 'the first card of a pair is selected'
@@ -294,7 +294,7 @@ def check_pyramid(pg):
     assert 'Left 26 / 28' in status(pg) and 'Moves 1' in status(pg), status(pg)
     pg.wait_for_timeout(300)
     out = pg.locator('.slot[data-pile=out]').bounding_box()
-    gone = pg.locator('.card[aria-label="Ace of spades"]').bounding_box()
+    gone = pg.locator('.card[data-name="Ace of spades"]').bounding_box()
     assert abs(gone['x'] - out['x']) < 3 and abs(gone['y'] - out['y']) < 3, 'removed cards go to the removed pile'
     tap_label('King of hearts')
     assert 'Left 25 / 28' in status(pg), status(pg)
@@ -304,7 +304,7 @@ def check_pyramid(pg):
     assert 'Left 28 / 28' in status(pg) and 'Moves 0' in status(pg), status(pg)
     # two cards that do not add up to 13 only move the selection
     cards = pg.evaluate("""() => [...document.querySelectorAll('.card')].map(c => ({
-        label: c.getAttribute('aria-label'), y: c.getBoundingClientRect().y }))""")
+        label: c.getAttribute('data-name'), y: c.getBoundingClientRect().y }))""")
     free_row = max(c['y'] for c in cards if c['label'] != FACE_DOWN)
     bottom = [c['label'] for c in cards if abs(c['y'] - free_row) < 3 and c['label'] not in
               ('Queen of spades', 'Ace of spades', 'King of hearts')][:2]
@@ -323,7 +323,7 @@ def check_pyramid(pg):
 STACKING_PROBLEMS = """() => {
     const cards = [...document.querySelectorAll('.card')].map(c => {
         const r = c.getBoundingClientRect();
-        return { label: c.getAttribute('aria-label'), x: r.x, y: r.y, w: r.width, h: r.height,
+        return { label: c.getAttribute('data-name'), x: r.x, y: r.y, w: r.width, h: r.height,
                  z: +c.style.zIndex, order: [...c.parentNode.children].indexOf(c) };
     });
     const bad = [];
@@ -428,7 +428,7 @@ def check_tripeaks(pg):
     start(pg, 'tripeaks')
     assert 'Left 28 / 28' in status(pg) and 'Stock 23' in status(pg), status(pg)
     assert pg.locator('.card').count() == 52
-    hidden = pg.evaluate("l => [...document.querySelectorAll('.card')].filter(c => c.getAttribute('aria-label') === l).length", FACE_DOWN)
+    hidden = pg.evaluate("l => [...document.querySelectorAll('.card')].filter(c => c.getAttribute('data-name') === l).length", FACE_DOWN)
     assert hidden == 18 + 23, f'only the base row and the waste show: {hidden} face down'
     play = pg.evaluate("""() => {
         const rules = CardSim.tripeaks, state = rules.setup({ wrap: 0 }, CardSim.mulberry32(5));
@@ -664,7 +664,7 @@ def check_selected_and_highlighted_combine(pg):
     start(pg, 'freecell')
     pg.click('#hints')
     label = [l for l in lit(pg) if l != FACE_DOWN][0]
-    card = pg.locator(f'.card[aria-label="{label}"]')
+    card = pg.locator(f'.card[data-name="{label}"]')
     box = card.bounding_box()
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.9)
     pg.wait_for_timeout(400)
@@ -954,10 +954,12 @@ def check_panels_are_exclusive(pg):
     start(pg, 'klondike')
     via_menu(pg, '#stats-btn')
     assert visible() == ['stats']
-    pg.click('#settings-btn', force=True)             # the table's own overlay is not in the way of the header
-    assert visible() == ['settings'], 'opening Settings closes Statistics'
+    assert pg.evaluate("document.querySelector('.bar').inert"), 'while Statistics is up the menu button cannot be reached'
+    pg.keyboard.press('Escape')
+    pg.click('#settings-btn')
     pg.click('#stats-btn')
-    assert visible() == ['stats'], 'and the other way round: the menu gives way to Statistics'
+    assert visible() == ['stats'], 'the menu gives way to Statistics'
+    pg.keyboard.press('Escape')
     pg.click('#settings-btn')
     pg.click('#settings-btn')
     assert visible() == [], 'the menu button closes the menu'
@@ -973,7 +975,7 @@ def check_cleared_is_the_statistics_panel(pg):
     won_golf(pg)
     assert pg.locator('#stats').is_visible() and pg.locator('#stats-title').inner_text().lower() == 'cleared'
     assert 'Golf' in pg.locator('#stats-result').inner_text() and 'moves' in pg.locator('#stats-result').inner_text()
-    assert pg.evaluate("[...document.querySelectorAll('#stats-table tr.current td')].map(c => c.textContent)")[:3] == ['Golf', '1', '1'], 'the table has this win in it'
+    assert pg.evaluate("[...document.querySelectorAll('#stats-table tr.current th, #stats-table tr.current td')].map(c => c.textContent)")[:3] == ['Golf', '1', '1'], 'the table has this win in it'
     assert pg.locator('#win-new').is_visible() and pg.locator('#stats-reset').is_hidden(), 'New deal in place of Reset'
     for button in ('#settings-btn', '#stats-btn', '#rules-btn'):
         assert pg.locator(button).is_disabled(), f'{button} cannot be pressed while Cleared shows'
@@ -989,9 +991,10 @@ def check_cleared_is_the_statistics_panel(pg):
     pg.wait_for_timeout(300)
     assert pg.locator('#stats').is_hidden()
     won_golf(pg)
-    pg.click('#undo', force=True)
+    assert pg.evaluate("document.getElementById('undo').closest('.bar').inert"), 'the buttons behind the Cleared panel cannot be pressed'
+    pg.keyboard.press('Control+z')
     pg.wait_for_timeout(300)
-    assert pg.locator('#stats').is_hidden(), 'undoing the win takes the panel away'
+    assert pg.locator('#stats').is_hidden(), 'undoing the win (Ctrl+Z still works) takes the panel away'
 
 
 def check_panels_look_alike(pg):
@@ -1004,6 +1007,7 @@ def check_panels_look_alike(pg):
     for close in ('#stats-close', '#settings-close', '#rules-close'):
         assert pg.evaluate(f"document.querySelector('{close}').classList.contains('icon-close') && !document.querySelector('{close}').classList.contains('primary')"), f'{close} is a plain close mark'
     pad = lambda sel: pg.evaluate(f"(() => {{ const s = getComputedStyle(document.querySelector('{sel}')); return [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(' '); }})()")
+    pg.keyboard.press('Escape')
     pg.click('#settings-btn')
     reference = pad('#undo')
     for sel in ('#new', '#rules-btn', '#restart', '#settings button[data-setting="motion"]', '#options button'):
@@ -1104,6 +1108,108 @@ def check_high_contrast_faces(pg):
     assert pg.evaluate("document.documentElement.dataset.faces") == 'contrast' and pg.evaluate("document.querySelectorAll('.card[data-up=\"true\"] text').length") >= 1, 'it is kept'
 
 
+def announced(pg):
+    pg.wait_for_timeout(200)
+    return pg.evaluate("document.getElementById('announcer').textContent")
+
+
+def check_keyboard_play(pg):
+    start(pg, 'freecell')
+    stops = lambda: pg.evaluate("[...document.querySelectorAll('#board [tabindex=\"0\"]')].length")
+    focused = lambda: pg.evaluate("document.activeElement.getAttribute('aria-label')")
+    assert stops() == 1, 'one place in the tab order for the whole table'
+    pg.focus('#board [tabindex="0"]')
+    assert 'Free cell 1, empty' == focused(), focused()
+    pg.keyboard.press('ArrowRight')
+    assert focused() == 'Free cell 2, empty'
+    for _ in range(3):
+        pg.keyboard.press('ArrowRight')
+    assert focused() == 'Foundation 1, empty', 'the cells run on into the foundations'
+    pg.keyboard.press('ArrowDown')
+    assert focused().endswith('Column 4, card 7 of 7') or 'Column' in focused(), focused()
+    pg.keyboard.press('ArrowUp')
+    assert 'Column' in focused(), 'Up inside a column stays in it while there are cards above'
+    pg.keyboard.press('Home')
+    pg.keyboard.press('ArrowLeft')
+    column = pg.evaluate("document.activeElement.getAttribute('aria-label')")
+    pg.keyboard.press('End')
+    top = focused()
+    pg.keyboard.press('Enter')
+    assert pg.evaluate("document.activeElement.getAttribute('aria-pressed')") == 'true' and announced(pg).startswith('Picked up'), announced(pg)
+    pg.keyboard.press('Enter')
+    assert pg.evaluate("document.activeElement.getAttribute('aria-pressed')") == 'false', 'Enter twice puts it back: a key is never a double tap'
+    pg.keyboard.press('Space')
+    assert pg.evaluate("document.activeElement.getAttribute('aria-pressed')") == 'true', 'Space does the same as Enter'
+    pg.keyboard.press('Escape')
+    assert pg.evaluate("document.activeElement.getAttribute('aria-pressed')") == 'false' and announced(pg) == 'Put it back'
+    pg.keyboard.press('Enter')
+    for _ in range(8):
+        pg.keyboard.press('ArrowUp')           # out of the columns, to the cells above
+        if 'Free cell' in focused() or 'Foundation' in focused():
+            break
+    while 'Free cell 1' not in focused():
+        pg.keyboard.press('ArrowLeft')
+    pg.keyboard.press('Enter')
+    assert announced(pg).startswith('Moved') and 'to Free cell 1' in announced(pg), announced(pg)
+    assert 'Free cell 1' in focused() and 'empty' not in focused(), 'the cursor stays where the card went: ' + focused()
+    pg.click('#undo')
+    assert announced(pg) == 'Undid the last move'
+    pg.keyboard.press('Tab')
+    assert not pg.evaluate("document.getElementById('board').contains(document.activeElement)"), 'Tab leaves the table'
+    start(pg, 'klondike')
+    pg.focus('#board [tabindex="0"]')
+    assert 'Stock, 24 cards' == focused()
+    pg.keyboard.press('f')
+    assert 'Nothing to send home' in announced(pg)
+    pg.keyboard.press('Enter')
+    assert announced(pg) == 'Drew from the stock'
+    pg.keyboard.press('ArrowRight')
+    ring = pg.evaluate("(() => { const r = document.querySelector('.cursor'); return r && !r.hidden; })()")
+    assert ring, 'the cursor ring shows while the keyboard is in use'
+    pg.mouse.click(900, 700)
+    assert pg.evaluate("document.querySelector('.cursor').hidden"), 'and goes when the pointer is used'
+
+
+def check_screen_reader_semantics(pg):
+    start(pg, 'klondike')
+    assert pg.evaluate("document.documentElement.lang") == 'en'
+    assert pg.evaluate("document.getElementById('announcer').getAttribute('aria-live')") == 'polite'
+    assert pg.evaluate("document.getElementById('status').hasAttribute('aria-live')") is False, 'the status line is not read out after every move'
+    nameless = pg.evaluate("""[...document.querySelectorAll('button, select')].filter(b => !b.closest('[hidden]')).filter(b => !(b.getAttribute('aria-label') || b.textContent.trim() || b.title)).map(b => b.id)""")
+    assert not nameless, f'controls without a name: {nameless}'
+    broken = pg.evaluate("""[...document.querySelectorAll('[aria-controls], [aria-labelledby], [aria-describedby]')].flatMap(e =>
+        ['aria-controls', 'aria-labelledby', 'aria-describedby'].flatMap(a => (e.getAttribute(a) || '').split(' ').filter(Boolean).filter(id => !document.getElementById(id)))).length""")
+    assert broken == 0, 'every aria reference points at something'
+    tips = pg.evaluate("[...document.querySelectorAll('.icon-close, #settings-btn, #hint-btn, #undo')].filter(b => !b.title).map(b => b.id)")
+    assert not tips, f'icon buttons with no tooltip: {tips}'
+    unlabelled = pg.evaluate("[...document.querySelectorAll('#board [role=button]:not([aria-hidden])')].filter(e => !e.getAttribute('aria-label')).length")
+    assert unlabelled == 0, 'every card a reader can reach has a label'
+    hidden_ok = pg.evaluate("[...document.querySelectorAll('#board [aria-hidden=true]')].every(e => document.activeElement !== e)")
+    assert hidden_ok
+    # a modal dialogue shuts out the page behind it
+    via_menu(pg, '#stats-btn')
+    assert pg.evaluate("document.getElementById('board').inert && document.querySelector('.bar').inert"), 'the page behind a modal is inert'
+    assert pg.evaluate("document.querySelector('#stats-table th[scope=row]') !== null and document.querySelector('#stats-table caption') !== null".replace(' and ', ' && '))
+    pg.keyboard.press('Escape')
+    assert not pg.evaluate("document.getElementById('board').inert"), 'and reachable again afterwards'
+    # a win is announced
+    won_golf(pg)
+    assert 'cleared' in announced(pg).lower(), announced(pg)
+
+
+def check_more_contrast_asked_for(pg):
+    ctx = pg.context.browser.new_context(viewport={'width': 1000, 'height': 800}, contrast='more')
+    page = ctx.new_page()
+    page.goto(URL)
+    page.wait_for_timeout(800)
+    assert page.evaluate("document.documentElement.dataset.faces") == 'contrast', 'a system that asks for more contrast starts with the high-contrast faces'
+    page.evaluate("localStorage.setItem('baize.settings', JSON.stringify({ faces: 'standard' }))")
+    page.reload()
+    page.wait_for_timeout(800)
+    assert page.evaluate("document.documentElement.dataset.faces") == 'standard', 'a choice already made wins'
+    ctx.close()
+
+
 def check_buttons_lose_their_words_when_narrow(pg):
     pg.set_viewport_size({'width': 390, 'height': 800})
     pg.wait_for_timeout(300)
@@ -1160,7 +1266,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]

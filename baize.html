@@ -1,4 +1,5 @@
 <!doctype html>
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#3a2415">
@@ -51,6 +52,7 @@
 }
 
 [hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 * { scrollbar-color: var(--scroll-thumb) var(--scroll-track); scrollbar-width: thin; }
 .rules { --scroll-track: #ece3cb; }
 .plaque { --scroll-thumb: var(--brass-lo); --scroll-track: rgba(111, 82, 24, 0.28); }
@@ -177,10 +179,10 @@ button[aria-pressed="true"].toggle {
 .seg button[aria-pressed="true"]:hover:not(:disabled) { background: linear-gradient(180deg, #fbe9a8, #d8b150); }   /* the chosen one brightens, never darkens */
 
 .status {
-  display: flex; flex-wrap: wrap; gap: 2px 20px; margin: 2px 4px 0; color: var(--cream-dim);
-  font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
+  display: flex; flex-wrap: wrap; gap: 2px 20px; margin: 2px 4px 0; color: var(--cream);
+  font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8), 0 0 5px rgba(0, 0, 0, 0.55);
 }
-.status b { color: var(--cream); font-weight: 600; }
+.status b { color: #fff; font-weight: 600; }
 
 /* Table: green felt let into a walnut rail with a brass inlay */
 .rail {
@@ -211,6 +213,12 @@ button[aria-pressed="true"].toggle {
   -webkit-touch-callout: none;
 }
 .board { position: relative; }
+/* The keyboard cursor: a ring over the visible part of the card (or empty pile) that has focus. It sits above the cards so a fanned card's ring is never hidden by the next one. */
+.cursor { position: absolute; left: 0; top: 0; z-index: 150000; pointer-events: none; box-sizing: border-box; border: 3px solid var(--focus, #7fdcff); border-radius: calc(var(--cw) * 0.07);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.75), 0 0 14px 3px var(--focus, #7fdcff); transition: transform 0.08s, width 0.08s, height 0.08s; }
+.card:focus, .slot:focus { outline: none; }
+@media (forced-colors: active) { .cursor { border-color: Highlight; box-shadow: none; } .card { outline: 1px solid CanvasText; } .slot { border-color: CanvasText; } }
+html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transition: none; }
 
 .slot {
   position: absolute; left: 0; top: 0; z-index: 0;
@@ -302,6 +310,8 @@ button[aria-pressed="true"].toggle {
 .stats-table th { padding: 2px 8px 5px; font: 600 10.5px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; text-align: right; border-bottom: 1px solid rgba(74, 18, 32, 0.45); }
 .stats-table td { padding: 3px 8px; text-align: right; }
 .stats-table th:first-child, .stats-table td:first-child { text-align: left; }
+.stats-table th[scope="row"] { font: inherit; letter-spacing: 0; text-transform: none; border: 0; padding: 3px 8px; text-align: left; }
+.stats-table tr.current th[scope="row"] { font-weight: 700; }
 .stats-table tr.current td { font-weight: 700; }
 .plaque-buttons { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -675,7 +685,7 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
     <div id="rules" class="rules" role="dialog" aria-labelledby="rules-title" hidden>
       <span class="rules-index top" aria-hidden="true"><span>A</span><span>♠</span></span>
       <span class="rules-index bottom" aria-hidden="true"><span>A</span><span>♠</span></span>
-      <button id="rules-close" class="icon-close" type="button" aria-label="Close rules"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      <button id="rules-close" class="icon-close" type="button" aria-label="Close rules" title="Close rules"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
       <div class="rules-scroll">
       <h2 id="rules-title"></h2>
       <p id="rules-text"></p>
@@ -690,17 +700,18 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
         <li>Double-tap a card to send it home where the game allows.</li>
         <li>Press <kbd>H</kbd>, or press the Hint button, to light a move. It looks for a way to win from the position, using the cards you cannot see, and says whether it found one.</li>
         <li><kbd>Ctrl</kbd> or <kbd>⌘</kbd> with <kbd>Z</kbd> undoes the last move.</li>
+        <li>Keyboard: <kbd>Tab</kbd> into the table, then the arrow keys move between piles and cards, <kbd>Enter</kbd> or <kbd>Space</kbd> picks a card up and puts it down, <kbd>F</kbd> sends a card home, <kbd>Esc</kbd> puts it back. Moves are announced to screen readers.</li>
       </ul>
       <p class="credit">Card faces are Adrian Kennard’s public-domain (CC0) deck from <a href="https://www.me.uk/cards/">me.uk/cards</a>. The card back is drawn for this page, also CC0.</p>
       </div>
     </div>
     <div class="controls">
       <button id="hints" type="button" class="toggle" aria-pressed="false" title="Highlight the cards that can move. Holding Shift does the same. Hold a rank key (A, 2 to 9, 0 or T, J, Q, K) to highlight every card of that rank; add Shift for only the movable ones." hidden><svg class="icon" aria-hidden="true"><use href="#i-visibility"/></svg><span class="label">Show moves</span></button>
-      <button id="hint-btn" type="button" title="Hint" hidden><svg class="icon" aria-hidden="true"><use href="#i-lightbulb"/></svg><span class="label">Hint</span></button>
-      <button id="undo" type="button" title="Undo"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
+      <button id="hint-btn" type="button" title="Hint (H)" aria-keyshortcuts="H" hidden><svg class="icon" aria-hidden="true"><use href="#i-lightbulb"/></svg><span class="label">Hint</span></button>
+      <button id="undo" type="button" title="Undo (Ctrl+Z)" aria-keyshortcuts="Control+Z Meta+Z"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
       <button id="finish" type="button" title="Auto-finish" disabled><svg class="icon" aria-hidden="true"><use href="#i-fast_forward"/></svg><span class="label">Auto-finish</span></button>
       <button id="new" type="button" class="primary" title="New deal"><svg class="icon" aria-hidden="true"><use href="#i-playing_cards"/></svg><span class="label">New deal</span></button>
-      <button id="settings-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-controls="settings" aria-label="Menu" title="Menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+      <button id="settings-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings" aria-label="Menu" title="Menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
     </div>
   </header>
 
@@ -710,18 +721,20 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
     <button id="update-btn" type="button" class="primary" onclick="location.reload()">Reload</button>
   </div>
 
-  <p id="status" class="status" aria-live="polite"></p>
+  <p id="status" class="status"></p>
+  <p id="kbd-help" class="sr-only">Keyboard play: the arrow keys move between piles and cards, Enter or Space picks up a card or puts it down, F sends a card home, Escape drops the card you picked up, H gives a hint, and Control or Command with Z undoes.</p>
+  <div id="announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div class="rail">
   <main id="table" class="table">
-    <div id="board" class="board"></div>
-    <div id="toast" class="toast" hidden role="status">
+    <div id="board" class="board" role="group" aria-label="Card table" aria-describedby="kbd-help"></div>
+    <div id="toast" class="toast" hidden>
       <span id="toast-text"></span>
-      <button id="toast-close" type="button" class="icon-close" aria-label="Dismiss"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      <button id="toast-close" type="button" class="icon-close" aria-label="Dismiss" title="Dismiss"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <div id="stats" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="stats-title">
       <div class="plaque">
-        <button id="stats-close" type="button" class="icon-close" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+        <button id="stats-close" type="button" class="icon-close" aria-label="Close" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
         <h2 id="stats-title">Statistics</h2>
         <p id="stats-result"></p>
         <table id="stats-table" class="stats-table"></table>
@@ -733,7 +746,7 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
     </div>
     <div id="settings" class="plaque settings" popover="manual" hidden role="dialog" aria-labelledby="settings-title">
       <h2 id="settings-title">Menu</h2>
-      <button id="settings-close" type="button" class="icon-close" aria-label="Close settings"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      <button id="settings-close" type="button" class="icon-close" aria-label="Close settings" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
       <div class="panel-links">
         <button id="rules-btn" type="button" aria-controls="rules">Rules</button>
         <button id="stats-btn" type="button" aria-haspopup="dialog">Statistics</button>
@@ -2361,6 +2374,9 @@ const StandardDeck = (() => {
   let game;                   // { rules, deck }
   let session;
   let selection = null;       // { pile, index } picked by tapping
+  const announcer = $('announcer');
+  let cursor = { pile: null, index: -1, x: 0, y: 0 };   // where the keyboard is: a card (index) or an empty pile (-1)
+  let keyboardMode = false;   // the last input was a key, so the cursor ring shows
   let lastTap = null;
   let press = null;           // pointer currently down
   let busy = false;           // auto-finish or a redeal is running; input is ignored
@@ -2433,6 +2449,10 @@ const StandardDeck = (() => {
     root.dataset.motion = motion();
   }
   try { settings = CardSim.readSettings(localStorage.getItem(SETTINGS_KEY)); } catch { settings = CardSim.readSettings(null); }
+  // Nobody has chosen the card faces yet, and the system asks for more contrast: start with the high-contrast faces.
+  try {
+    if (!JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? 'null')?.faces && matchMedia('(prefers-contrast: more)').matches) settings = { ...settings, faces: 'contrast' };
+  } catch { /* optional */ }
   applySettings();
   matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', applySettings);
 
@@ -2599,6 +2619,7 @@ const StandardDeck = (() => {
   function showToast(text) {
     els.toastText.textContent = text;
     els.toast.hidden = false;
+    announce(text);
     toastKey = situationKey();
   }
 
@@ -2726,7 +2747,7 @@ const StandardDeck = (() => {
       const r = stats[g.rules.id];
       const none = !r || !r.played;
       return h('tr', { class: g === game ? 'current' : '' },
-        cell(g.rules.name),
+        h('th', { scope: 'row', class: 'game-cell' }, g.rules.name),
         cell(none ? '–' : r.played),
         cell(none ? '–' : r.won),
         cell(none ? '–' : `${Math.round((100 * r.won) / r.played)}%`),
@@ -2734,7 +2755,8 @@ const StandardDeck = (() => {
         cell(none ? '–' : `${r.streak} (${r.bestStreak})`));
     });
     els.statsTable.replaceChildren(
-      h('tr', {}, ...['Game', 'Played', 'Won', 'Win', 'Best', 'Streak'].map(title => cell(title, 'th'))),
+      h('caption', { class: 'sr-only' }, 'Results for each game'),
+      h('tr', {}, ...['Game', 'Played', 'Won', 'Win', 'Best', 'Streak'].map(title => h('th', { scope: 'col' }, title))),
       ...rows);
     els.statsReset.textContent = 'Reset';
     els.stats.dataset.mode = won ? 'won' : 'stats';
@@ -2743,6 +2765,11 @@ const StandardDeck = (() => {
     els.stats.hidden = false;
     (won ? els.winNew : els.statsClose).focus();
   }
+
+  /** While a modal dialogue (Statistics, Cleared, the search) is up, nothing behind it can be reached by keyboard, pointer or screen reader. */
+  const behind = [els.bar, els.status, els.board, $('kbd-help')];
+  const syncInert = () => { const modal = !els.stats.hidden || !els.busy.hidden; for (const el of behind) el.inert = modal; };
+  for (const el of [els.stats, els.busy]) new MutationObserver(syncInert).observe(el, { attributes: true, attributeFilter: ['hidden'] });
 
   /** Hang the menu under its button, its right edge level with the button's. */
   function placeMenu() {
@@ -2773,6 +2800,7 @@ const StandardDeck = (() => {
       }))));
     els.settingsBody.replaceChildren(...rows);
     els.settings.hidden = false;
+    els.settingsBtn.setAttribute('aria-expanded', 'true');
     els.settings.showPopover?.();
     placeMenu();
     els.settingsClose.focus();
@@ -2786,7 +2814,7 @@ const StandardDeck = (() => {
   const PANELS = {
     rules: { el: els.rules, show: () => { els.rules.hidden = false; els.rulesClose.focus(); }, hide: () => { els.rules.hidden = true; } },
     stats: { el: els.stats, show: showStats, hide: () => { els.stats.hidden = true; clearTimeout(resetTimer); } },
-    settings: { el: els.settings, show: showSettings, hide: () => { els.settings.hidePopover?.(); els.settings.hidden = true; } },
+    settings: { el: els.settings, show: showSettings, hide: () => { els.settings.hidePopover?.(); els.settings.hidden = true; els.settingsBtn.setAttribute('aria-expanded', 'false'); } },
   };
   let panel = null;             // the name of the one that is open
   let returnTo = null;          // where focus goes when it closes
@@ -2807,6 +2835,7 @@ const StandardDeck = (() => {
     const name = panel;
     panel = null;
     PANELS[name].hide();
+    syncInert();                                                    // before focus goes back: an inert button cannot take it
     if (returnFocus) returnTo?.focus();
     syncChrome(session.state);
   }
@@ -2915,10 +2944,12 @@ const StandardDeck = (() => {
     syncChrome(state);
     syncHints();
     syncSuggestion();
+    syncLabels();
+    applyCursor();
     save();
     if (session.won) noteResult({ outcome: 'won', moves: session.actions.length });
     // A win opens the Cleared panel once; undoing the win takes it away.
-    if (session.won && !wasWon) showPanel('stats', { won: true });
+    if (session.won && !wasWon) { showPanel('stats', { won: true }); announce(`${game.rules.name} cleared in ${session.actions.length} moves.`); }
     if (!session.won && clearedShowing()) closePanel({ returnFocus: false });
     wasWon = session.won;
   }
@@ -2931,7 +2962,7 @@ const StandardDeck = (() => {
       live.add(area.id);
       let el = slotEls.get(area.id);
       if (!el) {
-        el = h('div', { class: 'slot' }, area.glyph ?? '');
+        el = h('div', { class: 'slot', role: 'button' }, area.glyph ?? '');
         el.dataset.pile = area.id;
         els.board.prepend(el);
         slotEls.set(area.id, el);
@@ -2958,7 +2989,7 @@ const StandardDeck = (() => {
     if (el.dataset.up === String(up)) return;
     el.dataset.up = String(up);
     el.innerHTML = up ? game.deck.face(card) : game.deck.back();
-    el.setAttribute('aria-label', up ? game.deck.label(card) : 'Face-down card');
+    el.dataset.name = up ? game.deck.label(card) : 'Face-down card';   // the card's own name; aria-label adds where it is
   }
 
   /** Cards that must travel to be dealt, in dealing order: row by row across the piles. */
@@ -2991,7 +3022,7 @@ const StandardDeck = (() => {
     for (const [id, p] of geometry.pos) {
       let el = cardEls.get(id);
       if (!el) {
-        el = h('div', { class: 'card', role: 'img' });
+        el = h('div', { class: 'card', role: 'button' });
         el.dataset.id = id;
         els.board.append(el);
         cardEls.set(id, el);
@@ -3130,9 +3161,11 @@ const StandardDeck = (() => {
   /* ---------- Playing ---------- */
 
   function perform(action) {
+    const said = describe(action, session.state);
     if (!session.apply(action)) return false;
     selection = null;
     render();
+    announce(session.won ? `${said}. ${game.rules.name} cleared in ${session.actions.length} moves.` : said);
     return true;
   }
 
@@ -3140,11 +3173,13 @@ const StandardDeck = (() => {
     if (busy || !session.undo()) return;
     selection = null;
     render();
+    announce('Undid the last move');
   }
 
   function autoFinish() {
     if (busy) return;
     busy = true;
+    announce('Moving the remaining cards home');
     const step = () => {
       const action = game.rules.autoAction(session.state);
       if (action && session.apply(action)) {
@@ -3158,9 +3193,11 @@ const StandardDeck = (() => {
     step();
   }
 
-  function handleTap({ pile, index }) {
+  function handleTap({ pile, index }, { key = false } = {}) {
     const { rules } = game;
     const state = session.state;
+    const had = selection;
+    let failed = '';
 
     if (selection && selection.pile !== pile) {
       // The ruleset may turn the second tap into its own action (Pyramid pairs); otherwise it is a move.
@@ -3169,11 +3206,13 @@ const StandardDeck = (() => {
       const done = perform(completed);
       selection = null;
       if (done) return;
+      failed = 'That move is not allowed. ';
     }
 
+    // A key press is never half of a double tap.
     const now = performance.now();
-    const double = lastTap && lastTap.pile === pile && lastTap.index === index && now - lastTap.time < DOUBLE_TAP_MS;
-    lastTap = { pile, index, time: now };
+    const double = !key && lastTap && lastTap.pile === pile && lastTap.index === index && now - lastTap.time < DOUBLE_TAP_MS;
+    lastTap = key ? null : { pile, index, time: now };
 
     const action = double ? rules.onActivate(state, pile, index) : rules.onTap(state, pile, index, selection);
     if (action && perform(action)) return;
@@ -3182,7 +3221,213 @@ const StandardDeck = (() => {
     const canSelect = rules.canSelect ?? rules.canPickUp;
     selection = !same && index >= 0 && canSelect(state, pile, index) ? { pile, index } : null;
     render();
+    if (selection) {
+      const n = state.piles[pile].length - index;
+      announce(`${failed}Picked up ${game.deck.label(state.piles[pile][index].card)}${n > 1 ? ` and ${n - 1} more` : ''}`);
+    } else if (failed) announce(failed.trim());
+    else if (had && had.pile === pile) announce('Put it back');
   }
+
+
+  /* ---------- Keyboard and screen readers ----------
+     The cursor is a (pile, card) pair kept in `cursor`. Real DOM focus sits on that card (or on the pile's outline
+     when the pile is empty), so a screen reader reads its label; the ring is drawn over the board by `positionCursor`.
+     Only one element is in the tab order (roving tabindex): Tab enters the table, the arrow keys move around it,
+     Tab leaves it again. Enter and Space do what a tap does. */
+
+  let announceTimer = 0;
+  /** Say something through the live region (cleared first, so the same words twice are read twice). */
+  function announce(text) {
+    clearTimeout(announceTimer);
+    announcer.textContent = '';
+    announceTimer = setTimeout(() => { announcer.textContent = text; }, 60);
+  }
+
+  const number = id => Number(id.match(/\d+/)?.[0] ?? 0) + 1;
+  function pileName(id) {
+    if (id === 'stock') return 'Stock';
+    if (id === 'waste') return 'Waste';
+    if (id === 'out') return 'Removed pairs';
+    const prefix = id[0];
+    if (prefix === 'c' && game.rules.id === 'freecell') return `Free cell ${number(id)}`;
+    if (prefix === 'f') return `Foundation ${number(id)}`;
+    if (prefix === 't') return `Column ${number(id)}`;
+    if (prefix === 'p' || prefix === 'k') { const [row, i] = id.slice(1).split('_').map(Number); return `${prefix === 'p' ? 'Pyramid' : 'Peak'} row ${row + 1}, card ${i + 1}`; }
+    return id;
+  }
+
+  /** The words for a move, said when it has been made. */
+  function describe(action, state) {
+    const top = (pile, index = state.piles[pile].length - 1) => { const entry = state.piles[pile][index]; return entry ? game.deck.label(entry.card) : 'a card'; };
+    switch (action.type) {
+      case 'move': {
+        const count = state.piles[action.from].length - (action.index ?? state.piles[action.from].length - 1);
+        return `Moved ${top(action.from, action.index)}${count > 1 ? ` and ${count - 1} more` : ''} to ${pileName(action.to)}`;
+      }
+      case 'draw': return 'Drew from the stock';
+      case 'recycle': return 'Turned the waste over into a new stock';
+      case 'deal': return 'Dealt a card onto every column';
+      case 'play': return `Played ${top(action.from)}`;
+      case 'take': return `Removed ${action.from.map(pile => top(pile)).join(' and ')}`;
+      default: return 'Moved';
+    }
+  }
+
+  /** The cards the cursor can stand on in a pile: those with something to see, and always the top one. */
+  function stopsOf(pile) {
+    const entries = session.state.piles[pile];
+    const stops = [];
+    entries.forEach((entry, i) => {
+      const p = geometry.pos.get(entry.card.id);
+      if (p && ((p.up && !p.covered) || i === entries.length - 1)) stops.push(i);
+    });
+    return stops;
+  }
+
+  /** Piles that can be stood on: not the vacated places of the pyramids. */
+  const stoppable = () => geometry.areas.filter(area => !area.bare || session.state.piles[area.id].length);
+
+  function stopLabel(pile, index) {
+    const entries = session.state.piles[pile];
+    const name = pileName(pile);
+    if (!entries.length) return `${name}, empty`;
+    if (pile === 'stock') return `Stock, ${entries.length} ${entries.length === 1 ? 'card' : 'cards'}`;
+    const p = geometry.pos.get(entries[index].card.id);
+    const what = p?.up ? game.deck.label(entries[index].card) : 'Face-down card';
+    return entries.length > 1 ? `${what}, ${name}, card ${index + 1} of ${entries.length}` : `${what}, ${name}`;
+  }
+
+  const stopEl = (pile, index) => {
+    const entry = session.state.piles[pile][index];
+    return entry ? cardEls.get(entry.card.id) : slotEls.get(pile);
+  };
+
+  /** Give every stop its label, and hide the rest (covered cards, outlines under cards) from assistive technology. */
+  function syncLabels() {
+    const stops = new Set();
+    for (const area of geometry.areas) {
+      const list = stopsOf(area.id);
+      if (!list.length && !area.bare) stops.add(slotEls.get(area.id));
+      for (const index of list) stops.add(stopEl(area.id, index));
+    }
+    const label = (el, text, pressed) => {
+      if (!el) return;
+      el.removeAttribute('aria-hidden');
+      el.setAttribute('aria-label', text);
+      if (pressed === undefined) el.removeAttribute('aria-pressed'); else el.setAttribute('aria-pressed', String(pressed));
+    };
+    for (const el of [...cardEls.values(), ...slotEls.values()]) {
+      if (!stops.has(el)) { el.setAttribute('aria-hidden', 'true'); el.removeAttribute('aria-label'); el.removeAttribute('aria-pressed'); el.tabIndex = -1; }
+    }
+    for (const area of geometry.areas) {
+      const list = stopsOf(area.id);
+      if (!list.length) label(slotEls.get(area.id), stopLabel(area.id, -1));
+      for (const index of list) {
+        label(stopEl(area.id, index), stopLabel(area.id, index), selection ? selection.pile === area.id && index >= selection.index : false);
+      }
+    }
+  }
+
+  /** Keep the cursor on something that exists, make that one thing tabbable, and draw the ring. */
+  function applyCursor({ focus = false } = {}) {
+    const areas = stoppable();
+    if (!areas.length) return;
+    let area = areas.find(a => a.id === cursor.pile);
+    if (!area) {                                                   // its pile has gone (a pair was taken): the nearest one
+      area = areas.reduce((best, a) => (Math.hypot(a.x - cursor.x, a.y - cursor.y) < Math.hypot(best.x - cursor.x, best.y - cursor.y) ? a : best));
+      cursor.index = NaN;
+    }
+    const stops = stopsOf(area.id);
+    cursor.pile = area.id;
+    cursor.index = stops.length ? (stops.includes(cursor.index) ? cursor.index : stops[stops.length - 1]) : -1;
+    const el = stopEl(cursor.pile, cursor.index);
+    if (!el) return;
+    const p = geometry.pos.get(session.state.piles[cursor.pile][cursor.index]?.card.id);
+    cursor.x = p?.x ?? area.x;
+    cursor.y = p?.y ?? area.y;
+    for (const other of [...cardEls.values(), ...slotEls.values()]) other.tabIndex = -1;
+    el.tabIndex = 0;
+    if (focus || els.board.contains(document.activeElement)) el.focus({ preventScroll: true });
+    positionCursor();
+  }
+
+  /** The ring covers the visible part of the card: down to the next card in a fan, or the whole card. */
+  function positionCursor() {
+    let ring = els.board.querySelector('.cursor');
+    if (!ring) { ring = h('div', { class: 'cursor', 'aria-hidden': 'true' }); els.board.append(ring); }
+    const show = keyboardMode && els.board.contains(document.activeElement) && cursor.pile !== null && !busy;
+    ring.hidden = !show;
+    if (!show) return;
+    const entries = session.state.piles[cursor.pile];
+    const p = geometry.pos.get(entries[cursor.index]?.card.id);
+    const next = geometry.pos.get(entries[cursor.index + 1]?.card.id);
+    let w = geometry.cw, hgt = geometry.ch;
+    if (p && next && next.y > p.y + 1) hgt = next.y - p.y;
+    if (p && next && next.x > p.x + 1) w = next.x - p.x;
+    ring.style.width = `${w}px`;
+    ring.style.height = `${hgt}px`;
+    ring.style.transform = `translate(${cursor.x}px, ${cursor.y}px)`;
+  }
+
+  /** The pile to go to from the cursor's pile in a direction: the nearest one that way, preferring the same line. */
+  function neighbour(key) {
+    const from = geometry.areas.find(a => a.id === cursor.pile);
+    const { cw, ch } = geometry;
+    let best = null;
+    for (const area of stoppable()) {
+      if (area.id === cursor.pile) continue;
+      const dx = area.x - from.x, dy = area.y - from.y;
+      const along = { ArrowRight: dx, ArrowLeft: -dx, ArrowDown: dy, ArrowUp: -dy }[key];
+      const across = key === 'ArrowLeft' || key === 'ArrowRight' ? dy : dx;
+      if (along < (key === 'ArrowLeft' || key === 'ArrowRight' ? cw : ch) * 0.25) continue;
+      const score = along + 2.5 * Math.abs(across);
+      if (!best || score < best.score) best = { area, score };
+    }
+    return best?.area ?? null;
+  }
+
+  function moveCursor(key) {
+    const stops = stopsOf(cursor.pile);
+    const at = stops.indexOf(cursor.index);
+    if (key === 'ArrowDown' && at >= 0 && at < stops.length - 1) cursor.index = stops[at + 1];
+    else if (key === 'ArrowUp' && at > 0) cursor.index = stops[at - 1];
+    else if (key === 'Home' || key === 'End') cursor.index = stops.length ? stops[key === 'Home' ? 0 : stops.length - 1] : -1;
+    else if (key.startsWith('Arrow')) {
+      const next = neighbour(key);
+      if (!next) return;
+      cursor.pile = next.id;
+      cursor.index = NaN;
+    }
+    applyCursor({ focus: true });
+  }
+
+  els.board.addEventListener('keydown', e => {
+    if (busy || e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea')) return;
+    let handled = true;
+    keyboardMode = true;
+    switch (e.key) {
+      case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown': case 'Home': case 'End': moveCursor(e.key); break;
+      case 'Enter': case ' ': handleTap({ pile: cursor.pile, index: cursor.index }, { key: true }); break;
+      case 'f': case 'F': {
+        const action = game.rules.onActivate(session.state, cursor.pile, cursor.index);
+        if (!(action && perform(action))) announce('Nothing to send home from here');
+        break;
+      }
+      case 'Escape':
+        if (selection) { selection = null; render(); announce('Put it back'); } else handled = false;
+        break;
+      default: handled = false;
+    }
+    if (handled) e.preventDefault();
+    positionCursor();
+  });
+  els.board.addEventListener('focusin', e => {
+    const hit = hitTest(e.target);
+    if (e.target.matches(':focus-visible')) keyboardMode = true;      // arrived by Tab
+    if (hit) { cursor.pile = hit.pile; cursor.index = hit.index; applyCursor(); }
+  });
+  els.board.addEventListener('focusout', () => setTimeout(positionCursor, 0));
+  document.addEventListener('pointerdown', () => { if (keyboardMode) { keyboardMode = false; positionCursor(); } }, true);
 
   /* ---------- Pointer input ---------- */
 
@@ -3298,7 +3543,7 @@ const StandardDeck = (() => {
   els.restart.addEventListener('click', () => { if (!busy) { closePanel({ returnFocus: false }); redeal(session.options, session.seed); } });
   const newDeal = () => {
     if (cancelSearch) { dismissBusy(); return; }                           // New deal while searching gives up too
-    if (!busy) { closePanel({ returnFocus: false }); redeal(session.options); }
+    if (!busy) { closePanel({ returnFocus: false }); redeal(session.options); announce('New deal'); }
   };
   els.fresh.addEventListener('click', newDeal);
   els.winNew.addEventListener('click', newDeal);
