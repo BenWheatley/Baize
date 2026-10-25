@@ -307,9 +307,13 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 #stats .plaque { max-width: min(34rem, 94%); }
 /* A panel's title and its × stay put; what is under them scrolls, so the × is never out of reach on a short screen. */
 .settings, #stats .plaque { display: flex; flex-direction: column; }
-#stats .plaque { max-height: calc(100% - 24px); box-sizing: border-box; }
-.plaque-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
-#stats .plaque-buttons { flex: none; }
+#stats .plaque { max-height: calc(100% - 24px); box-sizing: border-box; overflow: hidden; }
+/* The side padding belongs to the title and to the body, not the plaque: the scrollbar then sits at the panel's edge, not inset in the padding. */
+.settings, #stats .plaque { --pad-x: 22px; padding-inline: 0; }
+.settings h2, #stats .plaque h2 { margin-left: var(--pad-x); margin-right: calc(var(--pad-x) + 34px); }
+.settings > .icon-close, #stats .plaque > .icon-close { right: calc(var(--pad-x) - 6px); }
+.plaque-body { min-height: 0; padding-inline: var(--pad-x); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+#stats .plaque-buttons { flex: none; padding-inline: var(--pad-x); }
 #stats[data-mode="stats"] #win-new, #stats[data-mode="won"] #stats-reset, #stats[data-mode="stats"] #stats-result { display: none; }
 .stats-table { border-collapse: collapse; margin: 0 auto 16px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .stats-table th { padding: 2px 8px 5px; font: 600 10.5px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; text-align: right; border-bottom: 1px solid rgba(74, 18, 32, 0.45); }
@@ -318,6 +322,8 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 .stats-table th[scope="row"] { font: inherit; letter-spacing: 0; text-transform: none; border: 0; padding: 3px 8px; text-align: left; }
 .stats-table tr.current th[scope="row"] { font-weight: 700; }
 .stats-table tr.current td { font-weight: 700; }
+@media (max-width: 420px) { #stats .plaque { --pad-x: 12px; } .stats-table { font-size: 13px; } .stats-table th, .stats-table td, .stats-table th[scope="row"] { padding-inline: 4px; } }
+@media (max-width: 340px) { .stats-table { font-size: 12px; } .stats-table th { font-size: 9px; letter-spacing: 0; } .stats-table th, .stats-table td, .stats-table th[scope="row"] { padding-inline: 2px; } }
 .plaque-buttons { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -457,7 +463,7 @@ html[data-back="black"] { --back: #1d1d22; }
 .panel-heading { margin: 4px 0 8px 2px; font: 700 12px/1 var(--font-ui); letter-spacing: 0.16em; text-transform: uppercase; }
 .panel-links { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 12px; }
 .settings .pick { display: block; margin: 0 0 10px; }
-.settings #game { width: 100%; }
+.settings #game { box-sizing: border-box; width: calc(100% - 6px); }   /* its own 3px margins */
 .game-name { font: 700 11px/1 var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: #c9ad62; text-shadow: none; }
 .panel-action { display: block; width: 100%; margin: 0 0 12px; }
 .settings .seg { display: grid; margin: 0 0 10px; }
@@ -617,9 +623,11 @@ html[data-theme="retro"] .plaque, html[data-theme="retro"] .update, html[data-th
   color: #000; text-shadow: none; border-radius: 0; background: #c0c0c0; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out), 4px 4px 0 1px rgba(0, 0, 0, 0.45);
 }
 html[data-theme="retro"] .plaque { padding: 0 14px 14px; }
+html[data-theme="retro"] .settings, html[data-theme="retro"] #stats .plaque { --pad-x: 14px; padding: 0 0 14px; }
 html[data-theme="retro"] .plaque h2 {
   margin: 0 -14px 14px; padding: 3px 30px 3px 6px; font: 700 14px/18px var(--font-display); letter-spacing: 0; text-transform: none; color: #fff; background: var(--title-bar);
 }
+html[data-theme="retro"] .settings h2, html[data-theme="retro"] #stats .plaque h2 { margin: 0 0 14px; }
 html[data-theme="retro"] .plaque > .icon-close { top: 3px; right: 3px; width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); }
 html[data-theme="retro"] .plaque > .icon-close .icon { width: 12px; height: 12px; }
 html[data-theme="retro"] .plaque > .icon-close:active { box-shadow: var(--bevel-in); }
@@ -657,6 +665,12 @@ html[data-theme="scifi"] { --scroll-thumb: var(--lc-orange); --scroll-track: #00
 html[data-theme="scifi"] .rules, html[data-theme="scifi"] .plaque { --scroll-thumb: var(--lc-violet); --scroll-track: #000; }
 html[data-theme="retro"] { --scroll-thumb: #c0c0c0; --scroll-track: #dfdfdf; }
 html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thumb: #c0c0c0; --scroll-track: #dfdfdf; }
+/* Older WebKit has no scrollbar-color: draw the same thing with the pseudo-elements. */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--scroll-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 5px; }
+}
 /* Retro, where the engine can draw it: a chequered trough and a bevelled thumb. */
 @supports selector(::-webkit-scrollbar) {
   html[data-theme="retro"] * { scrollbar-color: auto; scrollbar-width: auto; }

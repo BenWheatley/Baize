@@ -1239,6 +1239,29 @@ def check_titles_stay_put(pg):
         pg.keyboard.press('Escape')
 
 
+def check_scrollbars_sit_at_the_panel_edge(pg):
+    """A panel's scrollbar is at the panel's own edge, not inset in its padding, and nothing makes the body scroll sideways."""
+    measure = """panel => { const p = document.querySelector(panel), b = p.querySelector('.plaque-body'), pr = p.getBoundingClientRect(), r = b.getBoundingClientRect();
+        const edge = r.right - (b.offsetWidth - b.clientWidth) - parseFloat(getComputedStyle(b).paddingRight);
+        return { sideways: b.scrollWidth - b.clientWidth, gap: Math.round(pr.right - r.right),
+                 wide: [...b.querySelectorAll('*')].filter(e => e.getBoundingClientRect().right > edge + 0.5).map(e => e.tagName + '#' + e.id) }; }"""
+    start(pg, 'klondike')
+    for width, height in ((1000, 620), (375, 600), (320, 360)):
+        pg.set_viewport_size({'width': width, 'height': height})
+        pg.wait_for_timeout(300)
+        for theme in ('steampunk', 'cyberpunk', 'scifi', 'retro'):
+            open_settings(pg)
+            pg.click(f'#settings button[data-setting="theme"][data-value="{theme}"]')
+            for name, panel, opener in (('menu', '#settings', None), ('Statistics', '#stats .plaque', '#stats-btn')):
+                if opener:
+                    via_menu(pg, opener)
+                m = pg.evaluate(measure, panel)
+                assert m['sideways'] <= 0 and not m['wide'], f'{theme} {width}px: the {name} does not scroll sideways {m}'
+                assert m['gap'] <= 3, f'{theme} {width}px: the {name} scrollbar is at the panel edge {m}'
+                if opener:
+                    pg.keyboard.press('Escape')
+
+
 def check_buttons_lose_their_words_when_narrow(pg):
     pg.set_viewport_size({'width': 390, 'height': 800})
     pg.wait_for_timeout(300)
@@ -1295,13 +1318,13 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]
 
 with sync_playwright() as p:
-    browser = p.chromium.launch()
+    browser = p.chromium.launch(args=['--disable-features=OverlayScrollbar,FluentOverlayScrollbar,FluentScrollbar'])   # classic scrollbars, which take room, as most desktops draw them
     failures = 0
     for check in CHECKS:
         context = browser.new_context(viewport={'width': 1000, 'height': 900})
