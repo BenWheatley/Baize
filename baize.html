@@ -777,7 +777,7 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
         <span class="pick"><select id="game" aria-label="Game"></select></span>
         <div id="options"></div>
         <button id="restart" type="button" class="panel-action primary">Restart this deal</button>
-        <h3 class="panel-heading">Appearance</h3>
+        <h3 class="panel-heading">Preferences</h3>
         <div id="settings-body"></div>
       </div>
     </div>
@@ -810,6 +810,9 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
        onTap(state, pileId, index, selection)  -> action | null  (selection is the card already picked by tapping, or null)
        onActivate(state, pileId, index)        -> action | null  (double tap)
        autoAction(state)                       -> action | null
+       homeAction(state, pileId, index)        -> action | null  (the move that sends that card home: what a drop near a foundation does)
+       safeAction(state)                       -> action | null  (optional: a card home that can never be needed on the tableau;
+                                                 the "Safe cards" setting plays these by itself)
        isWon(state), status(state, options)    -> boolean, [{ label, value }]
        showsMovable                            -> true if the game supports highlighting movable cards
        movable(state, options)                 -> Set of card ids (optional: replaces the generic search for movable cards)
@@ -1018,11 +1021,19 @@ const CardSim = (() => {
     return index === state.piles[pileId].length - 1 ? homeMove(rules, state, pileId, homes) : null;
   }
 
-  /** The first card of the given piles that can go home: what Auto-finish plays. */
-  function firstHomeMove(rules, state, from, homes = FOUNDATIONS) {
+  /** Can this card go home without ever being needed on the tableau? Aces and twos always can; any other card once
+      both cards of the opposite colour one rank down are home, since only those could have been built on it. */
+  function isSafeHome(state, card, homes = FOUNDATIONS) {
+    if (card.rank <= 2) return true;
+    const reached = suit => Math.max(0, ...homes.map(id => top(state.piles[id])).filter(entry => entry?.card.suit === suit).map(entry => entry.card.rank));
+    return SUITS.filter(suit => isRed(suit) !== isRed(card.suit)).every(suit => reached(suit) >= card.rank - 1);
+  }
+
+  /** The first card of the given piles that can go home: what Auto-finish plays. With `safeOnly`, only a safe one. */
+  function firstHomeMove(rules, state, from, homes = FOUNDATIONS, safeOnly = false) {
     for (const id of from) {
       const action = homeMove(rules, state, id, homes);
-      if (action) return action;
+      if (action && (!safeOnly || isSafeHome(state, top(state.piles[id]).card, homes))) return action;
     }
     return null;
   }
@@ -1066,6 +1077,7 @@ const CardSim = (() => {
     options: [],
     canPickUp: () => false,
     onActivate: () => null,
+    homeAction: () => null,
     autoAction: () => null,
     ...rules,
   });
@@ -1151,6 +1163,8 @@ const CardSim = (() => {
     },
 
     onActivate: (state, pileId, index) => sendHome(klondike, state, pileId, index),
+    homeAction: (state, pileId, index) => sendHome(klondike, state, pileId, index),
+    safeAction: state => firstHomeMove(klondike, state, [...TABLEAU, 'waste'], FOUNDATIONS, true),
 
     /** Offered only once nothing is hidden and the stock is spent: from there the game is won. */
     autoAction(state) {
@@ -1292,6 +1306,9 @@ const CardSim = (() => {
       const cell = emptyIds(state.piles, CELLS)[0];
       return cell && !CELLS.includes(pileId) ? { type: 'move', from: pileId, index, to: cell } : null;
     },
+
+    homeAction: (state, pileId, index) => (FOUNDATIONS.includes(pileId) || index !== state.piles[pileId].length - 1 ? null : homeMove(freecell, state, pileId)),
+    safeAction: state => firstHomeMove(freecell, state, [...CELLS, ...COLUMNS], FOUNDATIONS, true),
 
     /** Offered once every column runs strictly downward: the lowest card left is always playable. */
     autoAction(state) {
@@ -1812,6 +1829,7 @@ const CardSim = (() => {
 
     onTap: (state, pileId) => (pileId === 'stock' && state.piles.stock.length ? { type: 'draw' } : null),
     onActivate: (state, pileId, index) => sendHome(forty, state, pileId, index, THIEF_HOME),
+    homeAction: (state, pileId, index) => sendHome(forty, state, pileId, index, THIEF_HOME),
 
     /** Home first, then column to column, then from the waste, and the stock last. */
     moves(state) {
@@ -2049,6 +2067,7 @@ const CardSim = (() => {
     onTap: () => null,
 
     onActivate: (state, pileId, index) => sendHome(yukon, state, pileId, index),
+    homeAction: (state, pileId, index) => sendHome(yukon, state, pileId, index),
 
     /** Offered once every column is a run: from there the game is won. */
     autoAction(state) {
@@ -2273,6 +2292,8 @@ const CardSim = (() => {
     { id: 'motion', label: 'Animation', default: 'device', choices: [
       { value: 'device', label: 'Device' }, { value: 'normal', label: 'Normal' },
       { value: 'fast', label: 'Fast' }, { value: 'off', label: 'Off' }] },
+    { id: 'autoplay', label: 'Safe cards', default: 'off', needs: 'safeAction', choices: [   // `needs`: only for games whose rules have it
+      { value: 'off', label: 'Stay' }, { value: 'safe', label: 'Go home' }] },
   ];
 
   /** The settings held in `text` (as stored), every one of them valid. */
@@ -2368,6 +2389,7 @@ const StandardDeck = (() => {
   const MIN_CARD_W = 22;      // px: for height alone; the page never scrolls, so the cards shrink as far as this
   const ASPECT = 1.4;
   const DRAG_SLOP = 5;        // px before a press becomes a drag
+  const NEAR_HOME = 1.5;      // card widths: a card let go this close to its foundation goes there
   const DOUBLE_TAP_MS = 350;
   const Z_PER_PILE = 256;     // stacking: pile n sits above pile n-1, and each card above the one beneath it
   const DRAG_Z = 100000;      // dragged cards float above every pile
@@ -2806,8 +2828,8 @@ const StandardDeck = (() => {
   window.addEventListener('resize', () => { if (!els.settings.hidden) placeMenu(); });
 
   /** The preferences, each a row of buttons; choosing one applies and keeps it at once. */
-  function showSettings() {
-    const rows = CardSim.SETTINGS.map(setting => h('div', { class: 'seg', role: 'group', 'aria-label': setting.label, 'data-setting-group': setting.id },
+  function buildSettings() {
+    const rows = CardSim.SETTINGS.filter(setting => !setting.needs || game.rules[setting.needs]).map(setting => h('div', { class: 'seg', role: 'group', 'aria-label': setting.label, 'data-setting-group': setting.id },
       h('span', { class: 'seg-label' }, setting.label),
       h('div', { class: 'seg-buttons' }, ...setting.choices.map(choice => {
         const button = h('button', { type: 'button', title: choice.label, 'data-setting': setting.id, 'data-value': choice.value, 'aria-pressed': String(settings[setting.id] === choice.value), ...(choice.swatch ? { 'data-swatch': choice.swatch } : {}) },
@@ -2823,6 +2845,10 @@ const StandardDeck = (() => {
         return button;
       }))));
     els.settingsBody.replaceChildren(...rows);
+  }
+
+  function showSettings() {
+    buildSettings();
     els.settings.hidden = false;
     els.settingsBtn.setAttribute('aria-expanded', 'true');
     els.settings.showPopover?.();
@@ -3181,6 +3207,7 @@ const StandardDeck = (() => {
         })),
       )));
     els.hintBtn.hidden = !game.rules.moves;                 // a game that cannot list its moves cannot be searched
+    if (!els.settings.hidden) buildSettings();              // the menu is open: its Safe cards row comes and goes with the game
   }
   /* ---------- Playing ---------- */
 
@@ -3189,12 +3216,38 @@ const StandardDeck = (() => {
     if (!session.apply(action)) return false;
     selection = null;
     render();
-    announce(session.won ? `${said}. ${game.rules.name} cleared in ${session.actions.length} moves.` : said);
+    const message = session.won ? `${said}. ${game.rules.name} cleared in ${session.actions.length} moves.` : said;
+    if (!playSafe(message)) announce(message);
+    return true;
+  }
+
+  /** With Safe cards on, send every card that cannot be needed on the tableau home, one after another (see isSafeHome).
+      Returns false when there is none, so nothing was started. */
+  function playSafe(said) {
+    const next = () => (settings.autoplay === 'safe' && !session.won ? game.rules.safeAction?.(session.state) : null);
+    if (!next()) return false;
+    busy = true;
+    let sent = 0;
+    const step = () => {
+      const action = next();
+      if (action && session.apply({ ...action, auto: true })) {      // `auto` lets Undo take the whole run back with the move that began it
+        sent++;
+        render();
+        setTimeout(step, 120);
+        return;
+      }
+      busy = false;
+      render();
+      announce(`${said} ${sent} safe card${sent === 1 ? '' : 's'} went home.${session.won ? ` ${game.rules.name} cleared in ${session.actions.length} moves.` : ''}`);
+    };
+    setTimeout(step, 200);
     return true;
   }
 
   function undo() {
-    if (busy || !session.undo()) return;
+    if (busy || !session.actions.length) return;
+    while (session.actions.length && session.actions.at(-1).auto) session.undo();      // a run of safe cards, then
+    session.undo();                                                                    // the move that sent them
     selection = null;
     render();
     announce('Undid the last move');
@@ -3524,6 +3577,9 @@ const StandardDeck = (() => {
     for (const to of dropCandidates(rect, p.pile)) {
       if (perform({ type: 'move', from: p.pile, index: p.index, to })) return;
     }
+    const home = game.rules.homeAction(session.state, p.pile, p.index);      // let go near a foundation: send it there
+    const target = home && geometry.areas.find(area => area.id === home.to);
+    if (target && Math.hypot(rect.x - target.x, rect.y - target.y) <= NEAR_HOME * geometry.cw && perform(home)) return;
     render();   // nothing accepted the cards: they slide back
   });
 

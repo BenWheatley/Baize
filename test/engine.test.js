@@ -183,6 +183,27 @@ const move = (from, index, to) => ({ type: 'move', from, index, to });
   assert.strictEqual(klondike.onActivate(t, 't0', 0), null);
   assert.strictEqual(klondike.onActivate(t, 'stock', 0), null);
   same(klondike.onTap(blank(), 'stock', 0), null);
+
+  // a drop near a foundation sends the card home; a card that cannot go has no home move
+  same(klondike.homeAction(t, 't0', 1), move('t0', 1, 'f0'));
+  assert.strictEqual(klondike.homeAction(t, 't0', 0), null);
+
+  // safe cards: aces and twos always; a three once both red twos are home; never one that could still be built on
+  const safe = blank();
+  safe.piles.t0 = [entry('clubs', 5, false), entry('hearts', 1)];
+  same(klondike.safeAction(safe), move('t0', 1, 'f0'), 'an ace is safe');
+  safe.piles.t0 = [entry('clubs', 3)];
+  safe.piles.f0 = [entry('clubs', 1), entry('clubs', 2)];
+  safe.piles.f1 = [entry('hearts', 1), entry('hearts', 2)];
+  safe.piles.f2 = [entry('diamonds', 1)];
+  assert.strictEqual(klondike.safeAction(safe), null, 'a black three could still take the red two of diamonds');
+  safe.piles.f2.push(entry('diamonds', 2));
+  same(klondike.safeAction(safe), move('t0', 0, 'f0'), 'once both red twos are home the three is safe');
+  safe.piles.t0 = [];
+  safe.piles.waste = [entry('diamonds', 3)];
+  assert.strictEqual(klondike.safeAction(safe), null, 'a red three waits for the black twos');
+  safe.piles.f3 = [entry('spades', 1), entry('spades', 2)];
+  same(klondike.safeAction(safe), move('waste', 0, 'f2'), 'the waste counts too');
 }
 
 /* canPickUp */
@@ -1101,6 +1122,11 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   d.piles.c0 = run(['spades', 5]);
   same(freecell.onActivate(d, 't1', 0), move('t1', 0, 'c1'));
   same(freecell.onActivate(d, 'c0', 0), null, 'a cell card with nowhere to go');
+  same(freecell.homeAction(d, 't0', 1), move('t0', 1, 'f0'), 'a drop near a foundation sends home, and only home');
+  assert.strictEqual(freecell.homeAction(d, 't1', 0), null);
+  same(freecell.safeAction(d), move('t0', 1, 'f0'), 'an ace in a column is safe');
+  d.piles.t0 = run(['clubs', 9]);
+  assert.strictEqual(freecell.safeAction(d), null, 'nothing safe to send');
 
   // auto-finish only when every column runs downward, and then it always finishes
   const a = fc();
@@ -1377,12 +1403,12 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 }
 
 {
-  const defaults = { theme: 'steampunk', faces: 'standard', felt: 'green', back: 'red', motion: 'device' };
+  const defaults = { theme: 'steampunk', faces: 'standard', felt: 'green', back: 'red', motion: 'device', autoplay: 'off' };
   same(readSettings(null), defaults, 'nothing stored gives the defaults');
   same(readSettings('not json'), defaults, 'unreadable storage gives the defaults');
   same(readSettings('42'), defaults, 'a stored number is no settings');
-  same(readSettings(JSON.stringify({ felt: 'blue', motion: 'off' })), { theme: 'steampunk', faces: 'standard', felt: 'blue', back: 'red', motion: 'off' }, 'a partial record keeps what it has');
-  same(readSettings(JSON.stringify({ felt: 'plaid', back: 7, motion: 'fast', extra: 1 })), { theme: 'steampunk', faces: 'standard', felt: 'green', back: 'red', motion: 'fast' }, 'invalid values and unknown keys are dropped');
+  same(readSettings(JSON.stringify({ felt: 'blue', motion: 'off' })), { theme: 'steampunk', faces: 'standard', felt: 'blue', back: 'red', motion: 'off', autoplay: 'off' }, 'a partial record keeps what it has');
+  same(readSettings(JSON.stringify({ felt: 'plaid', back: 7, motion: 'fast', extra: 1 })), { theme: 'steampunk', faces: 'standard', felt: 'green', back: 'red', motion: 'fast', autoplay: 'off' }, 'invalid values and unknown keys are dropped');
   for (const setting of SETTINGS) {
     assert(setting.choices.some(c => c.value === setting.default), `${setting.id}: the default is one of the choices`);
     for (const c of setting.choices) same(readSettings(JSON.stringify({ [setting.id]: c.value }))[setting.id], c.value, `${setting.id}=${c.value} is accepted`);

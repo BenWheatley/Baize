@@ -1276,6 +1276,54 @@ def check_modals_cover_the_window(pg):
         pg.keyboard.press('Escape')
 
 
+def check_drop_near_foundation_goes_home(pg):
+    """Seed 1 of FreeCell shows three aces. One let go close to the foundations goes there; one let go far away does not."""
+    start(pg, 'freecell')
+    box = lambda sel: pg.locator(sel).bounding_box()
+    def drag_to(card_id, dx, dy):
+        c = box(f'.card[data-id="{card_id}"]')
+        x, y = c['x'] + c['width'] / 2, c['y'] + c['height'] / 2
+        pg.mouse.move(x, y)
+        pg.mouse.down()
+        pg.mouse.move(x + dx, y + dy, steps=8)
+        pg.mouse.up()
+        pg.wait_for_timeout(300)
+    slot, card = box('.slot[data-pile=f0]'), box('.card[data-id="d1"]')
+    cw = slot['width']
+    drag_to('d1', slot['x'] - card['x'], slot['y'] + 1.25 * cw - card['y'])        # just under the foundations, overlapping nothing that takes it
+    assert 'Moves 1' in status(pg) and 'Home 1 / 52' in status(pg), status(pg)
+    start(pg, 'freecell')
+    card = box('.card[data-id="d1"]')
+    drag_to('d1', 0, -2.2 * cw)                                                    # two card widths away from any foundation, over nothing
+    assert 'Moves 0' in status(pg), status(pg)
+
+
+def check_safe_cards_play_themselves(pg):
+    start(pg, 'freecell')
+    open_settings(pg)
+    assert pg.locator('#settings [data-setting-group="autoplay"]').count() == 1, 'FreeCell offers Safe cards'
+    pg.keyboard.press('Escape')
+    pg.keyboard.press('Escape')
+    pg.dblclick('.card[data-id="d1"]')                                             # one ace home by hand: Stay (the default) leaves the others
+    pg.wait_for_timeout(900)
+    assert 'Moves 1' in status(pg), status(pg)
+    start(pg, 'freecell')
+    open_settings(pg)
+    pg.click('#settings button[data-setting="autoplay"][data-value="safe"]')
+    pg.keyboard.press('Escape')
+    pg.dblclick('.card[data-id="d1"]')
+    pg.wait_for_timeout(1200)
+    assert 'Moves 3' in status(pg) and 'Home 3 / 52' in status(pg), f'the other two aces follow by themselves: {status(pg)}'
+    assert 'safe card' in announced(pg), announced(pg)
+    pg.keyboard.press('Control+z')
+    pg.wait_for_timeout(300)
+    assert 'Moves 0' in status(pg), f'Undo takes the whole run back: {status(pg)}'
+    open_game(pg, 'spider')
+    open_settings(pg)
+    assert pg.locator('#settings [data-setting-group="autoplay"]').count() == 0, 'a game without safe cards does not show the setting'
+    pg.keyboard.press('Escape')
+
+
 def check_buttons_lose_their_words_when_narrow(pg):
     pg.set_viewport_size({'width': 390, 'height': 800})
     pg.wait_for_timeout(300)
@@ -1332,7 +1380,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_drop_near_foundation_goes_home, check_safe_cards_play_themselves, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]
