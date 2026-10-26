@@ -88,7 +88,7 @@ Nothing is nested: the menu button (the hamburger) opens one flat panel, and no 
 
 ## Panels
 
-Statistics, Settings and the Rules card are managed together (`PANELS`, `showPanel`, `closePanel` and `togglePanel` in the page script), so at most one is open: opening one closes another, and pressing a button whose panel is open closes it. Every panel has the same × button (`.icon-close`), the same title size and the same button padding (`--btn-pad`). The win screen ("Cleared") is the Statistics panel opened in its won mode, with the results of the deal just played; it has no copy of its own. While it is open the other panels' buttons are disabled, and it closes with ×, Escape or any move that undoes the win. Below 560 px wide the header buttons show only their icons (the words stay as accessible names).
+Statistics, Settings and the Rules card are managed together (`PANELS`, `showPanel`, `closePanel` and `togglePanel` in the page script), so at most one is open: opening one closes another, and pressing a button whose panel is open closes it. The modal ones (Statistics, Cleared, the search dialogue) are fixed to the window, not placed inside the table, so a small screen does not squeeze them. Every panel has the same × button (`.icon-close`), the same title size and the same button padding (`--btn-pad`). The win screen ("Cleared") is the Statistics panel opened in its won mode, with the results of the deal just played; it has no copy of its own. While it is open the other panels' buttons are disabled, and it closes with ×, Escape or any move that undoes the win. Below 560 px wide the header buttons show only their icons (the words stay as accessible names).
 
 ## Styles
 

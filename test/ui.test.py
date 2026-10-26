@@ -623,9 +623,9 @@ def check_search_can_be_cancelled(pg):
     pg.wait_for_timeout(600)
     assert pg.locator('#busy').is_visible() and 'winnable' in pg.locator('#busy-title').inner_text().lower()
     assert pg.locator('#busy-spinner').is_visible() and pg.locator('#busy-btn').inner_text() == 'Cancel'
-    over = pg.evaluate("""() => { const r = document.getElementById('busy').getBoundingClientRect(), t = document.getElementById('table').getBoundingClientRect();
-        return r.left == t.left && r.right == t.right && r.top == t.top && r.bottom == t.bottom; }""")
-    assert over, 'the dialogue covers the play area'
+    over = pg.evaluate("""() => { const r = document.getElementById('busy').getBoundingClientRect();
+        return r.left == 0 && r.top == 0 && r.right == innerWidth && r.bottom == innerHeight; }""")
+    assert over, 'the dialogue covers the window'
     pg.click('#busy-btn')
     wait_for_deal(pg)
     assert pg.locator('#busy').is_hidden(), 'Cancel closes the dialogue'
@@ -1262,6 +1262,20 @@ def check_scrollbars_sit_at_the_panel_edge(pg):
                     pg.keyboard.press('Escape')
 
 
+def check_modals_cover_the_window(pg):
+    """Statistics and the busy dialogue belong to the window, not to the table, so a small screen does not squeeze them."""
+    start(pg, 'pyramid')
+    for width, height in ((375, 667), (320, 568)):
+        pg.set_viewport_size({'width': width, 'height': height})
+        pg.wait_for_timeout(300)
+        via_menu(pg, '#stats-btn')
+        m = pg.evaluate("""(() => { const r = document.querySelector('#stats').getBoundingClientRect(), p = document.querySelector('#stats .plaque').getBoundingClientRect(), t = document.querySelector('#table').getBoundingClientRect();
+          return { modal: [r.left, r.top, r.right, r.bottom], plaque: [p.left, p.top, p.right, p.bottom], table: t.height, w: innerWidth, h: innerHeight }; })()""")
+        assert m['modal'] == [0, 0, m['w'], m['h']], f'{width}px: the modal covers the window {m}'
+        assert m['plaque'][1] >= 0 and m['plaque'][3] <= m['h'] and m['plaque'][0] >= 0 and m['plaque'][2] <= m['w'], f'{width}px: Statistics fits the window {m}'
+        pg.keyboard.press('Escape')
+
+
 def check_buttons_lose_their_words_when_narrow(pg):
     pg.set_viewport_size({'width': 390, 'height': 800})
     pg.wait_for_timeout(300)
@@ -1318,7 +1332,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]

@@ -280,8 +280,8 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
   box-shadow: 0 0 0 2px var(--brass-lo), 0 0 0 3px #0d0703, 0 10px 24px rgba(0, 0, 0, 0.55);
 }
 
-/* Panels (Statistics and Cleared, Settings, the search dialogue): a brass plaque, screwed down; the modal ones on a darkened table */
-.modal { position: absolute; inset: 0; z-index: 200000; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
+/* Panels (Statistics and Cleared, Settings, the search dialogue): a brass plaque, screwed down; the modal ones on a darkened page (fixed to the window, not the table, so a small screen is not squeezed by the table) */
+.modal { position: fixed; inset: 0; z-index: 200000; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
 .plaque {
   position: relative; padding: 18px 22px 16px; max-width: min(24rem, 90%); border-radius: 10px; text-align: left;
   color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
