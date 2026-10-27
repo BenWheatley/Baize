@@ -1112,6 +1112,18 @@ const CardSim = (() => {
     }),
   };
 
+  /** Cards home, cards turned over and empty columns are good; cards still face down are bad (Klondike and Yukon). */
+  function hiddenProgress(state) {
+    const { piles } = state;
+    let score = 0;
+    for (const id of FOUNDATIONS) score += 10 * piles[id].length;
+    for (const id of TABLEAU) {
+      score -= 8 * piles[id].filter(entry => !entry.up).length;
+      if (!piles[id].length) score += 4;
+    }
+    return score;
+  }
+
   const klondike = defineRules({
     id: 'klondike',
     name: 'Klondike',
@@ -1208,17 +1220,7 @@ const CardSim = (() => {
       return [...home, ...flips, ...others, ...turn];
     },
 
-    /** Cards home, cards turned over and empty columns are good; cards still face down are bad. */
-    progress(state) {
-      const { piles } = state;
-      let score = 0;
-      for (const id of FOUNDATIONS) score += 10 * piles[id].length;
-      for (const id of TABLEAU) {
-        score -= 8 * piles[id].filter(entry => !entry.up).length;
-        if (!piles[id].length) score += 4;
-      }
-      return score;
-    },
+    progress: hiddenProgress,
 
     isWon: state => allComplete(state, FOUNDATIONS),
 
@@ -2034,6 +2036,8 @@ const CardSim = (() => {
     showsMovable: true,
     help: 'Build the four foundations from ace to king in suit. Build columns downward in alternating colours, and move only a king to an empty column. There is no stock: any face-up card can move, together with all the cards on top of it, and only the card that lands has to fit.',
 
+    options: [WINNABLE_OPTION],
+    canSolve: () => true,
 
     setup(_options, rng) {
       const deck = dealDeck(rng);
@@ -2073,6 +2077,30 @@ const CardSim = (() => {
     autoAction(state) {
       return TABLEAU.every(id => isRun(state.piles[id])) ? firstHomeMove(yukon, state, TABLEAU) : null;
     },
+
+    /** Home first, then moves that turn a card over, then the rest. Any face-up card can lead the move. */
+    moves(state) {
+      const { piles } = state;
+      const home = [], flips = [], others = [];
+      for (const from of TABLEAU) {
+        const goHome = homeMove(yukon, state, from);
+        if (goHome) home.push(goHome);
+        const column = piles[from];
+        const firstUp = column.findIndex(entry => entry.up);
+        if (firstUp < 0) continue;
+        for (let index = firstUp; index < column.length; index++) {
+          const lead = column[index].card;
+          for (const to of TABLEAU) {
+            const landing = top(piles[to]);
+            if (to === from || !(landing ? buildsDown(landing, lead) : lead.rank === 13 && index > 0)) continue;
+            (index === firstUp && index > 0 ? flips : others).push({ type: 'move', from, index, to });
+          }
+        }
+      }
+      return [...home, ...flips, ...others];
+    },
+
+    progress: hiddenProgress,
 
     isWon: state => allComplete(state, FOUNDATIONS),
 

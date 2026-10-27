@@ -397,6 +397,7 @@ def check_yukon(pg):
     start(pg, 'yukon')
     assert 'Home 0 / 52' in status(pg) and 'Hidden 21' in status(pg), status(pg)
     assert pg.locator('.card').count() == 52
+    assert pg.locator('#hint-btn').is_visible() and pg.locator('#options [data-option="winnable"]').count() == 2, 'Yukon has hints and winnable deals'
     # find a move that carries several cards
     move = pg.evaluate("""() => {
         const rules = CardSim.yukon, state = rules.setup({}, CardSim.mulberry32(3));
@@ -822,7 +823,9 @@ def check_hint(pg):
     assert pg.locator('#toast').is_hidden(), 'the close button dismisses the message'
     assert pg.locator('.card.suggest, .slot.suggest-to').count() >= 1, 'the lit move stays'
     start(pg, 'yukon')
-    assert pg.locator('#hint-btn').is_hidden(), 'Yukon cannot be searched'
+    assert pg.locator('#hint-btn').is_visible(), 'Yukon can be searched'
+    pg.keyboard.press('h')
+    pg.wait_for_selector('.card.suggest, .slot.suggest-to', timeout=30000)
     # a position the solver cannot win still gets a plausible move, and says so
     start(pg, 'forty')
     pg.keyboard.press('h')

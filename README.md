@@ -39,7 +39,7 @@ Because the cache is refreshed in the background, an edited page appears the sec
 
 ## Winnable deals
 
-Klondike, FreeCell, Golf, Pyramid, TriPeaks and one-suit Spider offer Deals: Winnable. `solve()` in the engine searches a ruleset's own `moves()` (depth first, or best first where the ruleset gives a `progress()` score); the app runs it on one seed after another, in a worker, until it finds a win, and the stored seed then reproduces that deal. A solution that is found is real, since the tests replay it, but a search that gives up proves nothing: the app stops after 20 seconds and says the deal is random. While it searches, a dialogue with a spinner and a Cancel button covers the table. Yukon, Forty Thieves and two- or four-suit Spider are too hard for this solver, so they do not offer it.
+Klondike, FreeCell, Golf, Pyramid, TriPeaks, Yukon and one-suit Spider offer Deals: Winnable. `solve()` in the engine searches a ruleset's own `moves()` (depth first, or best first where the ruleset gives a `progress()` score); the app runs it on one seed after another, in a worker, until it finds a win, and the stored seed then reproduces that deal. A solution that is found is real, since the tests replay it, but a search that gives up proves nothing: the app stops after 20 seconds and says the deal is random. While it searches, a dialogue with a spinner and a Cancel button covers the table. Forty Thieves and two- or four-suit Spider are too hard for this solver so far, so they do not offer it.
 
 ## Card art
 
@@ -80,7 +80,7 @@ If neither exists, the hint turns the stock where there is one, or says there is
 
 Hints do not change their minds. `HintBook` remembers every line found, for the position it came from and for each position along it, so following the hints follows one plan and needs no further search; asking twice at the same position, or asking at the first move of a deal chosen by the winnable search (which already found a line), searches nothing. A line that only gains ground is used only if its first move reaches a position not yet seen in this deal. To keep lines short, the search remembers every move it tried and takes the shortest route through them; because a position key may treat positions as equal that are not identical (FreeCell's cells), that route is replayed and the search's own route is used if it fails. Tested in Node: hints followed for 50 moves in Klondike never send a card straight back, and every line found in every game plays out on the real position.
 
-The message stays until the player moves, undoes, deals or presses its × button. The lit cards keep their place in the stack: a hint does not lift them above their neighbours. Games whose ruleset has no `moves()` (Yukon) have no Hint.
+The message stays until the player moves, undoes, deals or presses its × button. The lit cards keep their place in the stack: a hint does not lift them above their neighbours. Games whose ruleset has no `moves()` have no Hint (every game has one now).
 
 ## Controls
 

@@ -16,10 +16,9 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 ## Open
 - 4. Daily deal: a seeded deal of the day, the same for everyone, with its own win record
 - 12. Solvers for the games that lack one (each gets `moves`, `key`, `progress` and `canSolve`, `WINNABLE_OPTION` where it can find deals, and a golden/engine test):
-  - Yukon: no hint and no winnable deals yet (the rules and `autoAction` exist; add `moves`)
   - Forty Thieves: hints work, winnable deals do not yet (`canSolve`; needs a node limit and a check of how often a seed is solved)
   - Spider with two and four suits: hints work, winnable is offered for one suit only; needs a better heuristic (runs in suit, empty columns, hidden cards) and a measured success rate
-  - Check the rest are complete: Klondike, FreeCell, Golf, Pyramid and TriPeaks already offer both
+  - Done: Yukon (about 60% of seeds solved within 3000 nodes). Klondike, FreeCell, Golf, Pyramid and TriPeaks already offered both
 - 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion, Clock, Accordion; Hanabi (multiplayer, hidden information) much later
 
 ## Follow-ups

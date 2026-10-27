@@ -992,7 +992,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   const cases = [
     ['klondike', klondike, { draw: 1 }, 40], ['klondike', klondike, { draw: 3 }, 60], ['freecell', freecell, {}, 20],
     ['golf', golf, { wrap: 1 }, 80], ['golf', golf, { wrap: 0 }, 400], ['pyramid', pyramid, { redeals: 2 }, 30],
-    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10],
+    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10], ['yukon', yukon, {}, 20],
   ];
   for (const [name, rules, base, tries] of cases) {
     const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };
@@ -1197,6 +1197,11 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     assert(col.slice(i).every(e => e.up) && col.slice(0, i).every(e => !e.up), `${id} hidden cards sit under the showing ones`);
   });
   same(yukon.setup({}, mulberry32(3)), st);
+
+  // the moves offered to the solver are all legal, and include a card carried with others on top of it
+  const offered = yukon.moves(st, {});
+  assert(offered.length && offered.every(m => yukon.reduce(st, m, {}).state), 'every offered move is legal');
+  assert(offered.some(m => m.index < st.piles[m.from].length - 1), 'a move may carry cards that are not a run');
 
   // a stack moves whole even when it is not a run; only its first card must fit
   const s = blank();
@@ -1484,7 +1489,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 {
   // Whatever way the search records, the line it returns plays out on the real position: it wins if it says it does.
   // (FreeCell is the case that once failed: its free cells are interchangeable in the position key.)
-  for (const rules of [freecell, klondike, golf, pyramid, tripeaks, spider, forty]) {
+  for (const rules of [freecell, klondike, golf, pyramid, tripeaks, spider, forty, yukon]) {
     const options = Object.fromEntries(rules.options.map(o => [o.id, o.default]));
     for (let seed = 1; seed <= (rules === freecell ? 40 : 6); seed++) {
       const state = rules.setup(options, mulberry32(seed));
