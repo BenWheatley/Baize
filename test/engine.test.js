@@ -6,8 +6,9 @@ const assert = require('assert');
 const path = require('path');
 const html = fs.readFileSync(process.argv[2] ?? path.join(__dirname, '..', 'baize.html'), 'utf8');
 const grab = id => html.match(new RegExp(`<script id="${id}">([\\s\\S]*?)</script>`))[1];
-const ctx = vm.createContext({ structuredClone, console });
+const ctx = vm.createContext({ structuredClone, console, atob });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
+vm.runInContext(grab('solver-wasm'), ctx);                          // adds the WebAssembly search for Forty Thieves
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
 const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, hintLine, HintBook, fanOffsets, movableCards, mulberry32 } = CardSim;
 
@@ -1009,6 +1010,32 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     same(new Session(rules, options, found.seed, session.actions).state, session.state, `${name}: a saved solution replays`);
   }
   assert(spider.canSolve({ suits: 1 }) && !spider.canSolve({ suits: 2 }) && !spider.canSolve({ suits: 4 }), 'Spider solves one suit only');
+  {
+    // Forty Thieves has two searches, JavaScript and WebAssembly, and each must find real wins.
+    assert(typeof CardSim.fast.forty === 'function', 'the WebAssembly search is installed');
+    const options = { winnable: 1 };
+    const wasmLine = seed => solve(forty, options, forty.setup(options, mulberry32(seed)), { nodes: 6000 });
+    let wins = 0;
+    for (let seed = 0; seed < 100; seed++) {
+      const line = wasmLine(seed);
+      if (!line) continue;
+      wins++;
+      const session = new Session(forty, options, seed);
+      for (const action of line) assert(session.apply(action), `seed ${seed}: the WebAssembly line plays`);
+      assert(session.won, `seed ${seed}: and it wins`);
+    }
+    assert(wins >= 3, `the WebAssembly search finds wins (${wins} of 100)`);
+    const midgame = forty.setup(options, mulberry32(1));
+    midgame.piles.waste.push(midgame.piles.stock.pop());
+    assert.strictEqual(CardSim.fast.forty(forty, midgame, 10), undefined, 'a deal that has been played is left to the JavaScript search');
+    const saved = CardSim.fast.forty;
+    delete CardSim.fast.forty;                                       // and without it, the JavaScript search still works
+    let found = null;
+    for (let seed = 0; seed < 80 && !found; seed++) found = solve(forty, options, forty.setup(options, mulberry32(seed)), { nodes: 6000 }) && seed;
+    CardSim.fast.forty = saved;
+    assert(found !== null, 'the JavaScript search finds a Forty Thieves win');
+    console.log(`forty thieves: WebAssembly ${wins} of 100 seeds, JavaScript first win at seed ${found}`);
+  }
   {
     // Forty Thieves names positions up to symmetry: swapped columns, swapped foundations and the two copies of a card.
     const st = forty.setup({}, mulberry32(5));
