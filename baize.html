@@ -820,6 +820,7 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
                                                  each is checked with reduce, so a superset is fine)
        key(state)                              -> string naming a position, equal for equivalent ones (optional, for solve())
        progress(state)                         -> number, higher when closer to winning (optional: solve() then searches best first)
+       searchNodes                             -> number (optional): the search budget per deal when looking for winnable ones (default 3000)
        canSolve(options)                       -> boolean (optional): can solve() find winnable deals under these options?
                                                  A ruleset that says so also lists WINNABLE_OPTION among its options.
        help                                    -> a few sentences of rules, shown in the rules card
@@ -1872,6 +1873,17 @@ const CardSim = (() => {
     },
     isWon: state => allComplete(state, THIEF_HOME),
 
+    options: [WINNABLE_OPTION],
+    canSolve: () => true,
+    searchNodes: 6000,                             // about one seed in eight is solved within this; the search goes on to the next
+
+    /** The columns are interchangeable, and so are the foundations (each takes any suit), and the two copies of a
+        card are the same card: sorted, equivalent positions share one name, which roughly doubles what the search finds. */
+    key(state) {
+      const text = id => state.piles[id].map(entry => entry.card.suit[0] + entry.card.rank).join(',');
+      return [`stock:${text('stock')}`, `waste:${text('waste')}`, ...THIEF_COLUMNS.map(text).sort(), '/', ...THIEF_HOME.map(text).sort()].join('|');
+    },
+
     status: state => [
       homeStatus(state, THIEF_HOME, 104),
       { label: 'Stock', value: state.piles.stock.length },
@@ -2588,7 +2600,7 @@ const StandardDeck = (() => {
   }
 
   const searchInWorker = (rules, options, from) =>
-    inWorker({ id: rules.id, options, from, until: Date.now() + SEARCH_MS, nodes: SEARCH_NODES }).then(reply => (reply?.seed == null ? null : reply));
+    inWorker({ id: rules.id, options, from, until: Date.now() + SEARCH_MS, nodes: rules.searchNodes ?? SEARCH_NODES }).then(reply => (reply?.seed == null ? null : reply));
 
   async function searchHere(rules, options, from) {
     let cancelled = false;
@@ -2596,7 +2608,7 @@ const StandardDeck = (() => {
     for (let k = 0, until = Date.now() + SEARCH_MS; Date.now() < until && !cancelled; k++) {
       const seed = (from + k) % 1000000;
       const state = rules.setup(options, CardSim.mulberry32(seed));
-      const actions = CardSim.solve(rules, options, state, { nodes: SEARCH_NODES });
+      const actions = CardSim.solve(rules, options, state, { nodes: rules.searchNodes ?? SEARCH_NODES });
       if (actions) return { seed, actions };
       await pause(0);
     }

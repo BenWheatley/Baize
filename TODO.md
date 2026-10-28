@@ -16,7 +16,7 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 ## Open
 - 4. Daily deal: a seeded deal of the day, the same for everyone, with its own win record
 - 12. Solvers for the games that lack one (each gets `moves`, `key`, `progress` and `canSolve`, `WINNABLE_OPTION` where it can find deals, and a golden/engine test):
-  - Forty Thieves: hints work, winnable deals do not yet. Measured with the generic best-first search: about 1% of seeds are solved (300 seeds at 1000 to 3000 nodes; 20000 nodes does no better), roughly one hit in 20 s, so the 20 s search would give up about a third of the time. Tried without gain: heavier stock penalty, in-suit run bonuses, buried-low-card penalties, depth cost, forcing aces home, plain depth first with 100000 nodes. Options: a dedicated solver (collapse safe moves, order by blockers, far larger budget), or a pool of seeds found offline by a long search and shipped with the page (about 1 hit per 20 s of CPU, so a few hundred deals are an hour or two), with Winnable drawing from the pool
+  - Done: Forty Thieves (symmetric position key, 6000 nodes per seed; about one seed in eight solved, so the 20 s search still fails now and then: a pool of seeds found offline would remove that, and would suit Spider too)
   - Spider with two and four suits: hints work, winnable is offered for one suit only; needs a better heuristic (runs in suit, empty columns, hidden cards) and a measured success rate
   - Done: Yukon (about 60% of seeds solved within 3000 nodes). Klondike, FreeCell, Golf, Pyramid and TriPeaks already offered both
 - 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion, Clock, Accordion; Hanabi (multiplayer, hidden information) much later

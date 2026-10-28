@@ -992,14 +992,14 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   const cases = [
     ['klondike', klondike, { draw: 1 }, 40], ['klondike', klondike, { draw: 3 }, 60], ['freecell', freecell, {}, 20],
     ['golf', golf, { wrap: 1 }, 80], ['golf', golf, { wrap: 0 }, 400], ['pyramid', pyramid, { redeals: 2 }, 30],
-    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10], ['yukon', yukon, {}, 20],
+    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10], ['yukon', yukon, {}, 20], ['forty', forty, {}, 80],
   ];
   for (const [name, rules, base, tries] of cases) {
     const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };
     assert(rules.canSolve(options), `${name} says it can solve`);
     let found = null;
     for (let seed = 0; seed < tries && !found; seed++) {
-      const solution = solve(rules, options, rules.setup(options, mulberry32(seed)), { nodes: 3000 });
+      const solution = solve(rules, options, rules.setup(options, mulberry32(seed)), { nodes: rules.searchNodes ?? 3000 });
       if (solution) found = { seed, solution };
     }
     assert(found, `${name} ${JSON.stringify(base)}: no deal solved in ${tries} seeds`);
@@ -1009,7 +1009,13 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     same(new Session(rules, options, found.seed, session.actions).state, session.state, `${name}: a saved solution replays`);
   }
   assert(spider.canSolve({ suits: 1 }) && !spider.canSolve({ suits: 2 }) && !spider.canSolve({ suits: 4 }), 'Spider solves one suit only');
-  assert(!forty.canSolve, 'Forty Thieves does not offer winnable deals');
+  {
+    // Forty Thieves names positions up to symmetry: swapped columns, swapped foundations and the two copies of a card.
+    const st = forty.setup({}, mulberry32(5));
+    const swapped = { ...st, piles: { ...st.piles, t0: st.piles.t1, t1: st.piles.t0 } };
+    assert.strictEqual(forty.key(swapped), forty.key(st), 'swapped columns are one position');
+    assert.notStrictEqual(forty.key({ ...st, piles: { ...st.piles, t0: st.piles.t0.slice(1) } }), forty.key(st), 'different positions differ');
+  }
   assert.strictEqual(solve(klondike, { draw: 1 }, klondike.setup({ draw: 1 }, mulberry32(0)), { nodes: 1 }), null, 'a tiny budget gives up quietly');
   assert.deepStrictEqual(solve(golf, { wrap: 0 }, { piles: { ...golf.setup({}, mulberry32(1)).piles, ...Object.fromEntries(['t0','t1','t2','t3','t4','t5','t6'].map(id => [id, []])) } }, {}).length, 0, 'a won position needs no moves');
   console.log('solver: every supported game solved a deal');
