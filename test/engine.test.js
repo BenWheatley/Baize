@@ -10,7 +10,10 @@ const ctx = vm.createContext({ structuredClone, console, atob });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 vm.runInContext(grab('solver-wasm'), ctx);                          // adds the WebAssembly search for Forty Thieves
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, solve, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, hintLine, HintBook, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, search, seedHunt, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, HintBook, fanOffsets, movableCards, mulberry32 } = CardSim;
+// What the tests mean by solving, and by a hint: the one search, asked for a win or for a line.
+const solve = (rules, options, state, { nodes } = {}) => { const found = search(rules, options, state, { nodes, winOnly: true }); return found?.sure ? found.line : null; };
+const hintLine = search;
 
 const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3'];
 const TABLEAU = ['t0', 't1', 't2', 't3', 't4', 't5', 't6'];
@@ -1519,17 +1522,32 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   console.log('hints do not circle');
 
 {
-  // A deal the winnable search proves is proved again by a hint (once, a fresh hint search lost three of nineteen such deals).
-  const options = { draw: 3, winnable: 1 };
+  // Deals and hints are one search: whatever the deal search proves winnable, a hint proves again from the start
+  // (a hint's budget is never smaller), in every game that offers winnable deals.
+  const cases = [[klondike, { draw: 1 }], [klondike, { draw: 3 }], [freecell, {}], [golf, { wrap: 1 }], [pyramid, { redeals: 2 }], [tripeaks, { wrap: 0 }], [yukon, {}], [forty, {}]];
   let proved = 0;
-  for (let seed = 0; seed < 40; seed++) {
-    const state = klondike.setup(options, mulberry32(seed));
-    if (!solve(klondike, options, state, { nodes: 3000 })) continue;
-    proved++;
-    const found = hintLine(klondike, options, state, { nodes: 12000 });
-    assert(found && found.sure, `seed ${seed}: the hint finds the win the deal search found`);
+  for (const [rules, base] of cases) {
+    const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };
+    let here = 0;
+    for (let seed = 0; seed < 25 && here < 4; seed++) {
+      const state = rules.setup(options, mulberry32(seed));
+      if (!solve(rules, options, state, { nodes: rules.searchNodes })) continue;
+      here++;
+      const found = hintLine(rules, options, state, { nodes: Math.max(12000, rules.searchNodes) });
+      assert(found && found.sure, `${rules.id} seed ${seed}: the hint finds the win the deal search found`);
+    }
+    proved += here;
   }
-  assert(proved >= 5, `enough deals were proved to mean something (${proved})`);
+  assert(proved >= 20, `enough deals were proved to mean something (${proved})`);
+  // and the hunt that finds deals yields one that really wins
+  const options = { draw: 1, winnable: 1 };
+  const hunt = seedHunt(klondike, options, 0);
+  let found = null;
+  for (let tries = 0; !found && tries < 40; tries++) found = hunt.next().value;
+  assert(found, 'the hunt finds a deal');
+  const session = new Session(klondike, options, found.seed);
+  for (const action of found.actions) assert(session.apply(action));
+  assert(session.won, 'and it wins');
   console.log(`hints agree with the deal search: ${proved} deals`);
 }
 }

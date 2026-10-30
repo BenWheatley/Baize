@@ -35,6 +35,7 @@ def open_game(pg, name):
     open_settings(pg)
     pg.select_option('#game', GAMES[name])
     pg.wait_for_timeout(900)
+    pg.wait_for_function("document.getElementById('busy').hidden", timeout=60000)   # a winnable deal may take a while to find
 
 
 def start(pg, name):
@@ -536,7 +537,7 @@ def check_winnable_deals(pg):
     assert 'No winnable' not in status(pg), status(pg)
     solved = pg.evaluate("""({ seed, options }) => {
         const rules = CardSim.freecell;
-        return Boolean(CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 }));
+        return Boolean((f => f?.sure ? f.line : null)(CardSim.search(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000, winOnly: true })));
     }""", stored)
     assert solved, 'the dealt game can be won'
     pg.click('#new')
@@ -548,8 +549,8 @@ def check_winnable_deals(pg):
     wait_for_deal(pg)
     last = pg.evaluate("JSON.parse(localStorage.getItem('baize.v2')).games.freecell")
     assert last['seed'] != again['seed'] and 'No winnable' not in status(pg), status(pg)
-    assert pg.evaluate("""({ seed, options }) => Boolean(CardSim.solve(CardSim.freecell, options,
-        CardSim.freecell.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 }))""", last), 'fallback deal can be won'
+    assert pg.evaluate("""({ seed, options }) => Boolean((f => f?.sure ? f.line : null)(CardSim.search(CardSim.freecell, options,
+        CardSim.freecell.setup(options, CardSim.mulberry32(seed)), { nodes: 3000, winOnly: true })))""", last), 'fallback deal can be won'
     # Spider can only promise winnable deals with one suit, so the setting is not offered otherwise.
     start(pg, 'spider')
     open_settings(pg)
@@ -637,14 +638,24 @@ def check_search_can_be_cancelled(pg):
     pg.keyboard.press('Escape')
     wait_for_deal(pg)
     assert pg.locator('#busy').is_hidden()
-    # A search that runs out of time says so, and OK dismisses it.
-    pg.evaluate("() => { window.Worker = class { postMessage() { setTimeout(() => this.onmessage({ data: { seed: null } }), 600); } terminate() {} }; }")
+    # A search does not give up by itself: the player chose Winnable, and Cancel (or Random) is theirs to press.
     pg.click('#new')
-    wait_for_deal(pg)
-    assert pg.locator('#busy').is_visible() and pg.locator('#busy-btn').inner_text() == 'OK'
-    assert pg.locator('#busy-spinner').is_hidden(), 'no spinner once it has finished'
+    pg.wait_for_timeout(3000)
+    assert pg.locator('#busy').is_visible() and pg.locator('#busy-spinner').is_visible(), 'still searching'
     pg.click('#busy-btn')
-    assert pg.locator('#busy').is_hidden()
+    wait_for_deal(pg)
+    assert 'Deals Random' in status(pg), f'a deal the player cancelled for is called random: {status(pg)}'
+
+
+def check_first_deal_honours_winnable(pg):
+    """The first deal of a game, and the first after switching game, are searched for like any other."""
+    pg.evaluate("localStorage.removeItem('baize.v2')")
+    pg.reload()
+    pg.wait_for_function("document.querySelectorAll('.card').length === 52 && document.getElementById('busy').hidden", timeout=60000)
+    assert 'Deals Winnable' in status(pg), status(pg)
+    open_game(pg, 'freecell')
+    pg.wait_for_function("document.querySelectorAll('.card').length === 52 && document.getElementById('busy').hidden", timeout=60000)
+    assert 'Deals Winnable' in status(pg), status(pg)
 
 
 def check_page_cannot_zoom(pg):
@@ -732,7 +743,7 @@ def check_statistics(pg):
     saved = pg.evaluate("""() => {
         const options = { wrap: 1, winnable: 0 }, rules = CardSim.golf;
         for (let seed = 0; seed < 200; seed++) {
-            const actions = CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 });
+            const actions = (f => f?.sure ? f.line : null)(CardSim.search(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000, winOnly: true }));
             if (actions) return { seed, options, actions };
         }
         return null; }""")
@@ -780,7 +791,7 @@ def check_hint(pg):
     saved = pg.evaluate("""() => {
         const options = { wrap: 1, winnable: 0 }, rules = CardSim.golf;
         for (let seed = 0; seed < 200; seed++) {
-            const actions = CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 });
+            const actions = (f => f?.sure ? f.line : null)(CardSim.search(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000, winOnly: true }));
             if (actions) return { seed, options, actions };
         }
         return null; }""")
@@ -944,7 +955,7 @@ def won_golf(pg):
     saved = pg.evaluate("""() => {
         const options = { wrap: 1, winnable: 0 }, rules = CardSim.golf;
         for (let seed = 0; seed < 300; seed++) {
-            const actions = CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000 });
+            const actions = (f => f?.sure ? f.line : null)(CardSim.search(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes: 3000, winOnly: true }));
             if (actions) return { seed, options, actions };
         } }""")
     pg.evaluate("s => localStorage.setItem('baize.v2', JSON.stringify({ current: 'golf', games: { golf: s } }))", saved)
@@ -1412,7 +1423,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_drop_near_foundation_goes_home, check_safe_cards_play_themselves, check_forty_winnable_is_quick, check_deal_label_is_the_truth, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_drop_near_foundation_goes_home, check_safe_cards_play_themselves, check_forty_winnable_is_quick, check_deal_label_is_the_truth, check_first_deal_honours_winnable, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]

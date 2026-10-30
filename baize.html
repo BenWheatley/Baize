@@ -303,7 +303,6 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
   border: 5px solid rgba(111, 82, 24, 0.35); border-top-color: #4a1220;
   animation: spin 0.9s linear infinite;
 }
-.modal[data-state="miss"] .spinner { display: none; }
 #stats .plaque { max-width: min(34rem, 94%); }
 /* A panel's title and its × stay put; what is under them scrolls, so the × is never out of reach on a short screen. */
 .settings, #stats .plaque { display: flex; flex-direction: column; }
@@ -816,12 +815,12 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
        isWon(state), status(state, options)    -> boolean, [{ label, value }]
        showsMovable                            -> true if the game supports highlighting movable cards
        movable(state, options)                 -> Set of card ids (optional: replaces the generic search for movable cards)
-       moves(state, options)                   -> candidate actions, most promising first (optional: lets solve() play the game;
+       moves(state, options)                   -> candidate actions, most promising first (lets search() play the game;
                                                  each is checked with reduce, so a superset is fine)
-       key(state)                              -> string naming a position, equal for equivalent ones (optional, for solve())
-       progress(state)                         -> number, higher when closer to winning (optional: solve() then searches best first)
-       searchNodes                             -> number (optional): the search budget per deal when looking for winnable ones (default 3000)
-       canSolve(options)                       -> boolean (optional): can solve() find winnable deals under these options?
+       key(state)                              -> string naming a position, equal for equivalent ones (optional, for search())
+       progress(state)                         -> number, higher when closer to winning (required by search())
+       searchNodes                             -> number (optional): the search budget per deal when looking for winnable ones, and the least for a hint (default 3000)
+       canSolve(options)                       -> boolean (optional): can search() find winnable deals under these options?
                                                  A ruleset that says so also lists WINNABLE_OPTION among its options.
        help                                    -> a few sentences of rules, shown in the rules card
      A ruleset is written with defineRules(), which supplies options [], canPickUp (never), onActivate (null) and
@@ -1080,6 +1079,7 @@ const CardSim = (() => {
     onActivate: () => null,
     homeAction: () => null,
     autoAction: () => null,
+    searchNodes: 3000,                 // the budget of a search for a winnable deal; a hint's is never smaller
     ...rules,
   });
 
@@ -1875,7 +1875,7 @@ const CardSim = (() => {
 
     options: [WINNABLE_OPTION],
     canSolve: () => true,
-    searchNodes: 6000,                             // about one seed in eight is solved within this; the search goes on to the next
+    searchNodes: 6000,                             // about one seed in twelve is solved within this; the search goes on to the next
 
     /** The columns are interchangeable, and so are the foundations (each takes any suit), and the two copies of a
         card are the same card: sorted, equivalent positions share one name, which roughly doubles what the search finds. */
@@ -1902,9 +1902,12 @@ const CardSim = (() => {
     return [...rest, ...interchangeable.map(text).sort()].join('|');
   }
 
+  /** Each move deeper costs this much score, so that a line does not wander for nothing. */
+  const DEPTH_COST = 1;
+
   /** Always expand the most promising position seen so far. Returns { path, won }: the way to a win if one
       turned up, otherwise the way to the highest-scoring position that beats the start, otherwise null. */
-  function bestFirst(rules, options, state, { nodes, key, depthCost = 0 }) {
+  function bestFirst(rules, options, state, { nodes, key, winOnly = false }) {
     const heap = [];
     const push = node => {
       heap.push(node);
@@ -1983,76 +1986,58 @@ const CardSim = (() => {
         out.push([action, name]);
         if (seen.has(name)) continue;
         seen.add(name);
-        push({ state: next.state, parent: node, action, depth: node.depth + 1, score: rules.progress(next.state) - depthCost * (node.depth + 1) });
+        push({ state: next.state, parent: node, action, depth: node.depth + 1, score: rules.progress(next.state) - DEPTH_COST * (node.depth + 1) });
       }
     }
-    return best === start ? null : { path: pathTo(best), won: false };
+    return best === start || winOnly ? null : { path: pathTo(best), won: false };
   }
 
   /** Searches that run faster in WebAssembly, by ruleset id: (rules, state, nodes) -> a winning line, null when the
-      budget ran out, or undefined when this cannot be used (no WebAssembly, or not a fresh deal), so that solve()
+      budget ran out, or undefined when this cannot be used (no WebAssembly, or not a fresh deal), so that search()
       carries on in JavaScript. The solver-wasm script adds them. */
   const fastSolvers = {};
 
-  function solve(rules, options, state, { nodes = 20000, depth = 800 } = {}) {
-    const fast = fastSolvers[rules.id]?.(rules, state, nodes);
-    if (fast !== undefined) return fast;
-    const seen = new Set();
-    const path = [];
-    let budget = nodes;
-    const key = rules.key ?? positionKey;
-    if (rules.progress) { const found = bestFirst(rules, options, state, { nodes, key }); return found?.won ? found.path : null; }
-    const search = (position, level) => {
-      if (rules.isWon(position)) return true;
-      if (level >= depth) return false;
-      const name = key(position);
-      if (seen.has(name)) return false;
-      seen.add(name);
-      if (--budget < 0) return false;
-      for (const action of rules.moves(position, options)) {
-        const next = rules.reduce(position, action, options);
-        if (!next.state) continue;
-        path.push(action);
-        if (search(next.state, level + 1)) return true;
-        path.pop();
-        if (budget < 0) return false;
-      }
-      return false;
-    };
-    return search(state, 0) ? path : null;
-  }
-
-  /** A line with every detour cut out: when it comes back to a position it has been in, the moves between are dropped. */
+  /** A line with every detour cut out: when it comes back to a position it has been in, the moves between are dropped.
+      Left as it was if cutting would not play (a key that calls positions equal which are not identical, like FreeCell's cells). */
   function withoutLoops(rules, options, state, line) {
     const key = rules.key ?? positionKey;
-    const kept = [];
-    const at = [key(state)];                      // the position before each kept move, and after the last
-    let position = state;
+    const kept = [], names = [key(state)], states = [state];
+    let position = state, last = state;
     for (const action of line) {
-      position = rules.reduce(position, action, options).state;
-      const name = key(position);
-      const back = at.indexOf(name);
-      if (back >= 0) { kept.length = back; at.length = back + 1; continue; }
+      last = rules.reduce(last, action, options).state;
+      const next = rules.reduce(position, action, options).state;
+      if (!next) return line;
+      const name = key(next);
+      const back = names.indexOf(name);
+      if (back >= 0) { kept.length = back; names.length = back + 1; states.length = back + 1; position = states[back]; continue; }
       kept.push(action);
-      at.push(name);
+      names.push(name);
+      states.push(next);
+      position = next;
     }
-    return kept;
+    return rules.isWon(position) === rules.isWon(last) ? kept : line;
   }
 
-  /** What to suggest from `state`: { line, sure }. `sure` lines end in a win; the others end in the best position
-      the search found, which beats where the player is. Null when it found neither. */
-  function hintLine(rules, options, state, { nodes = 12000, depthCost = 1 } = {}) {
-    if (!rules.progress) {
-      const line = solve(rules, options, state, { nodes });
-      return line ? { line, sure: true } : null;
+  /** The one search, for finding winnable deals and for hints, so that the two cannot disagree: a deal the first proved
+      winnable is proved again by the second from its start (the search is deterministic, and a hint's budget is at
+      least a deal's). Returns { line, sure }: `sure` lines end in a win; the others end in the best position found,
+      which beats the start; null when it found neither. With `winOnly` it says no more than whether it found a win. */
+  function search(rules, options, state, { nodes = rules.searchNodes, winOnly = false } = {}) {
+    const fast = fastSolvers[rules.id]?.(rules, state, nodes);
+    if (fast) return { line: fast, sure: true };
+    if (fast === null && winOnly) return null;
+    const found = bestFirst(rules, options, state, { nodes, key: rules.key ?? positionKey, winOnly });
+    return found ? { line: withoutLoops(rules, options, state, found.path), sure: found.won } : null;
+  }
+
+  /** Seeds from `from` on, tried one after another until the search wins one. A generator, so that the page can stop
+      between seeds: it yields null for each seed that failed and { seed, actions } for the one that won. */
+  function* seedHunt(rules, options, from) {
+    for (let k = 0; ; k++) {
+      const seed = (from + k) % 1000000;
+      const found = search(rules, options, rules.setup(options, mulberry32(seed)), { winOnly: true });
+      yield found?.sure ? { seed, actions: found.line } : null;
     }
-    const found = bestFirst(rules, options, state, { nodes, key: rules.key ?? positionKey, depthCost });
-    if (found?.won || !rules.canSolve?.(options)) return found ? { line: found.path, sure: found.won } : null;
-    // No win yet: the search that proved a deal winnable proves it again, so a hint never disagrees with the deal's own label.
-    // (Its lines wander more than these, so they are only the second choice.)
-    const proof = solve(rules, options, state, { nodes: rules.searchNodes ?? 3000 });
-    if (proof) return { line: withoutLoops(rules, options, state, proof), sure: true };
-    return found ? { line: found.path, sure: false } : null;
   }
 
   /* ---------- Yukon ----------
@@ -2315,7 +2300,7 @@ const CardSim = (() => {
     /** What is known for this position: { line, sure }, null (searched, nothing), or undefined (never searched). */
     get(rules, options, state) { return this.lines.get(this.key(rules, options, fingerprint(state))); }
 
-    /** Keep `found` ({ line, sure } from hintLine), for the position it was found from and each one along its way. */
+    /** Keep `found` ({ line, sure } from search), for the position it was found from and each one along its way. */
     remember(rules, options, state, found) {
       if (this.lines.size > this.limit) this.lines.clear();
       const plan = planLine(rules, options, state, found.line);
@@ -2375,7 +2360,7 @@ const CardSim = (() => {
     }));
   }
 
-  return { mulberry32, shuffle, Session, solve, fast: fastSolvers, recordResult, emptyRecord, hintLine, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
+  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
 })();
 </script>
 
@@ -2385,7 +2370,7 @@ const CardSim = (() => {
 <script id="solver-wasm">
 /* Forty Thieves search in WebAssembly, from tools/wasm/forty.c (build.sh builds it, embed.py puts it here).
    The same best-first search as the JavaScript one, about fifty times faster. Used when the deal is fresh
-   and WebAssembly works; otherwise solve() carries on in JavaScript. */
+   and WebAssembly works; otherwise search() carries on in JavaScript. */
 (() => {
   const SUITS = ['spades', 'hearts', 'diamonds', 'clubs'];
   const FOUNDATIONS = ['f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7'];
@@ -2636,12 +2621,10 @@ const StandardDeck = (() => {
   }
 
   /* ---------- Winnable deals ----------
-     The solver runs in a worker built from the engine's own source, trying seeds one after another
-     until it proves one winnable. Where workers are not allowed it runs here, one deal at a time,
-     yielding to the page in between. Either way it gives up after SEARCH_MS. */
+     The search runs in a worker built from the engine's own source, trying seeds one after another (seedHunt)
+     until it proves one winnable, however long that takes: the player chose Winnable, and Random is one tap away.
+     Where workers are not allowed it runs here, one deal at a time, yielding to the page in between. */
 
-  const SEARCH_MS = 20000;
-  const SEARCH_NODES = 3000;
   const wantsWinnable = (rules, options) => Boolean(options.winnable) && Boolean(rules.canSolve?.(options));
 
   const BUSY_DELAY_MS = 350;  // a search quicker than this never shows its dialogue
@@ -2655,15 +2638,10 @@ const StandardDeck = (() => {
   function inWorker(message) {
     const body = `${document.getElementById('engine').textContent}
       ${document.getElementById('solver-wasm').textContent}
-      self.onmessage = ({ data: { id, options, from, until, nodes, state } }) => {
+      self.onmessage = ({ data: { id, options, from, state, nodes } }) => {
         const rules = CardSim[id];
-        if (state) { self.postMessage({ found: CardSim.hintLine(rules, options, state, { nodes }) }); return; }
-        for (let k = 0; Date.now() < until; k++) {
-          const seed = (from + k) % 1000000;
-          const actions = CardSim.solve(rules, options, rules.setup(options, CardSim.mulberry32(seed)), { nodes });
-          if (actions) { self.postMessage({ seed, actions }); return; }
-        }
-        self.postMessage({ seed: null });
+        if (state) { self.postMessage({ found: CardSim.search(rules, options, state, { nodes }) }); return; }
+        for (const found of CardSim.seedHunt(rules, options, from)) if (found) { self.postMessage(found); return; }
       };`;
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(new Blob([body], { type: 'text/javascript' }));
@@ -2676,33 +2654,27 @@ const StandardDeck = (() => {
     });
   }
 
-  const searchInWorker = (rules, options, from) =>
-    inWorker({ id: rules.id, options, from, until: Date.now() + SEARCH_MS, nodes: rules.searchNodes ?? SEARCH_NODES }).then(reply => (reply?.seed == null ? null : reply));
-
-  async function searchHere(rules, options, from) {
+  async function huntHere(rules, options, from) {
     let cancelled = false;
     cancelSearch = () => { cancelled = true; };
-    for (let k = 0, until = Date.now() + SEARCH_MS; Date.now() < until && !cancelled; k++) {
-      const seed = (from + k) % 1000000;
-      const state = rules.setup(options, CardSim.mulberry32(seed));
-      const actions = CardSim.solve(rules, options, state, { nodes: rules.searchNodes ?? SEARCH_NODES });
-      if (actions) return { seed, actions };
+    for (const found of CardSim.seedHunt(rules, options, from)) {
+      if (cancelled) return null;
+      if (found) return found;
       await pause(0);
     }
-    return null;
   }
 
-  /** { seed, actions }: a seed whose deal the solver wins, and how; or null if it gave up. */
+  /** { seed, actions }: a seed whose deal the search wins, and how; or null if the player cancelled. */
   async function findWinnableSeed(rules, options) {
     const from = newSeed();
     try {
-      return await searchInWorker(rules, options, from);
+      return await inWorker({ id: rules.id, options, from });
     } catch {
-      return searchHere(rules, options, from);
+      return huntHere(rules, options, from);
     }
   }
 
-  /** The dialogue over the table: searching (with Cancel) or the news that the search failed (with OK). */
+  /** The dialogue over the table, while a search runs (with Cancel). */
   function showBusy(state, title, text, button) {
     els.busy.dataset.state = state;
     els.busyTitle.textContent = title;
@@ -2732,29 +2704,25 @@ const StandardDeck = (() => {
   }
 
   /** Clear the table, and only then deal the new cards out. With no seed, choose one. */
-  async function redeal(options, seed) {
+  async function redeal(options, seed, nextGame = game) {
     busy = true;
     els.board.dataset.dealing = 'true';
-    const animate = cardEls.size > 0 && !reducedMotion();
+    const { rules } = nextGame;
+    options = withWinnable(rules, options);
+    const animate = nextGame === game && cardEls.size > 0 && !reducedMotion();
     // A new deal (not a restart of this one) given up part-way counts as played.
-    if (seed === undefined && session.actions.length && !session.won) noteResult({ outcome: 'abandoned' });
+    if (seed === undefined && nextGame === game && session.actions.length && !session.won) noteResult({ outcome: 'abandoned' });
     try {
-      let missed = false;
-      const picking = seed === undefined && wantsWinnable(game.rules, options);
-      let stopped = false;
+      const picking = seed === undefined && wantsWinnable(rules, options);
       if (picking) {
         busyTimer = setTimeout(() => showBusy('searching', 'Finding a winnable deal',
           'This can take a little while. Cancel to take a random deal instead.', 'Cancel'), BUSY_DELAY_MS);
       }
-      const [found] = await Promise.all([picking ? findWinnableSeed(game.rules, options) : undefined, animate ? gather() : null]);
-      stopped = picking && cancelledByUser;
-      if (found === null) missed = true;
+      const [found] = await Promise.all([picking ? findWinnableSeed(rules, options) : undefined, animate ? gather() : null]);
       await settleBusy();
-      startGame(game, options, picking ? (found?.seed ?? newSeed()) : (seed ?? newSeed()), [], animate, picking ? Boolean(found?.actions) : seed !== undefined && session.proved && seed === session.seed);
-      if (found?.actions) book.remember(game.rules, options, session.state, { line: found.actions, sure: true });
+      startGame(nextGame, options, picking ? (found?.seed ?? newSeed()) : (seed ?? newSeed()), [], animate, picking ? Boolean(found) : seed !== undefined && session.proved && seed === session.seed);
+      if (found) book.remember(rules, options, session.state, { line: found.actions, sure: true });
       hideBusy();
-      if (missed && !stopped) showBusy('miss', 'No winnable deal found',
-        'The search ran out of time, so this deal is random.', 'OK');
       if (animate) await pause(dealMs + 60);
     } finally {
       cancelSearch = null;
@@ -2830,10 +2798,10 @@ const StandardDeck = (() => {
           'This can take a little while. Cancel to stop looking.', 'Cancel'), BUSY_DELAY_MS);
         let complete = true;                                              // whether the whole budget was spent, so that an answer can be trusted
         try {
-          found = (await inWorker({ id: rules.id, options, state, nodes: HINT_NODES }))?.found ?? null;
+          found = (await inWorker({ id: rules.id, options, state, nodes: Math.max(HINT_NODES, rules.searchNodes) }))?.found ?? null;
         } catch {
           await pause(0);                                                 // no workers: look on the page, for less time
-          found = CardSim.hintLine(rules, options, state, { nodes: 3000 });
+          found = CardSim.search(rules, options, state);
           complete = false;
         }
         if (!cancelledByUser) {
@@ -3035,8 +3003,9 @@ const StandardDeck = (() => {
     }
   }
 
-  function open(target) {
-    if (!resume(target)) startGame(target, defaultOptions(target.rules), newSeed());
+  /** A game's saved deal, or a new one: found winnable first if that is what the player prefers, like any other new deal. */
+  async function open(target) {
+    if (!resume(target)) await redeal(defaultOptions(target.rules), undefined, target);
   }
 
   /* ---------- Geometry ---------- */

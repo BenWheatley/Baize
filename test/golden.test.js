@@ -102,7 +102,8 @@ function digestGame(rules) {
     if (rules.canSolve?.(options)) {
       for (let seed = 1; seed <= 3; seed++) {
         let state = rules.setup(options, mulberry32(seed));
-        const line = CardSim.solve(rules, options, state, { nodes: 3000 });
+        const found = CardSim.search(rules, options, state, { nodes: 3000, winOnly: true });
+        const line = found?.sure ? found.line : null;
         feed('line', line);
         (line ?? []).forEach((action, step) => {
           if (step % 4 === 0) observe(state, options);
