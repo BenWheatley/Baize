@@ -23,6 +23,7 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 - 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion, Clock, Accordion; Hanabi (multiplayer, hidden information) much later
 
 ## Follow-ups
+- A game's first deal, and a deal after switching game, are random even when Winnable is preferred; they could search too (they now say `Deals Random`)
 - Safe cards for Yukon too (the rule is the same); a drop near a foundation for Golf-style games does not apply
 - Accessibility: a card-size setting (the page does not allow pinch zoom); a screen-reader pass with real VoiceOver/NVDA; a keyboard shortcut for the menu
 

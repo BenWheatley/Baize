@@ -2022,6 +2022,23 @@ const CardSim = (() => {
     return search(state, 0) ? path : null;
   }
 
+  /** A line with every detour cut out: when it comes back to a position it has been in, the moves between are dropped. */
+  function withoutLoops(rules, options, state, line) {
+    const key = rules.key ?? positionKey;
+    const kept = [];
+    const at = [key(state)];                      // the position before each kept move, and after the last
+    let position = state;
+    for (const action of line) {
+      position = rules.reduce(position, action, options).state;
+      const name = key(position);
+      const back = at.indexOf(name);
+      if (back >= 0) { kept.length = back; at.length = back + 1; continue; }
+      kept.push(action);
+      at.push(name);
+    }
+    return kept;
+  }
+
   /** What to suggest from `state`: { line, sure }. `sure` lines end in a win; the others end in the best position
       the search found, which beats where the player is. Null when it found neither. */
   function hintLine(rules, options, state, { nodes = 12000, depthCost = 1 } = {}) {
@@ -2030,7 +2047,12 @@ const CardSim = (() => {
       return line ? { line, sure: true } : null;
     }
     const found = bestFirst(rules, options, state, { nodes, key: rules.key ?? positionKey, depthCost });
-    return found ? { line: found.path, sure: found.won } : null;
+    if (found?.won || !rules.canSolve?.(options)) return found ? { line: found.path, sure: found.won } : null;
+    // No win yet: the search that proved a deal winnable proves it again, so a hint never disagrees with the deal's own label.
+    // (Its lines wander more than these, so they are only the second choice.)
+    const proof = solve(rules, options, state, { nodes: rules.searchNodes ?? 3000 });
+    if (proof) return { line: withoutLoops(rules, options, state, proof), sure: true };
+    return found ? { line: found.path, sure: false } : null;
   }
 
   /* ---------- Yukon ----------
@@ -2549,12 +2571,13 @@ const StandardDeck = (() => {
     return pref !== null && rules.options.some(o => o.id === 'winnable') ? { ...options, winnable: pref } : options;
   };
 
-  function startGame(nextGame, options, seed, actions = [], animateDeal = false) {
+  function startGame(nextGame, options, seed, actions = [], animateDeal = false, proved = false) {
     options = withWinnable(nextGame.rules, options);
     const next = new Session(nextGame.rules, options, seed, actions);  // throws if it cannot replay
     if (nextGame !== game) resetBoard();
     game = nextGame;
     session = next;
+    session.proved = proved;                           // whether the search found this deal winnable; the Winnable preference says nothing about it
     selection = null;
     lastTap = null;
     press = null;
@@ -2727,7 +2750,7 @@ const StandardDeck = (() => {
       stopped = picking && cancelledByUser;
       if (found === null) missed = true;
       await settleBusy();
-      startGame(game, options, picking ? (found?.seed ?? newSeed()) : (seed ?? newSeed()), [], animate);
+      startGame(game, options, picking ? (found?.seed ?? newSeed()) : (seed ?? newSeed()), [], animate, picking ? Boolean(found?.actions) : seed !== undefined && session.proved && seed === session.seed);
       if (found?.actions) book.remember(game.rules, options, session.state, { line: found.actions, sure: true });
       hideBusy();
       if (missed && !stopped) showBusy('miss', 'No winnable deal found',
@@ -2830,7 +2853,8 @@ const StandardDeck = (() => {
     }
     const { action, kind } = book.choose(rules, options, session.states, found);
     hint = action ? { key, action, sure: kind === 'win' } : null;
-    showToast({
+    const wasWinnable = session.proved && kind !== 'win' ? 'This deal was winnable from the start: undo to get back on a winning line. ' : '';
+    showToast(wasWinnable + {
       win: 'A win is still possible. The lit cards are the next move.',
       gain: 'No win found from here: it may be lost, or too hard for me to see. The lit move heads for the best position I could find.',
       stock: 'No win found, and no move gains anything I can see. Turning the stock over may help.',
@@ -2857,7 +2881,7 @@ const StandardDeck = (() => {
   function save() {
     const store = readStore();
     store.current = game.rules.id;
-    store.games[game.rules.id] = { options: session.options, seed: session.seed, actions: session.actions };
+    store.games[game.rules.id] = { options: session.options, seed: session.seed, actions: session.actions, proved: session.proved };
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch { /* storage is a convenience only */ }
   }
 
@@ -3004,7 +3028,7 @@ const StandardDeck = (() => {
     const saved = readStore().games[target.rules.id];
     if (!saved || !Number.isInteger(saved.seed)) return false;
     try {
-      startGame(target, { ...defaultOptions(target.rules), ...saved.options }, saved.seed, saved.actions);
+      startGame(target, { ...defaultOptions(target.rules), ...saved.options }, saved.seed, saved.actions, false, saved.proved === true);
       return true;
     } catch {
       return false;
@@ -3219,7 +3243,7 @@ const StandardDeck = (() => {
       ...counts.map(s => [s.label, s.value]),
       // an option the status line already reports as a live count (Redeals) is not shown a second time
       ...rules.options.filter(o => (!o.when || o.when(session.options)) && !counts.some(s => s.label === o.label))
-        .map(o => [o.label, o.choices.find(c => c.value === session.options[o.id])?.label ?? '']),
+        .map(o => [o.label, o.id === 'winnable' ? (session.proved ? 'Winnable' : 'Random') : o.choices.find(c => c.value === session.options[o.id])?.label ?? '']),   // Deals says what this deal is, not what is preferred
     ];
     els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))));
     els.undo.disabled = busy || session.actions.length === 0;

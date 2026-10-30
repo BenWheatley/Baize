@@ -1517,6 +1517,21 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     assert(best > klondike.progress(states[0]), `seed ${seed}: following the hints made progress`);
   }
   console.log('hints do not circle');
+
+{
+  // A deal the winnable search proves is proved again by a hint (once, a fresh hint search lost three of nineteen such deals).
+  const options = { draw: 3, winnable: 1 };
+  let proved = 0;
+  for (let seed = 0; seed < 40; seed++) {
+    const state = klondike.setup(options, mulberry32(seed));
+    if (!solve(klondike, options, state, { nodes: 3000 })) continue;
+    proved++;
+    const found = hintLine(klondike, options, state, { nodes: 12000 });
+    assert(found && found.sure, `seed ${seed}: the hint finds the win the deal search found`);
+  }
+  assert(proved >= 5, `enough deals were proved to mean something (${proved})`);
+  console.log(`hints agree with the deal search: ${proved} deals`);
+}
 }
 
 {
