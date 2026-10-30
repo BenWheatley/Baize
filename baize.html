@@ -3863,6 +3863,7 @@ const StandardDeck = (() => {
         `body ${body.width}x${body.height} at ${body.top}  table bottom ${Math.round(table.bottom)}  scroll ${scrollX},${scrollY}`,
         `standalone ${navigator.standalone ?? matchMedia('(display-mode: standalone)').matches}  reduced motion ${reducedMotion()}  relayouts ${diagnostics.relayouts}  snaps ${diagnostics.snaps}`,
         `board ${els.board.clientWidth}x${els.board.clientHeight}  instant ${els.board.classList.contains('instant')}  dpr ${devicePixelRatio}`,
+        `contrast more ${matchMedia('(prefers-contrast: more)').matches}  less ${matchMedia('(prefers-contrast: less)').matches}  forced colours ${matchMedia('(forced-colors: active)').matches}  dark ${matchMedia('(prefers-color-scheme: dark)').matches}  faces ${settings.faces}`,
       ].join('\n');
     };
     show();
