@@ -218,6 +218,45 @@ static int add(const Game *g, int parent, Move m) {
   return 1;
 }
 
+/* ---- for the tests: any position in, and what this program makes of it out (test/engine.test.js compares it
+   with the JavaScript rules). The image is the lengths of the ten columns, the waste and the stock, the eight
+   foundations, then the stock (in dealing order), the columns and the waste, as card bytes. ---- */
+
+u8 image[256];
+static Game loaded;
+
+int image_address(void) { return (int)(long)image; }
+
+void load_position(void) {
+  int n = 0;
+  for (int i = 0; i < COLUMNS; i++) loaded.len[i] = image[n++];
+  loaded.wlen = image[n++]; loaded.slen = image[n++];
+  for (int i = 0; i < HOMES; i++) loaded.home[i] = image[n++];
+  sort_homes(&loaded);
+  for (int j = 0; j < loaded.slen; j++) stock[j] = image[n++];
+  for (int i = 0; i < COLUMNS; i++) for (int j = 0; j < loaded.len[i]; j++) loaded.col[i][j] = image[n++];
+  for (int j = 0; j < loaded.wlen; j++) loaded.waste[j] = image[n++];
+}
+
+/* The moves of the loaded position, as kind and move bytes in `path`; how many. */
+int position_moves(void) {
+  Move list[64];
+  int count = moves_of(&loaded, list);
+  for (int i = 0; i < count; i++) { path[2 * i] = list[i].kind; path[2 * i + 1] = list[i].move; }
+  return count;
+}
+
+/* Plays move i of the loaded position on the loaded position. */
+void position_step(int i) {
+  Move list[64];
+  moves_of(&loaded, list);
+  apply(&loaded, list[i]);
+}
+
+int position_score(void) { return score_of(&loaded); }
+int position_key_high(void) { return (int)(key_of(&loaded) >> 32); }
+int position_key_low(void) { return (int)(key_of(&loaded) & 0xffffffffu); }
+
 int deck_address(void) { return (int)(long)deck; }
 int path_address(void) { return (int)(long)path; }
 int expansions_done(void) { return expansions; }
