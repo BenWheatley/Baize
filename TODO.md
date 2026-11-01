@@ -14,20 +14,19 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 - 5. Cleanup: shared engine helpers and `defineRules` (backed by `test/golden.test.js`), unused CSS removed, one tap helper in the browser tests; the card art has nothing unused
 
 ## Open
-- 4. Daily deal: a seeded deal of the day, the same for everyone, with its own win record
 - 12. Solvers for the games that lack one (each gets `moves`, `key`, `progress` and `canSolve`, `WINNABLE_OPTION` where it can find deals, and a golden/engine test):
-  - Done: Forty Thieves (symmetric position key, 6000 nodes per seed; about one seed in eight solved, so the 20 s search still fails now and then: a pool of seeds found offline would remove that, and would suit Spider too)
+  - Done: Forty Thieves (symmetric position key, 6000 nodes per seed; about one seed in twelve solved; the search goes on to the next seed, so a deal is found in a fraction of a second)
   - Spider with two and four suits: hints work, winnable is offered for one suit only; needs a better heuristic (runs in suit, empty columns, hidden cards) and a measured success rate
   - Done: Yukon (about 60% of seeds solved within 3000 nodes). Klondike, FreeCell, Golf, Pyramid and TriPeaks already offered both
 - 13. WebAssembly: the Forty Thieves search is in `tools/wasm` and embedded in `baize.html` (one file, as decided). Next: the same for two- and four-suit Spider (it needs a better score first), and hints from any position (the C search takes only a fresh deal)
-- 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion, Clock, Accordion; Hanabi (multiplayer, hidden information) much later
+- 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion, Accordion (not Clock: it has no decisions); Hanabi (multiplayer, hidden information) much later
 
 ## Follow-ups
 - Safe cards for Yukon too (the rule is the same); a drop near a foundation for Golf-style games does not apply
 - Accessibility: a card-size setting (the page does not allow pinch zoom); a screen-reader pass with real VoiceOver/NVDA; a keyboard shortcut for the menu
 
 ## Conventions for new games
-- Where a game can be solved (or has no decisions, like Clock), offer a hint (`moves`) and the shared `WINNABLE_OPTION`, and say in the TODO if a solver is not worth building; it defaults to Winnable (`default: 1`), as every game's does.
+- Where a game can be solved, offer a hint (`moves`) and the shared `WINNABLE_OPTION`, and say in the TODO if a solver is not worth building; it defaults to Winnable (`default: 1`), as every game's does.
 
 ## Resolved
 - iPad bottom band: fixed by the black status bar style.
