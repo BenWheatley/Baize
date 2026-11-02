@@ -1653,9 +1653,9 @@ const CardSim = (() => {
     options: [
       { id: 'suits', label: 'Suits', default: 1, choices: [{ value: 1, label: 'One' }, { value: 2, label: 'Two' }, { value: 4, label: 'Four' }] },
       { id: 'gaps', label: 'Deal into gaps', default: 1, choices: [{ value: 1, label: 'Allowed' }, { value: 0, label: 'Not allowed' }] },
-      { ...WINNABLE_OPTION, when: options => options.suits === 1 },
+      { ...WINNABLE_OPTION, when: options => options.suits <= 2 },
     ],
-    canSolve: options => options.suits === 1,
+    canSolve: options => options.suits <= 2,
 
     setup(options, rng) {
       const suits = SUITS.slice(0, options.suits);
@@ -1728,7 +1728,9 @@ const CardSim = (() => {
       return [...best, ...flips, ...others, ...(deal ? [{ type: 'deal' }] : [])];
     },
 
-    /** Finished runs count most; then one-suit links between neighbouring cards, empty columns, and turned-over cards. */
+    /** Finished runs count most; then one-suit links between neighbouring cards, empty columns, turned-over cards and
+        the stock, which buries what it is dealt onto. A smaller card under a bigger one is a cost, since the bigger
+        has to move first. The weights were tuned on two suits (see the README). */
     progress(state) {
       const { piles } = state;
       let score = 0;
@@ -1737,14 +1739,22 @@ const CardSim = (() => {
         const column = piles[id];
         if (!column.length) score += 6;
         column.forEach((entry, i) => {
-          if (!entry.up) score -= 6;
-          else if (i && column[i - 1].up && column[i - 1].card.suit === entry.card.suit && column[i - 1].card.rank === entry.card.rank + 1) score += 4;
+          if (!entry.up) score -= 8;
+          else if (i && column[i - 1].up && column[i - 1].card.suit === entry.card.suit && column[i - 1].card.rank === entry.card.rank + 1) score += 8;
+          else if (i && column[i - 1].up && column[i - 1].card.rank < entry.card.rank) score -= 3;
         });
       }
       return score - piles.stock.length / 10;
     },
 
     isWon: state => allComplete(state, SPIDER_HOME),
+
+    /** The columns are interchangeable, the finished runs only count (per suit), and two cards of one suit and rank are the same card. */
+    key(state) {
+      const text = id => state.piles[id].map(entry => entry.card.suit[0] + entry.card.rank + (entry.up ? '' : '*')).join(',');
+      const runs = SPIDER_HOME.map(id => state.piles[id].length && state.piles[id][0].card.suit[0]).sort();
+      return [`stock:${state.piles.stock.length}`, ...SPIDER_COLUMNS.map(text).sort(), '/', ...runs].join('|');
+    },
 
     status: state => [
       { label: 'Runs', value: `${SPIDER_HOME.filter(id => state.piles[id].length).length} / ${SPIDER_HOME.length}` },

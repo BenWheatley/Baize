@@ -551,11 +551,11 @@ def check_winnable_deals(pg):
     assert last['seed'] != again['seed'] and 'No winnable' not in status(pg), status(pg)
     assert pg.evaluate("""({ seed, options }) => Boolean((f => f?.sure ? f.line : null)(CardSim.search(CardSim.freecell, options,
         CardSim.freecell.setup(options, CardSim.mulberry32(seed)), { nodes: 3000, winOnly: true })))""", last), 'fallback deal can be won'
-    # Spider can only promise winnable deals with one suit, so the setting is not offered otherwise.
+    # Spider can promise winnable deals with one or two suits, so the setting is not offered with four.
     start(pg, 'spider')
     open_settings(pg)
     assert pg.locator('[data-option-group="winnable"]').is_visible()
-    pg.click('button[data-option="suits"][data-value="2"]')
+    pg.click('button[data-option="suits"][data-value="4"]')
     wait_for_deal(pg)
     assert pg.locator('#settings').is_visible(), 'changing an option leaves the panel open, to try another'
     assert not pg.locator('[data-option-group="winnable"]').is_visible()

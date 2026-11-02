@@ -996,7 +996,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   const cases = [
     ['klondike', klondike, { draw: 1 }, 40], ['klondike', klondike, { draw: 3 }, 60], ['freecell', freecell, {}, 20],
     ['golf', golf, { wrap: 1 }, 80], ['golf', golf, { wrap: 0 }, 400], ['pyramid', pyramid, { redeals: 2 }, 30],
-    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10], ['yukon', yukon, {}, 20], ['forty', forty, {}, 80],
+    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10], ['spider', spider, { suits: 2, gaps: 1 }, 40], ['yukon', yukon, {}, 20], ['forty', forty, {}, 80],
   ];
   for (const [name, rules, base, tries] of cases) {
     const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };
@@ -1012,7 +1012,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     assert(session.won, `${name}: the solution wins`);
     same(new Session(rules, options, found.seed, session.actions).state, session.state, `${name}: a saved solution replays`);
   }
-  assert(spider.canSolve({ suits: 1 }) && !spider.canSolve({ suits: 2 }) && !spider.canSolve({ suits: 4 }), 'Spider solves one suit only');
+  assert(spider.canSolve({ suits: 1 }) && spider.canSolve({ suits: 2 }) && !spider.canSolve({ suits: 4 }), 'Spider solves one and two suits, not four');
   {
     // Forty Thieves has two searches, JavaScript and WebAssembly, and each must find real wins.
     assert(typeof CardSim.fast.forty === 'function', 'the WebAssembly search is installed');
@@ -1595,7 +1595,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 {
   // Deals and hints are one search: whatever the deal search proves winnable, a hint proves again from the start
   // (a hint's budget is never smaller), in every game that offers winnable deals.
-  const cases = [[klondike, { draw: 1 }], [klondike, { draw: 3 }], [freecell, {}], [golf, { wrap: 1 }], [pyramid, { redeals: 2 }], [tripeaks, { wrap: 0 }], [yukon, {}], [forty, {}]];
+  const cases = [[klondike, { draw: 1 }], [klondike, { draw: 3 }], [freecell, {}], [golf, { wrap: 1 }], [pyramid, { redeals: 2 }], [tripeaks, { wrap: 0 }], [yukon, {}], [forty, {}], [spider, { suits: 1, gaps: 1 }], [spider, { suits: 2, gaps: 1 }]];
   let proved = 0;
   for (const [rules, base] of cases) {
     const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };

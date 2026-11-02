@@ -16,9 +16,9 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 ## Open
 - 12. Solvers for the games that lack one (each gets `moves`, `key`, `progress` and `canSolve`, `WINNABLE_OPTION` where it can find deals, and a golden/engine test):
   - Done: Forty Thieves (symmetric position key, 6000 nodes per seed; about one seed in twelve solved; the search goes on to the next seed, so a deal is found in a fraction of a second)
-  - Spider with two and four suits: hints work, winnable is offered for one suit only; needs a better heuristic (runs in suit, empty columns, hidden cards) and a measured success rate
+  - Done: Spider with one suit (39 of 40 seeds within 3000 nodes) and two suits (about one in five). Four suits: hints work, Winnable is not offered (no run finished within 3000 nodes); it would need a search of a different order of size, such as the C search of item 13 generalised
   - Done: Yukon (about 60% of seeds solved within 3000 nodes). Klondike, FreeCell, Golf, Pyramid and TriPeaks already offered both
-- 13. WebAssembly: the Forty Thieves search is in `tools/wasm` and embedded in `baize.html` (one file, as decided). Next: the same for two- and four-suit Spider (it needs a better score first), and hints from any position (the C search takes only a fresh deal)
+- 13. WebAssembly: the Forty Thieves search is in `tools/wasm` and embedded in `baize.html` (one file, as decided). Next: the same for two- and four-suit Spider (two suits would be fifty times quicker; four needs a search with millions of positions), and hints from any position (the C search takes only a fresh deal)
 - 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion, Accordion (not Clock: it has no decisions); Hanabi (multiplayer, hidden information) much later
 
 ## Follow-ups
