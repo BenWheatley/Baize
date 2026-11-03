@@ -1,9 +1,14 @@
 #!/bin/sh
-# Builds forty.wasm from forty.c (clang 18 with the wasm32 target and wasm-ld; nothing else is needed).
+# Builds solver.wasm from solver.c (clang 18 with the wasm32 target and wasm-ld; nothing else is needed).
+# MAX_NODES and TABLE_BITS (see core.h) can be given in the environment, for experiments.
 set -e
 cd "$(dirname "$0")"
+EXPORTS="solve solve_tuned nodes_made image_address path_address expansions_done gaps_address tuning_address load_position position_moves position_step position_score position_key_high position_key_low"
+FLAGS=""
+for name in $EXPORTS; do FLAGS="$FLAGS -Wl,--export=$name"; done
+MEMORY=$(( ${MEMORY_MB:-32} * 1048576 ))
 clang --target=wasm32 -O3 -nostdlib -fno-builtin -ffreestanding -Wall -Wextra -Wno-unused-function \
-  -Wl,--no-entry -Wl,--export=solve -Wl,--export=deck_address -Wl,--export=path_address -Wl,--export=expansions_done -Wl,--export=image_address -Wl,--export=load_position -Wl,--export=position_moves -Wl,--export=position_step -Wl,--export=position_score -Wl,--export=position_key_high -Wl,--export=position_key_low \
-  -Wl,--export-memory -Wl,--initial-memory=33554432 -Wl,--max-memory=33554432 -Wl,-z,stack-size=65536 \
-  -o forty.wasm forty.c
-ls -l forty.wasm
+  ${MAX_NODES:+-DMAX_NODES=$MAX_NODES} ${TABLE_BITS:+-DTABLE_BITS=$TABLE_BITS} \
+  -Wl,--no-entry $FLAGS -Wl,--export-memory -Wl,--initial-memory=$MEMORY -Wl,--max-memory=$MEMORY -Wl,-z,stack-size=65536 \
+  -o "${OUT:-solver.wasm}" solver.c
+ls -l "${OUT:-solver.wasm}"

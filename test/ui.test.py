@@ -551,14 +551,15 @@ def check_winnable_deals(pg):
     assert last['seed'] != again['seed'] and 'No winnable' not in status(pg), status(pg)
     assert pg.evaluate("""({ seed, options }) => Boolean((f => f?.sure ? f.line : null)(CardSim.search(CardSim.freecell, options,
         CardSim.freecell.setup(options, CardSim.mulberry32(seed)), { nodes: 3000, winOnly: true })))""", last), 'fallback deal can be won'
-    # Spider can promise winnable deals with one or two suits, so the setting is not offered with four.
+    # Spider promises winnable deals with every number of suits, four with the help of WebAssembly.
     start(pg, 'spider')
     open_settings(pg)
     assert pg.locator('[data-option-group="winnable"]').is_visible()
     pg.click('button[data-option="suits"][data-value="4"]')
-    wait_for_deal(pg)
+    pg.wait_for_function("document.body.innerText.includes('Suits Four') && document.getElementById('busy').hidden && !document.querySelector('[data-dealing]')", timeout=60000)
     assert pg.locator('#settings').is_visible(), 'changing an option leaves the panel open, to try another'
-    assert not pg.locator('[data-option-group="winnable"]').is_visible()
+    assert pg.locator('[data-option-group="winnable"]').is_visible()
+    assert 'Deals Winnable' in status(pg), f'four suits can be searched: {status(pg)}'
     pg.keyboard.press('Escape')
     assert pg.locator('#settings').is_hidden(), 'Escape closes the panel'
     assert pg.evaluate("document.activeElement.id") == 'settings-btn'

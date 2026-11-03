@@ -1012,7 +1012,22 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     assert(session.won, `${name}: the solution wins`);
     same(new Session(rules, options, found.seed, session.actions).state, session.state, `${name}: a saved solution replays`);
   }
-  assert(spider.canSolve({ suits: 1 }) && spider.canSolve({ suits: 2 }) && !spider.canSolve({ suits: 4 }), 'Spider solves one and two suits, not four');
+  assert([1, 2, 4].every(suits => spider.canSolve({ suits })) && spider.fastOnly({ suits: 4 }) && !spider.fastOnly({ suits: 2 }), 'Spider solves every suit count, four only in WebAssembly');
+  {
+    // Four suits: the C search with restarts finds wins; without it the search says so instead of hunting for ever.
+    const options = { suits: 4, gaps: 1, winnable: 1 };
+    let found = null;
+    for (const hunted of seedHunt(spider, options, 100)) { if (hunted) { found = hunted; break; } }
+    assert(found && !found.unavailable, 'a four-suit deal is won within a few seeds');
+    const session = new Session(spider, options, found.seed);
+    for (const action of found.actions) assert(session.apply(action), `four suits: step ${JSON.stringify(action)} is legal`);
+    assert(session.won, 'four suits: the line wins');
+    const saved = CardSim.fast.spider;
+    delete CardSim.fast.spider;
+    assert.strictEqual(seedHunt(spider, options, 100).next().value.unavailable, true, 'without WebAssembly the four-suit hunt gives up');
+    assert(search(spider, { ...options, suits: 4 }, spider.setup(options, mulberry32(1))), 'hints still work without it');
+    CardSim.fast.spider = saved;
+  }
   {
     // Forty Thieves has two searches, JavaScript and WebAssembly, and each must find real wins.
     assert(typeof CardSim.fast.forty === 'function', 'the WebAssembly search is installed');
@@ -1028,9 +1043,17 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
       assert(session.won, `seed ${seed}: and it wins`);
     }
     assert(wins >= 3, `the WebAssembly search finds wins (${wins} of 100)`);
-    const midgame = forty.setup(options, mulberry32(1));
-    midgame.piles.waste.push(midgame.piles.stock.pop());
-    assert.strictEqual(CardSim.fast.forty(forty, midgame, 10), undefined, 'a deal that has been played is left to the JavaScript search');
+    {
+      // A hint can start anywhere: from a few moves into a deal the C search still finds the win (one that exists, since the deal was solved).
+      const seed = [...Array(100).keys()].find(n => wasmLine(n));
+      const line = wasmLine(seed);
+      let at = forty.setup(options, mulberry32(seed));
+      for (const action of line.slice(0, 12)) at = forty.reduce(at, action, options).state;
+      const rest = CardSim.fast.forty(forty, at, 20000, options);
+      assert(Array.isArray(rest), 'from twelve moves in, the C search still finds a win');
+      for (const action of rest) at = forty.reduce(at, action, options).state;
+      assert(forty.isWon(at), 'and it wins');
+    }
     const saved = CardSim.fast.forty;
     delete CardSim.fast.forty;                                       // and without it, the JavaScript search still works
     let found = null;
@@ -1038,75 +1061,85 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
     CardSim.fast.forty = saved;
     assert(found !== null, 'the JavaScript search finds a Forty Thieves win');
     {
-      // The C is a second copy of the Forty Thieves rules, so it is held to the JavaScript ones: on random playouts, at
-      // every position, the same moves in the same order, the score (the C one is eight times the JavaScript one, for
-      // whole numbers), and the same idea of which positions are alike; and every move leads to what the rules say.
+      // The C is a second copy of the Forty Thieves and Spider rules, so it is held to the JavaScript ones: on random
+      // playouts, at every position, the same moves in the same order, the score (the C one is a whole number of times
+      // the JavaScript one), and the same idea of which positions are alike; and every move leads to what the rules say.
       const [, base64] = grab('solver-wasm').match(/wasm:start \*\/ '([^']+)'/);
       const c = new WebAssembly.Instance(new WebAssembly.Module(Buffer.from(base64, 'base64')), {}).exports;
       const SUIT_ORDER = ['spades', 'hearts', 'diamonds', 'clubs'];
       const COLUMNS = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7', 't8', 't9'];
       const HOMES = ['f0', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7'];
       const byte = ({ card }) => SUIT_ORDER.indexOf(card.suit) * 16 + card.rank;
-      const load = ({ piles }) => {
-        const lengths = [...COLUMNS.map(id => piles[id].length), piles.waste.length, piles.stock.length];
-        const homes = HOMES.map(id => (piles[id].length ? byte(piles[id][piles[id].length - 1]) : 0));
-        const cards = [...piles.stock, ...COLUMNS.flatMap(id => piles[id]), ...piles.waste].map(byte);
-        assert(COLUMNS.every(id => piles[id].length <= 24), 'a column fits the C structure');
-        new Uint8Array(c.memory.buffer, c.image_address(), 256).set([...lengths, ...homes, ...cards]);
-        c.load_position();
+      const cKey = game => `${c.position_key_high(game) >>> 0}:${c.position_key_low(game) >>> 0}`;
+      const cMoves = game => {
+        const n = c.position_moves(game);
+        const raw = new Uint8Array(c.memory.buffer, c.path_address(), 3 * n);
+        return Array.from({ length: n }, (_, i) => ({ kind: raw[3 * i], from: raw[3 * i + 1] >> 4, to: raw[3 * i + 1] & 15, extra: raw[3 * i + 2] }));
       };
-      const cKey = () => `${c.position_key_high() >>> 0}:${c.position_key_low() >>> 0}`;
-      const cMoves = () => {
-        const n = c.position_moves();
-        const raw = new Uint8Array(c.memory.buffer, c.path_address(), 2 * n);
-        return Array.from({ length: n }, (_, i) => ({ kind: raw[2 * i], from: raw[2 * i + 1] >> 4, to: raw[2 * i + 1] & 15 }));
+      const games = {
+        forty: {
+          game: 0, rules: forty, scale: 8, options: [{}], seeds: 12, steps: 160,
+          describe: (state, action) => {
+            if (action.type === 'draw') return { kind: 0, from: 0, to: 0, extra: 0 };
+            const home = HOMES.includes(action.to);
+            return { kind: home ? 2 : 1, from: action.from === 'waste' ? 10 : COLUMNS.indexOf(action.from), to: home ? 0 : COLUMNS.indexOf(action.to), extra: 0 };
+          },
+        },
+        spider: {
+          game: 1, rules: spider, scale: 10, options: [{ suits: 1, gaps: 1 }, { suits: 2, gaps: 0 }, { suits: 4, gaps: 1 }], seeds: 6, steps: 260,
+          describe: (state, action) => (action.type === 'deal' ? { kind: 0, from: 0, to: 0, extra: 0 }
+            : { kind: 1, from: COLUMNS.indexOf(action.from), to: COLUMNS.indexOf(action.to), extra: state.piles[action.from].length - action.index }),
+        },
       };
-      const describe = (state, action) => {
-        if (action.type === 'draw') return { kind: 0, from: 0, to: 0 };
-        const home = HOMES.includes(action.to);
-        return { kind: home ? 2 : 1, from: action.from === 'waste' ? 10 : COLUMNS.indexOf(action.from), to: home ? 0 : COLUMNS.indexOf(action.to) };
-      };
-      let positions = 0, steps = 0;
-      for (let seed = 0; seed < 12; seed++) {
-        const rng = mulberry32(1000 + seed);
-        const toC = new Map(), toJs = new Map();
-        const alike = (jsKey, cKeyValue, why) => {
-          assert.strictEqual(toC.get(jsKey) ?? cKeyValue, cKeyValue, `${why}: one JavaScript key, two C keys`);
-          assert.strictEqual(toJs.get(cKeyValue) ?? jsKey, jsKey, `${why}: one C key, two JavaScript keys`);
-          toC.set(jsKey, cKeyValue); toJs.set(cKeyValue, jsKey);
+      for (const [name, { game, rules, scale, options: variants, seeds, steps: length, describe }] of Object.entries(games)) {
+        const image = CardSim.fast[name].image;                 // the page's own way of sending a position
+        let positions = 0, steps = 0;
+        const load = (state, options) => {
+          new Int32Array(c.memory.buffer, c.gaps_address(), 1)[0] = options.gaps ? 1 : 0;
+          new Uint8Array(c.memory.buffer, c.image_address(), 256).set(image(state));
+          c.load_position(game);
         };
-        let state = forty.setup({}, mulberry32(seed));
-        for (let step = 0; step < 160; step++) {
-          const list = forty.moves(state);
-          if (!list.length) break;
-          load(state);
-          const why = `seed ${seed} step ${step}`;
-          same(cMoves(), list.map(action => describe(state, action)), `${why}: moves`);
-          assert.strictEqual(c.position_score(), Math.round(8 * forty.progress(state)), `${why}: score`);
-          alike(forty.key(state), cKey(), `${why}: key`);
-          // the columns are interchangeable: the same position with them reversed has the same names
-          const turned = structuredClone(state);
-          COLUMNS.forEach((id, i) => { turned.piles[id] = state.piles[COLUMNS[9 - i]]; });
-          assert.strictEqual(forty.key(turned), forty.key(state), `${why}: JavaScript key ignores column order`);
-          load(turned);
-          assert.strictEqual(cKey(), toC.get(forty.key(state)), `${why}: C key ignores column order`);
-          list.forEach((action, i) => {
-            load(state);
-            c.position_step(i);
-            const next = forty.reduce(state, action, {}).state;
-            assert(next, `${why}: move ${i} is legal`);
-            assert.strictEqual(c.position_score(), Math.round(8 * forty.progress(next)), `${why}: score after move ${i}`);
-            alike(forty.key(next), cKey(), `${why}: key after move ${i}`);
-            steps++;
-          });
-          const homeMoves = list.filter(action => action.type === 'move' && HOMES.includes(action.to));
-          const pick = homeMoves.length && rng() < 0.5 ? homeMoves[0] : list[Math.floor(rng() * list.length)];
-          state = forty.reduce(state, pick, {}).state;
-          positions++;
+        for (const options of variants) for (let seed = 0; seed < seeds; seed++) {
+          const rng = mulberry32(1000 + seed);
+          const toC = new Map(), toJs = new Map();
+          const alike = (jsKey, cKeyValue, why) => {
+            assert.strictEqual(toC.get(jsKey) ?? cKeyValue, cKeyValue, `${why}: one JavaScript key, two C keys`);
+            assert.strictEqual(toJs.get(cKeyValue) ?? jsKey, jsKey, `${why}: one C key, two JavaScript keys`);
+            toC.set(jsKey, cKeyValue); toJs.set(cKeyValue, jsKey);
+          };
+          let state = rules.setup(options, mulberry32(seed));
+          for (let step = 0; step < length; step++) {
+            const list = rules.moves(state, options);
+            if (!list.length) break;
+            load(state, options);
+            const why = `${name} ${JSON.stringify(options)} seed ${seed} step ${step}`;
+            same(cMoves(game), list.map(action => describe(state, action)), `${why}: moves`);
+            assert.strictEqual(c.position_score(game), Math.round(scale * rules.progress(state)), `${why}: score`);
+            alike(rules.key(state), cKey(game), `${why}: key`);
+            // the columns are interchangeable: the same position with them reversed has the same names
+            const turned = structuredClone(state);
+            COLUMNS.forEach((id, i) => { turned.piles[id] = state.piles[COLUMNS[9 - i]]; });
+            assert.strictEqual(rules.key(turned), rules.key(state), `${why}: JavaScript key ignores column order`);
+            load(turned, options);
+            assert.strictEqual(cKey(game), toC.get(rules.key(state)), `${why}: C key ignores column order`);
+            list.forEach((action, i) => {
+              load(state, options);
+              c.position_step(game, i);
+              const next = rules.reduce(state, action, options).state;
+              assert(next, `${why}: move ${i} is legal`);
+              assert.strictEqual(c.position_score(game), Math.round(scale * rules.progress(next)), `${why}: score after move ${i}`);
+              alike(rules.key(next), cKey(game), `${why}: key after move ${i}`);
+              steps++;
+            });
+            const homeMoves = name === 'forty' ? list.filter(action => action.type === 'move' && HOMES.includes(action.to)) : [];
+            const pick = (homeMoves.length || name === 'spider') && rng() < 0.5 ? (homeMoves[0] ?? list[0]) : list[Math.floor(rng() * list.length)];
+            state = rules.reduce(state, pick, options).state;
+            positions++;
+          }
         }
+        assert(positions > 700 && steps > 2000, `${name}: enough positions compared (${positions}, ${steps})`);
+        console.log(`${name}, C against JavaScript: ${positions} positions, ${steps} moves agree`);
       }
-      assert(positions > 1000 && steps > 2000, `enough positions compared (${positions}, ${steps})`);
-      console.log(`forty thieves, C against JavaScript: ${positions} positions, ${steps} moves agree`);
     }
     console.log(`forty thieves: WebAssembly ${wins} of 100 seeds, JavaScript first win at seed ${found}`);
   }
