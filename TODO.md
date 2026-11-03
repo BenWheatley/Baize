@@ -12,13 +12,10 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 - 6. Accessibility: keyboard play, screen-reader labels and announcements, inert modals, high-contrast faces (our own jumbo deck), prefers-contrast
 - 3. Drag and tap polish: a card let go near its foundation goes home; the Safe cards setting plays safe cards home for Klondike and FreeCell
 - 5. Cleanup: shared engine helpers and `defineRules` (backed by `test/golden.test.js`), unused CSS removed, one tap helper in the browser tests; the card art has nothing unused
+- 12. Solvers for every game that can have one: Forty Thieves, Yukon, and Spider with one, two and four suits (`docs/spider-four-suits.md`); Klondike, FreeCell, Golf, Pyramid and TriPeaks already had them
 
 ## Open
-- 12. Solvers for the games that lack one (each gets `moves`, `key`, `progress` and `canSolve`, `WINNABLE_OPTION` where it can find deals, and a golden/engine test):
-  - Done: Forty Thieves (symmetric position key, 6000 nodes per seed; about one seed in twelve solved; the search goes on to the next seed, so a deal is found in a fraction of a second)
-  - Done: Spider with one suit (39 of 40 seeds within 3000 nodes) and two suits (about one in five). Four suits: hints work, Winnable is not offered (no run finished within 3000 nodes); it would need a search of a different order of size, such as the C search of item 13 generalised
-  - Done: Yukon (about 60% of seeds solved within 3000 nodes). Klondike, FreeCell, Golf, Pyramid and TriPeaks already offered both
-- 13. WebAssembly: the Forty Thieves search is in `tools/wasm` and embedded in `baize.html` (one file, as decided). Next: the same for two- and four-suit Spider (two suits would be fifty times quicker; four needs a search with millions of positions), and hints from any position (the C search takes only a fresh deal)
+- 13. WebAssembly: Forty Thieves and Spider searches are in `tools/wasm` (one core, a rules file per game) and embedded in `baize.html` (one file, as decided); hints from any position use them. Next: the same for more games where the JavaScript search is slow (Klondike, FreeCell) if their Winnable or hint success needs it; dominance rules and a learned score for Spider (see the open questions of the write-up)
 - 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion, Accordion (not Clock: it has no decisions); Hanabi (multiplayer, hidden information) much later
 
 ## Follow-ups
