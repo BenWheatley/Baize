@@ -3059,9 +3059,47 @@ const StandardDeck = (() => {
     }
   }
 
-  /** A game's saved deal, or a new one: found winnable first if that is what the player prefers, like any other new deal. */
+  /** A saved deal that nothing recorded as winnable or not (a game saved before the app kept that record), when Winnable
+      is preferred: look for a win from its start, as a hint would. 'proved' if one is found, 'unproved' if not,
+      'cancelled' if the player stopped it. Found, the deal is marked and the line kept for the hints. */
+  async function checkSaved() {
+    const { rules } = game;
+    const mine = session;
+    const start = rules.setup(mine.options, CardSim.mulberry32(mine.seed));
+    const nodes = Math.max(HINT_NODES, rules.searchNodes);
+    busy = true;
+    busyTimer = setTimeout(() => showBusy('searching', 'Checking this deal',
+      'Looking for a win from the start. Cancel to leave the deal as it is.', 'Cancel'), BUSY_DELAY_MS);
+    let result = 'unproved';
+    try {
+      let found;
+      try { found = (await inWorker({ id: rules.id, options: mine.options, state: start, nodes }))?.found; }
+      catch { found = CardSim.search(rules, mine.options, start, { nodes }); }
+      if (cancelledByUser) result = 'cancelled';
+      else if (found?.sure && session === mine) {
+        result = 'proved';
+        session.proved = true;
+        book.remember(rules, mine.options, start, found);
+        save();
+      }
+    } finally {
+      cancelSearch = null;
+      cancelledByUser = false;
+      hideBusy();
+      busy = false;
+      syncChrome(session.state);
+    }
+    return result;
+  }
+
+  /** A game's saved deal, or a new one: found winnable first if that is what the player prefers, like any other new deal.
+      A saved deal that was never checked is checked once; if it is not winnable and no card has moved, it is replaced. */
   async function open(target) {
-    if (!resume(target)) await redeal(defaultOptions(target.rules), undefined, target);
+    const unrecorded = typeof readStore().games[target.rules.id]?.proved !== 'boolean';
+    if (!resume(target)) { await redeal(defaultOptions(target.rules), undefined, target); return; }
+    if (unrecorded && !session.won && !session.proved && wantsWinnable(game.rules, session.options)) {
+      if (await checkSaved() === 'unproved' && !session.actions.length) await redeal(session.options);
+    }
   }
 
   /* ---------- Geometry ---------- */

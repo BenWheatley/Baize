@@ -1628,21 +1628,30 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 {
   // Deals and hints are one search: whatever the deal search proves winnable, a hint proves again from the start
   // (a hint's budget is never smaller), in every game that offers winnable deals.
-  const cases = [[klondike, { draw: 1 }], [klondike, { draw: 3 }], [freecell, {}], [golf, { wrap: 1 }], [pyramid, { redeals: 2 }], [tripeaks, { wrap: 0 }], [yukon, {}], [forty, {}], [spider, { suits: 1, gaps: 1 }], [spider, { suits: 2, gaps: 1 }]];
+  // every combination of options, of every game that offers Winnable
+  const combinations = rules => rules.options.filter(o => o.id !== 'winnable').reduce(
+    (all, option) => all.flatMap(base => option.choices.map(choice => ({ ...base, [option.id]: choice.value }))), [{}]);
+  const cases = [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks].flatMap(rules => combinations(rules).map(base => [rules, base]));
   let proved = 0;
   for (const [rules, base] of cases) {
-    const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };
+    const options = { ...base, winnable: 1 };
+    const named = `${rules.id} ${JSON.stringify(base)}`;
     let here = 0;
-    for (let seed = 0; seed < 25 && here < 4; seed++) {
+    for (let seed = 0; seed < 150 && here < 2; seed++) {
       const state = rules.setup(options, mulberry32(seed));
-      if (!solve(rules, options, state, { nodes: rules.searchNodes })) continue;
+      const line = solve(rules, options, state, { nodes: rules.searchNodes });
+      if (!line) continue;
       here++;
+      const session = new Session(rules, options, seed);
+      for (const action of line) assert(session.apply(action), `${named} seed ${seed}: the proved line plays`);
+      assert(session.won, `${named} seed ${seed}: the proved line wins`);
       const found = hintLine(rules, options, state, { nodes: Math.max(12000, rules.searchNodes) });
-      assert(found && found.sure, `${rules.id} seed ${seed}: the hint finds the win the deal search found`);
+      assert(found && found.sure, `${named} seed ${seed}: the hint finds the win the deal search found`);
     }
+    assert(here > 0, `${named}: some deal is proved winnable within 150 seeds`);
     proved += here;
   }
-  assert(proved >= 20, `enough deals were proved to mean something (${proved})`);
+  assert(proved >= 30, `enough deals were proved to mean something (${proved})`);
   // and the hunt that finds deals yields one that really wins
   const options = { draw: 1, winnable: 1 };
   const hunt = seedHunt(klondike, options, 0);
