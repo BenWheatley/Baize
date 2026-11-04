@@ -670,6 +670,11 @@ def check_page_cannot_zoom(pg):
     prevented = pg.evaluate("""() => [new WheelEvent('wheel', { ctrlKey: true, cancelable: true, bubbles: true }),
         new Event('gesturestart', { cancelable: true, bubbles: true })].map(e => { document.body.dispatchEvent(e); return e.defaultPrevented; })""")
     assert prevented == [True, True], prevented
+    # on a touch screen nothing on the page can be selected; with a mouse, text can be
+    rule = pg.evaluate("""() => [...document.styleSheets].flatMap(sheet => { try { return [...sheet.cssRules]; } catch { return []; } })
+        .filter(r => r.media && r.media.mediaText.includes('pointer: coarse') && r.cssText.includes('user-select: none')).length""")
+    assert rule == 1, 'a (pointer: coarse) rule turns selection off'
+    assert pg.evaluate("getComputedStyle(document.body).userSelect") != 'none', 'a mouse can still select text'
 
 
 def check_selected_and_highlighted_combine(pg):
