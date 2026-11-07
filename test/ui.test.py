@@ -1296,6 +1296,40 @@ def check_modals_cover_the_window(pg):
         pg.keyboard.press('Escape')
 
 
+def check_popups_fit_the_window(pg):
+    """Nothing that opens over the table may reach past the window, in any style, on a small phone upright or on its side;
+    and the rules can be scrolled to their last line (not 'past the end')."""
+    start(pg, 'freecell')
+    inside = """(sel) => { const e = document.querySelector(sel); if (!e || e.hidden) return null; const r = e.getBoundingClientRect();
+        return [Math.round(r.top), Math.round(r.right), Math.round(r.bottom), Math.round(r.left), innerWidth, innerHeight]; }"""
+    for theme in ('steampunk', 'cyberpunk', 'scifi', 'retro'):
+        pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+        for width, height in ((375, 667), (320, 568), (667, 375), (568, 320)):
+            pg.set_viewport_size({'width': width, 'height': height})
+            pg.wait_for_timeout(250)
+            for name, opener, selector in (('rules', ('#settings-btn', '#rules-btn'), '#rules'), ('statistics', ('#settings-btn', '#stats-btn'), '#stats .plaque'), ('menu', ('#settings-btn',), '#settings')):
+                for button in opener:
+                    pg.click(button)
+                    pg.wait_for_timeout(250)
+                top, right, bottom, left, w, h = pg.evaluate(inside, selector)
+                assert top >= 0 and left >= 0 and right <= w and bottom <= h, f'{theme} {width}x{height}: {name} fits the window {[top, right, bottom, left, w, h]}'
+                if name == 'rules':
+                    pg.evaluate("document.querySelector('.rules-scroll').scrollTop = 1e6")
+                    last = pg.evaluate("""() => { const s = document.querySelector('.rules-scroll').getBoundingClientRect(), c = document.querySelector('.rules .credit').getBoundingClientRect();
+                        return [Math.round(c.bottom), Math.round(s.bottom), innerHeight]; }""")
+                    assert last[0] <= last[1] + 1 and last[1] <= last[2], f'{theme} {width}x{height}: the last line of the rules can be reached {last}'
+                pg.keyboard.press('Escape')
+                pg.wait_for_timeout(150)
+                pg.keyboard.press('Escape')
+            pg.keyboard.press('h')                                   # the hint's message is a popup too
+            pg.wait_for_selector('#toast:not([hidden])', timeout=30000)
+            top, right, bottom, left, w, h = pg.evaluate(inside, '#toast')
+            assert top >= 0 and left >= 0 and right <= w and bottom <= h, f'{theme} {width}x{height}: the hint message fits the window {[top, right, bottom, left, w, h]}'
+            pg.keyboard.press('Escape')
+    pg.evaluate("document.documentElement.dataset.theme = 'steampunk'")
+    pg.set_viewport_size({'width': 1000, 'height': 800})
+
+
 def check_drop_near_foundation_goes_home(pg):
     """Seed 1 of FreeCell shows three aces. One let go close to the foundations goes there; one let go far away does not."""
     start(pg, 'freecell')
@@ -1463,7 +1497,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_drop_near_foundation_goes_home, check_safe_cards_play_themselves, check_forty_winnable_is_quick, check_deal_label_is_the_truth, check_saved_deal_without_a_record_is_checked, check_first_deal_honours_winnable, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_popups_fit_the_window, check_drop_near_foundation_goes_home, check_safe_cards_play_themselves, check_forty_winnable_is_quick, check_deal_label_is_the_truth, check_saved_deal_without_a_record_is_checked, check_first_deal_honours_winnable, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]

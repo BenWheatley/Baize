@@ -341,12 +341,13 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
   box-shadow: 0 0 0 1px var(--card-edge), 0 18px 44px rgba(0, 0, 0, 0.35);
   transform-origin: 24px -8px;
   animation: rules-in 0.18s ease-out;
+  display: flex; flex-direction: column;   /* the title stays, the text scrolls in what is left of the window (fitRules sets max-height) */
 }
 /* The text scrolls inside the frame, so the frame never scrolls away from it. */
 .rules > h2 { margin: 0; padding: 30px 32px 8px; }
 .rules-scroll {
   box-sizing: border-box; margin: 0 8px 8px; padding: 0 24px 14px;
-  max-height: min(75vh, 34rem); overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
+  flex: 1 1 auto; min-height: 0; max-height: 34rem; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
 }
 .rules::before {
   content: ""; position: absolute; inset: 7px;
@@ -395,7 +396,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 .icon-close .icon { width: 18px; height: 18px; }
 .card.suggest-to, .slot.suggest-to { outline: 3px dashed var(--suggest); outline-offset: 3px; }
 .toast {
-  position: absolute; z-index: 190000; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: 90%; box-sizing: border-box;
+  position: fixed; z-index: 190000; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: 90%; box-sizing: border-box;
   padding: 8px 12px 8px 16px; border-radius: 9px; text-align: left; font-size: 14px;
   display: flex; align-items: center; gap: 10px;
   color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
@@ -2973,6 +2974,13 @@ const StandardDeck = (() => {
   }
   window.addEventListener('resize', () => { if (!els.settings.hidden) placeMenu(); });
 
+  /** The rules hang under the header and must end inside the window, so the card takes the room that is left and its text scrolls in it. */
+  function fitRules() {
+    const top = els.rules.offsetParent.getBoundingClientRect().top + els.rules.offsetTop;      // its place, not where its opening animation has got to
+    els.rules.style.maxHeight = `${Math.max(160, window.innerHeight - top - 8)}px`;
+  }
+  window.addEventListener('resize', () => { if (!els.rules.hidden) fitRules(); });
+
   /** The preferences, each a row of buttons; choosing one applies and keeps it at once. */
   function buildSettings() {
     const rows = CardSim.SETTINGS.filter(setting => !setting.needs || game.rules[setting.needs]).map(setting => h('div', { class: 'seg', role: 'group', 'aria-label': setting.label, 'data-setting-group': setting.id },
@@ -3008,7 +3016,7 @@ const StandardDeck = (() => {
      runs or the Cleared panel is up. All of it goes through showPanel and closePanel. */
 
   const PANELS = {
-    rules: { el: els.rules, show: () => { els.rules.hidden = false; els.rulesClose.focus(); }, hide: () => { els.rules.hidden = true; } },
+    rules: { el: els.rules, show: () => { els.rules.hidden = false; fitRules(); els.rulesClose.focus(); }, hide: () => { els.rules.hidden = true; } },
     stats: { el: els.stats, show: showStats, hide: () => { els.stats.hidden = true; clearTimeout(resetTimer); } },
     settings: { el: els.settings, show: showSettings, hide: () => { els.settings.hidePopover?.(); els.settings.hidden = true; els.settingsBtn.setAttribute('aria-expanded', 'false'); } },
   };
