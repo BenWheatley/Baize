@@ -55,7 +55,7 @@
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 * { scrollbar-color: var(--scroll-thumb) var(--scroll-track); scrollbar-width: thin; }
 .rules { --scroll-track: #ece3cb; }
-.plaque { --scroll-thumb: var(--brass-lo); --scroll-track: rgba(111, 82, 24, 0.28); }
+.window { --scroll-thumb: var(--brass-lo); --scroll-track: rgba(111, 82, 24, 0.28); }
 
 /* The page itself never scrolls or zooms: the table is sized to fit the screen. Only the rules card scrolls. */
 html {
@@ -136,7 +136,7 @@ button:active:not(:disabled) {
 }
 button:disabled { opacity: 0.45; cursor: default; box-shadow: 0 0 0 1.5px var(--brass-lo), 0 0 0 2.5px #3a2a0a, inset 0 -2px 3px rgba(80, 55, 15, 0.28); }
 button:focus-visible, #game:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 4px; }
-button.primary {
+button.default {
   color: var(--cream); text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
   background: linear-gradient(180deg, #a63849, #6b1927);
   box-shadow:
@@ -144,7 +144,7 @@ button.primary {
     0 3px 5px 2px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 190, 190, 0.45), inset 0 -2px 3px rgba(0, 0, 0, 0.4);
 }
-button.primary:hover:not(:disabled) {
+button.default:hover:not(:disabled) {
   background: linear-gradient(180deg, #c64a5b, #8a2638);
   box-shadow:
     0 0 0 1.5px var(--brass-hi), 0 0 0 2.5px var(--brass),
@@ -182,11 +182,11 @@ button[aria-pressed="true"].toggle {
 }
 .seg button[aria-pressed="true"]:hover:not(:disabled) { background: linear-gradient(180deg, #fbe9a8, #d8b150); }   /* the chosen one brightens, never darkens */
 
-.status {
+.status-bar {
   display: flex; flex-wrap: wrap; gap: 2px 20px; margin: 2px 4px 0; color: var(--cream);
   font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8), 0 0 5px rgba(0, 0, 0, 0.55);
 }
-.status b { color: #fff; font-weight: 600; }
+.status-bar-field b { color: #fff; font-weight: 600; }
 
 /* Table: green felt let into a walnut rail with a brass inlay */
 .rail {
@@ -286,7 +286,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 
 /* Panels (Statistics and Cleared, Settings, the search dialogue): a brass plaque, screwed down; the modal ones on a darkened page (fixed to the window, not the table, so a small screen is not squeezed by the table) */
 .modal { position: fixed; inset: 0; z-index: 200000; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; background: rgba(10, 6, 3, 0.62); }   /* above dragged cards (DRAG_Z) */
-.plaque {
+.window {
   position: relative; padding: 18px 22px 16px; max-width: min(24rem, 90%); border-radius: 10px; text-align: left;
   color: var(--enamel-ink); text-shadow: 0 1px 0 rgba(255, 245, 200, 0.65);
   background:
@@ -297,26 +297,27 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
     linear-gradient(160deg, #f1d98e 0%, #c9a24a 45%, #e2c57a 70%, #b48c36 100%);
   box-shadow: 0 0 0 2px var(--brass-lo), 0 0 0 3px #0d0703, inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 4px rgba(111, 82, 24, 0.6), 0 20px 40px rgba(0, 0, 0, 0.6);
 }
-.plaque h2 { margin: 0 34px 10px 0; font: 700 24px/1.1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
-.plaque > .icon-close { position: absolute; top: 14px; right: 16px; }
-.plaque p { margin: 0 0 14px; }
-#busy .plaque { text-align: center; }
+.title-bar { display: contents; }   /* the title and the × are the window's own children, except in Retro, which draws a bar */
+.window h2 { margin: 0 34px 10px 0; font: 700 24px/1.1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; }
+.window .title-bar-controls { position: absolute; top: 14px; right: 16px; }
+.window p { margin: 0 0 14px; }
+#busy .window { text-align: center; }
 #busy h2 { margin-right: 0; }
 .spinner {
   width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 50%;
   border: 5px solid rgba(111, 82, 24, 0.35); border-top-color: #4a1220;
   animation: spin 0.9s linear infinite;
 }
-#stats .plaque { max-width: min(34rem, 94%); }
+#stats .window { max-width: min(34rem, 94%); }
 /* A panel's title and its × stay put; what is under them scrolls, so the × is never out of reach on a short screen. */
-.settings, #stats .plaque { display: flex; flex-direction: column; }
-#stats .plaque { max-height: calc(100% - 24px); box-sizing: border-box; overflow: hidden; }
+.settings, #stats .window { display: flex; flex-direction: column; }
+#stats .window { max-height: calc(100% - 24px); box-sizing: border-box; overflow: hidden; }
 /* The side padding belongs to the title and to the body, not the plaque: the scrollbar then sits at the panel's edge, not inset in the padding. */
-.settings, #stats .plaque { --pad-x: 22px; padding-inline: 0; }
-.settings h2, #stats .plaque h2 { margin-left: var(--pad-x); margin-right: calc(var(--pad-x) + 34px); }
-.settings > .icon-close, #stats .plaque > .icon-close { right: calc(var(--pad-x) - 6px); }
-.plaque-body { min-height: 0; padding-inline: var(--pad-x); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
-#stats .plaque-buttons { flex: none; padding-inline: var(--pad-x); }
+.settings, #stats .window { --pad-x: 22px; padding-inline: 0; }
+.settings h2, #stats .window h2 { margin-left: var(--pad-x); margin-right: calc(var(--pad-x) + 34px); }
+.settings .title-bar-controls, #stats .window .title-bar-controls { right: calc(var(--pad-x) - 6px); }
+.window-body { min-height: 0; padding-inline: var(--pad-x); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+#stats .field-row { flex: none; padding-inline: var(--pad-x); }
 #stats[data-mode="stats"] #win-new, #stats[data-mode="won"] #stats-reset, #stats[data-mode="stats"] #stats-result { display: none; }
 .stats-table { border-collapse: collapse; margin: 0 auto 16px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .stats-table th { padding: 2px 8px 5px; font: 600 10.5px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; text-align: right; border-bottom: 1px solid rgba(74, 18, 32, 0.45); }
@@ -325,9 +326,9 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 .stats-table th[scope="row"] { font: inherit; letter-spacing: 0; text-transform: none; border: 0; padding: 3px 8px; text-align: left; }
 .stats-table tr.current th[scope="row"] { font-weight: 700; }
 .stats-table tr.current td { font-weight: 700; }
-@media (max-width: 420px) { #stats .plaque { --pad-x: 12px; } .stats-table { font-size: 13px; } .stats-table th, .stats-table td, .stats-table th[scope="row"] { padding-inline: 4px; } }
+@media (max-width: 420px) { #stats .window { --pad-x: 12px; } .stats-table { font-size: 13px; } .stats-table th, .stats-table td, .stats-table th[scope="row"] { padding-inline: 4px; } }
 @media (max-width: 340px) { .stats-table { font-size: 12px; } .stats-table th { font-size: 9px; letter-spacing: 0; } .stats-table th, .stats-table td, .stats-table th[scope="row"] { padding-inline: 2px; } }
-.plaque-buttons { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
+.field-row { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Rules card: a popover styled as an ivory playing card with a brass inner frame. */
@@ -344,7 +345,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
   display: flex; flex-direction: column;   /* the title stays, the text scrolls in what is left of the window (fitRules sets max-height) */
 }
 /* The text scrolls inside the frame, so the frame never scrolls away from it. */
-.rules > h2 { margin: 0; padding: 30px 32px 8px; }
+.rules h2 { margin: 0; padding: 30px 32px 8px; }
 .rules-scroll {
   box-sizing: border-box; margin: 0 8px 8px; padding: 0 24px 14px;
   flex: 1 1 auto; min-height: 0; max-height: 34rem; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
@@ -357,7 +358,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 .rules-index { position: absolute; display: grid; justify-items: center; font: 700 15px/1 var(--font-display); }
 .rules-index.top { top: 14px; left: 15px; }
 .rules-index.bottom { bottom: 14px; right: 15px; transform: rotate(180deg); }
-.rules > .icon-close { position: absolute; top: 12px; right: 14px; }
+.rules .title-bar-controls { position: absolute; top: 12px; right: 14px; }
 .rules h2 { font: 700 28px/1.1 var(--font-display); text-align: center; text-wrap: balance; }
 .rules h3 { margin: 16px 0 6px; font: 600 11px var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
 .rules p, .rules li { margin: 0; font-size: 14px; line-height: 1.5; }
@@ -388,12 +389,12 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
   0%, 100% { box-shadow: 0 0 0 3px var(--suggest), 0 0 8px 2px rgba(127, 220, 255, 0.5), 0 5px 9px rgba(0, 0, 0, 0.4); }
   50% { box-shadow: 0 0 0 3px var(--suggest), 0 0 20px 7px rgba(127, 220, 255, 0.85), 0 5px 9px rgba(0, 0, 0, 0.4); }
 }
-.icon-close {
+.title-bar-controls button {
   flex: none; margin: 0; padding: 0; width: 26px; height: 26px; min-height: 0; display: grid; place-items: center; border-radius: 50%;
   box-shadow: none; text-shadow: none; background: transparent; color: var(--enamel-ink); border: 1px solid rgba(42, 29, 16, 0.45);
 }
-.icon-close:hover:not(:disabled) { background: rgba(255, 245, 200, 0.45); }
-.icon-close .icon { width: 18px; height: 18px; }
+.title-bar-controls button:hover:not(:disabled) { background: rgba(255, 245, 200, 0.45); }
+.title-bar-controls button .icon { width: 18px; height: 18px; }
 .card.suggest-to, .slot.suggest-to { outline: 3px dashed var(--suggest); outline-offset: 3px; }
 .toast {
   position: fixed; z-index: 190000; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: 90%; box-sizing: border-box;
@@ -412,8 +413,8 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 }
 /* Narrower screens: header buttons keep only their icons (the words stay for screen readers and in the tooltip), New deal last of all. */
 @media (max-width: 780px) {
-  .controls button:not(.primary) .label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .controls button:not(.primary) > .icon { margin: 0; }
+  .controls button:not(.default) .label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .controls button:not(.default) > .icon { margin: 0; }
 }
 @media (max-width: 560px) { .settings .seg button[data-swatch] .label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
 /* Too narrow for everything on one row (about 560 px with New deal's word on it): the title plate takes a row of its own, game name on its right. */
@@ -421,8 +422,8 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
   h1 { flex: 1 0 100%; flex-direction: row; align-items: baseline; justify-content: space-between; box-sizing: border-box; }
 }
 @media (max-width: 380px) {
-  .controls .primary .label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .controls .primary > .icon { margin: 0; }
+  .controls .default .label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .controls .default > .icon { margin: 0; }
 }
 /* Short screens (a phone on its side): every pixel of height goes to the table. */
 @media (max-height: 500px) {
@@ -431,12 +432,12 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
   h1 { font-size: 22px; padding: 3px 11px 4px; }
   .rail { padding: 7px; border-radius: 14px; }
   .table { padding: 4px; }
-  .status { margin-top: 0; font-size: 13px; line-height: 1.2; }
+  .status-bar { margin-top: 0; font-size: 13px; line-height: 1.2; }
 }
 /* Fingers need bigger targets than a mouse. */
 @media (pointer: coarse) {
   button, #game { min-height: 44px; touch-action: manipulation; }
-  .icon-close { width: 36px; height: 36px; }
+  .title-bar-controls button { width: 36px; height: 36px; }
   .icon-btn { min-width: 44px; }
 }
 @media (max-width: 520px) {
@@ -505,18 +506,18 @@ html[data-theme="cyberpunk"] button:hover:not(:disabled), html[data-theme="cyber
 }
 html[data-theme="cyberpunk"] button:active:not(:disabled) { box-shadow: 0 0 0 1px var(--neon-c), inset 0 0 14px rgba(61, 245, 255, 0.5); }
 html[data-theme="cyberpunk"] button:disabled { box-shadow: 0 0 0 1px #1d5a61; color: #3a8e98; text-shadow: none; }
-html[data-theme="cyberpunk"] button.primary {
+html[data-theme="cyberpunk"] button.default {
   color: #fff; background: #3a0a24; text-shadow: 0 0 6px rgba(255, 46, 151, 0.9);
   box-shadow: 0 0 0 1px var(--neon-m), 0 0 12px rgba(255, 46, 151, 0.6), inset 0 0 10px rgba(255, 46, 151, 0.35);
 }
-html[data-theme="cyberpunk"] button.primary:hover:not(:disabled) { background: #6b1342; box-shadow: 0 0 0 1px #ff8cc6, 0 0 20px 3px rgba(255, 46, 151, 0.8), inset 0 0 12px rgba(255, 46, 151, 0.5); }
+html[data-theme="cyberpunk"] button.default:hover:not(:disabled) { background: #6b1342; box-shadow: 0 0 0 1px #ff8cc6, 0 0 20px 3px rgba(255, 46, 151, 0.8), inset 0 0 12px rgba(255, 46, 151, 0.5); }
 html[data-theme="cyberpunk"] button[aria-pressed="true"].toggle { color: #000; background: var(--neon-y); text-shadow: none; box-shadow: 0 0 0 1px var(--neon-y), 0 0 16px 2px rgba(252, 238, 10, 0.6); }
 html[data-theme="cyberpunk"] .seg { background: #05040c; border-radius: 2px; box-shadow: 0 0 0 1px var(--neon-m), 0 0 8px rgba(255, 46, 151, 0.4); }
 html[data-theme="cyberpunk"] .seg-label { text-shadow: none; color: var(--neon-m); }
 html[data-theme="cyberpunk"] .seg button { letter-spacing: 0; font-size: 12px; border-radius: 2px; text-shadow: none; box-shadow: none; background: transparent; color: var(--cream-dim); }
 html[data-theme="cyberpunk"] .seg button:hover:not(:disabled) { background: rgba(61, 245, 255, 0.18); color: #fff; box-shadow: none; }
 html[data-theme="cyberpunk"] .seg button[aria-pressed="true"], html[data-theme="cyberpunk"] .seg button[aria-pressed="true"]:hover:not(:disabled) { color: #001417; text-shadow: none; background: var(--neon-c); box-shadow: 0 0 10px rgba(61, 245, 255, 0.7); }
-html[data-theme="cyberpunk"] .status { text-shadow: none; }
+html[data-theme="cyberpunk"] .status-bar { text-shadow: none; }
 html[data-theme="cyberpunk"] .rail {
   padding: 12px; border-radius: 4px; background: linear-gradient(180deg, #17142e, #0b0a1a);
   box-shadow: 0 0 0 1px var(--neon-m), 0 0 18px rgba(255, 46, 151, 0.45), inset 0 0 18px rgba(255, 46, 151, 0.18);
@@ -524,13 +525,13 @@ html[data-theme="cyberpunk"] .rail {
 html[data-theme="cyberpunk"] .table { border-radius: 2px; box-shadow: 0 0 0 1px var(--neon-c), 0 0 10px rgba(61, 245, 255, 0.5), inset 0 0 50px rgba(0, 0, 0, 0.6); }
 html[data-theme="cyberpunk"] .slot { border-color: rgba(61, 245, 255, 0.4); box-shadow: inset 0 0 8px rgba(61, 245, 255, 0.18); color: rgba(61, 245, 255, 0.5); text-shadow: 0 0 6px rgba(61, 245, 255, 0.6); border-radius: 3px; }
 html[data-theme="cyberpunk"] .modal { background: rgba(3, 2, 10, 0.72); }
-html[data-theme="cyberpunk"] .plaque, html[data-theme="cyberpunk"] .update, html[data-theme="cyberpunk"] .toast {
+html[data-theme="cyberpunk"] .window, html[data-theme="cyberpunk"] .update, html[data-theme="cyberpunk"] .toast {
   color: var(--neon-c); text-shadow: 0 0 6px rgba(61, 245, 255, 0.5); border-radius: 3px; background: #0b0a1a;
   box-shadow: 0 0 0 1px var(--neon-m), 0 0 22px rgba(255, 46, 151, 0.5), inset 0 0 22px rgba(255, 46, 151, 0.15);
 }
-html[data-theme="cyberpunk"] .plaque h2, html[data-theme="cyberpunk"] .panel-heading { color: var(--neon-m); text-shadow: 0 0 8px rgba(255, 46, 151, 0.7); }
-html[data-theme="cyberpunk"] .icon-close { border-color: var(--neon-c); border-radius: 2px; color: var(--neon-c); }
-html[data-theme="cyberpunk"] .icon-close:hover:not(:disabled) { background: rgba(61, 245, 255, 0.25); }
+html[data-theme="cyberpunk"] .window h2, html[data-theme="cyberpunk"] .panel-heading { color: var(--neon-m); text-shadow: 0 0 8px rgba(255, 46, 151, 0.7); }
+html[data-theme="cyberpunk"] .title-bar-controls button { border-color: var(--neon-c); border-radius: 2px; color: var(--neon-c); }
+html[data-theme="cyberpunk"] .title-bar-controls button:hover:not(:disabled) { background: rgba(61, 245, 255, 0.25); }
 html[data-theme="cyberpunk"] .stats-table th { border-bottom-color: var(--neon-m); }
 html[data-theme="cyberpunk"] .spinner { border-color: rgba(255, 46, 151, 0.3); border-top-color: var(--neon-m); }
 
@@ -555,28 +556,28 @@ html[data-theme="scifi"] button:hover:not(:disabled), html[data-theme="scifi"] #
 html[data-theme="scifi"] button:active:not(:disabled) { background: #e08658; box-shadow: none; }
 html[data-theme="scifi"] button:disabled { background: #6e4a38; color: #1a0f0a; box-shadow: none; opacity: 0.8; }
 html[data-theme="scifi"] button:focus-visible, html[data-theme="scifi"] #game:focus-visible { outline-color: #fff; }
-html[data-theme="scifi"] button.primary { color: #000; text-shadow: none; background: var(--lc-red); box-shadow: none; }
-html[data-theme="scifi"] button.primary:hover:not(:disabled) { background: #e08080; box-shadow: none; }
+html[data-theme="scifi"] button.default { color: #000; text-shadow: none; background: var(--lc-red); box-shadow: none; }
+html[data-theme="scifi"] button.default:hover:not(:disabled) { background: #e08080; box-shadow: none; }
 html[data-theme="scifi"] button[aria-pressed="true"].toggle { background: var(--lc-gold); box-shadow: none; color: #000; }
 html[data-theme="scifi"] .seg { background: #000; border-radius: 22px; box-shadow: 0 0 0 2px var(--lc-violet); padding: 3px; }
 html[data-theme="scifi"] .seg-label { color: var(--lc-violet); text-shadow: none; }
 html[data-theme="scifi"] .seg button { letter-spacing: 0.02em; font-size: 12px; padding-inline: 8px; border-radius: 18px; text-shadow: none; color: var(--lc-blue); background: transparent; box-shadow: none; }
 html[data-theme="scifi"] .seg button:hover:not(:disabled) { background: rgba(153, 153, 255, 0.25); color: #fff; box-shadow: none; }
 html[data-theme="scifi"] .seg button[aria-pressed="true"], html[data-theme="scifi"] .seg button[aria-pressed="true"]:hover:not(:disabled) { color: #000; text-shadow: none; background: var(--lc-blue); box-shadow: none; }
-html[data-theme="scifi"] .status { text-shadow: none; text-transform: uppercase; letter-spacing: 0.06em; color: var(--lc-blue); }
-html[data-theme="scifi"] .status b { color: var(--lc-peach); }
+html[data-theme="scifi"] .status-bar { text-shadow: none; text-transform: uppercase; letter-spacing: 0.06em; color: var(--lc-blue); }
+html[data-theme="scifi"] .status-bar-field b { color: var(--lc-peach); }
 html[data-theme="scifi"] .rail { padding: 14px; border-radius: 40px 10px 40px 10px; background: var(--lc-orange); box-shadow: none; }
 html[data-theme="scifi"] .table { border-radius: 26px 4px 26px 4px; box-shadow: 0 0 0 3px #000; }
 html[data-theme="scifi"] .slot { border-color: rgba(153, 153, 255, 0.55); box-shadow: none; color: rgba(153, 153, 255, 0.6); text-shadow: none; }
 html[data-theme="scifi"] .modal { background: rgba(0, 0, 0, 0.7); }
-html[data-theme="scifi"] .plaque, html[data-theme="scifi"] .update, html[data-theme="scifi"] .toast {
+html[data-theme="scifi"] .window, html[data-theme="scifi"] .update, html[data-theme="scifi"] .toast {
   color: var(--lc-peach); text-shadow: none; background: #000; border-radius: 28px 8px 28px 8px;
   box-shadow: 0 0 0 4px var(--lc-blue), 0 20px 40px rgba(0, 0, 0, 0.6);
 }
-html[data-theme="scifi"] .plaque h2, html[data-theme="scifi"] .panel-heading { color: var(--lc-orange); }
+html[data-theme="scifi"] .window h2, html[data-theme="scifi"] .panel-heading { color: var(--lc-orange); }
 html[data-theme="scifi"] .stats-table th { border-bottom-color: var(--lc-violet); }
-html[data-theme="scifi"] .icon-close { color: #000; background: var(--lc-orange); border: 0; }
-html[data-theme="scifi"] .icon-close:hover:not(:disabled) { background: #ffb88f; }
+html[data-theme="scifi"] .title-bar-controls button { color: #000; background: var(--lc-orange); border: 0; }
+html[data-theme="scifi"] .title-bar-controls button:hover:not(:disabled) { background: #ffb88f; }
 html[data-theme="scifi"] .spinner { border-color: rgba(153, 153, 255, 0.3); border-top-color: var(--lc-orange); }
 
 /* ---- Retro: a 1990s desktop: teal background, grey bevelled windows, navy title bars ---- */
@@ -607,8 +608,8 @@ html[data-theme="retro"] button:active:not(:disabled) { transform: none; box-sha
 html[data-theme="retro"] button:active:not(:disabled) > .icon, html[data-theme="retro"] button:active:not(:disabled) > .label { transform: translate(1px, 1px); }   /* the face moves, the button does not change size */
 html[data-theme="retro"] button:disabled { opacity: 1; color: #808080; text-shadow: 1px 1px #fff; box-shadow: var(--bevel-out); }
 html[data-theme="retro"] button:focus-visible, html[data-theme="retro"] #game:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }
-html[data-theme="retro"] button.primary { color: #800000; font-weight: 700; text-shadow: none; background: #c0c0c0; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
-html[data-theme="retro"] button.primary:hover:not(:disabled) { background: #c8c8c8; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
+html[data-theme="retro"] button.default { color: #800000; font-weight: 700; text-shadow: none; background: #c0c0c0; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
+html[data-theme="retro"] button.default:hover:not(:disabled) { background: #c8c8c8; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
 html[data-theme="retro"] button[aria-pressed="true"].toggle { background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px; box-shadow: var(--bevel-in); }
 html[data-theme="retro"] .seg { background: #c0c0c0; border-radius: 0; box-shadow: var(--bevel-in); padding: 3px; }
 html[data-theme="retro"] .seg-label { color: #000; text-shadow: none; letter-spacing: 0; text-transform: none; font-size: 12px; }
@@ -617,25 +618,26 @@ html[data-theme="retro"] .seg button:hover:not(:disabled) { background: #cfcfcf;
 html[data-theme="retro"] .seg button[aria-pressed="true"], html[data-theme="retro"] .seg button[aria-pressed="true"]:hover:not(:disabled) {
   color: #fff; text-shadow: none; background: #000080; box-shadow: var(--bevel-in);
 }
-html[data-theme="retro"] .status { text-shadow: none; color: #fff; }
-html[data-theme="retro"] .status b { color: #fff; font-weight: 700; }
+html[data-theme="retro"] .status-bar { text-shadow: none; color: #fff; }
+html[data-theme="retro"] .status-bar-field b { color: #fff; font-weight: 700; }
 html[data-theme="retro"] .rail { padding: 6px; border-radius: 0; background: #c0c0c0; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
 html[data-theme="retro"] .table { border-radius: 0; padding: 12px; box-shadow: var(--bevel-in); background: radial-gradient(120% 90% at 50% 12%, var(--felt), var(--felt-deep)); }
 html[data-theme="retro"] .slot { border: 1px solid rgba(0, 0, 0, 0.4); border-radius: 2px; box-shadow: none; color: rgba(255, 255, 255, 0.35); text-shadow: none; font-family: var(--font-display); }
 html[data-theme="retro"] .modal { background: rgba(0, 0, 0, 0.45); }
-html[data-theme="retro"] .plaque, html[data-theme="retro"] .update, html[data-theme="retro"] .toast {
+html[data-theme="retro"] .window, html[data-theme="retro"] .update, html[data-theme="retro"] .toast {
   color: #000; text-shadow: none; border-radius: 0; background: #c0c0c0; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out), 4px 4px 0 1px rgba(0, 0, 0, 0.45);
 }
-html[data-theme="retro"] .plaque { padding: 0 14px 14px; }
-html[data-theme="retro"] .settings, html[data-theme="retro"] #stats .plaque { --pad-x: 14px; padding: 0 0 14px; }
-html[data-theme="retro"] .plaque h2 {
+html[data-theme="retro"] .window { padding: 0 14px 14px; }
+html[data-theme="retro"] .settings, html[data-theme="retro"] #stats .window { --pad-x: 14px; padding: 0 0 14px; }
+html[data-theme="retro"] .window h2 {
   margin: 0 -14px 14px; padding: 3px 30px 3px 6px; font: 700 14px/18px var(--font-display); letter-spacing: 0; text-transform: none; color: #fff; background: var(--title-bar);
 }
-html[data-theme="retro"] .settings h2, html[data-theme="retro"] #stats .plaque h2 { margin: 0 0 14px; }
-html[data-theme="retro"] .plaque > .icon-close { top: 3px; right: 3px; width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] .plaque > .icon-close .icon { width: 12px; height: 12px; }
-html[data-theme="retro"] .plaque > .icon-close:active { box-shadow: var(--bevel-in); }
-html[data-theme="retro"] .icon-close:hover:not(:disabled) { background: #cfcfcf; }
+html[data-theme="retro"] .settings h2, html[data-theme="retro"] #stats .window h2 { margin: 0 0 14px; }
+html[data-theme="retro"] .window .title-bar-controls { top: 3px; right: 3px; }
+html[data-theme="retro"] .window .title-bar-controls button { width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); }
+html[data-theme="retro"] .window .title-bar-controls button .icon { width: 12px; height: 12px; }
+html[data-theme="retro"] .window .title-bar-controls button:active { box-shadow: var(--bevel-in); }
+html[data-theme="retro"] .title-bar-controls button:hover:not(:disabled) { background: #cfcfcf; }
 html[data-theme="retro"] .panel-heading { letter-spacing: 0; text-transform: none; font-size: 13px; }
 html[data-theme="retro"] .stats-table th { letter-spacing: 0; text-transform: none; border-bottom-color: #808080; }
 html[data-theme="retro"] .spinner { border-color: #808080; border-top-color: #000080; border-radius: 0; }
@@ -646,13 +648,13 @@ html[data-theme="cyberpunk"] .rules { --card: #0b0a1a; --ink: #d9faff; --ink-sof
 html[data-theme="cyberpunk"] .rules::before { border-radius: 2px; }
 html[data-theme="cyberpunk"] .rules h2 { color: var(--neon-m); text-shadow: 0 0 8px rgba(255, 46, 151, 0.7); text-transform: uppercase; letter-spacing: 0.08em; }
 html[data-theme="cyberpunk"] .rules kbd { background: #05040c; color: var(--neon-c); border-radius: 2px; }
-html[data-theme="cyberpunk"] .rules .icon-close { color: var(--neon-c); border-color: var(--neon-c); border-radius: 2px; }
+html[data-theme="cyberpunk"] .rules .title-bar-controls button { color: var(--neon-c); border-color: var(--neon-c); border-radius: 2px; }
 html[data-theme="scifi"] .rules { --card: #000; --ink: #ffcc99; --ink-soft: #9999ff; --card-edge: #9999ff; --back-line: #cc99cc;
   border-radius: 28px 8px 28px 8px; box-shadow: 0 0 0 4px var(--lc-blue), 0 18px 44px rgba(0, 0, 0, 0.5); }
 html[data-theme="scifi"] .rules::before { border-radius: 22px 4px 22px 4px; }
 html[data-theme="scifi"] .rules h2 { color: var(--lc-orange); text-transform: uppercase; letter-spacing: 0.08em; }
 html[data-theme="scifi"] .rules kbd { background: #000; color: var(--lc-peach); border-radius: 8px; }
-html[data-theme="scifi"] .rules .icon-close { color: #000; background: var(--lc-orange); border: 0; }
+html[data-theme="scifi"] .rules .title-bar-controls button { color: #000; background: var(--lc-orange); border: 0; }
 html[data-theme="retro"] .rules { --card: #c0c0c0; --ink: #000; --ink-soft: #404040; --card-edge: #808080; border-radius: 0; font-family: var(--font-ui);
   box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out), 4px 4px 0 1px rgba(0, 0, 0, 0.45); }
 html[data-theme="retro"] .rules::before, html[data-theme="retro"] .rules-index, html[data-theme="retro"] .rules-divider { display: none; }
@@ -660,15 +662,16 @@ html[data-theme="retro"] .rules-scroll { margin: 0; padding: 14px 18px 12px; }
 html[data-theme="retro"] .rules h2 { margin: 0; padding: 3px 30px 3px 6px; font: 700 14px/18px var(--font-display); text-align: left; color: #fff; background: var(--title-bar); }
 html[data-theme="retro"] .rules h3 { letter-spacing: 0; text-transform: none; font-size: 13px; color: #000; }
 html[data-theme="retro"] .rules kbd { background: #c0c0c0; border: 0; border-radius: 0; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] .rules > .icon-close { top: 3px; right: 3px; width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); z-index: 1; }
-html[data-theme="retro"] .rules > .icon-close .icon { width: 12px; height: 12px; }
+html[data-theme="retro"] .rules .title-bar-controls { top: 3px; right: 3px; z-index: 1; }
+html[data-theme="retro"] .rules .title-bar-controls button { width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); }
+html[data-theme="retro"] .rules .title-bar-controls button .icon { width: 12px; height: 12px; }
 /* Scrollbars follow the style (scrollbar-color and scrollbar-width, which every current browser has). */
 html[data-theme="cyberpunk"] { --scroll-thumb: var(--neon-c); --scroll-track: #05040c; }
-html[data-theme="cyberpunk"] .rules, html[data-theme="cyberpunk"] .plaque { --scroll-thumb: var(--neon-m); --scroll-track: #05040c; }
+html[data-theme="cyberpunk"] .rules, html[data-theme="cyberpunk"] .window { --scroll-thumb: var(--neon-m); --scroll-track: #05040c; }
 html[data-theme="scifi"] { --scroll-thumb: var(--lc-orange); --scroll-track: #000; }
-html[data-theme="scifi"] .rules, html[data-theme="scifi"] .plaque { --scroll-thumb: var(--lc-violet); --scroll-track: #000; }
+html[data-theme="scifi"] .rules, html[data-theme="scifi"] .window { --scroll-thumb: var(--lc-violet); --scroll-track: #000; }
 html[data-theme="retro"] { --scroll-thumb: #c0c0c0; --scroll-track: #dfdfdf; }
-html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thumb: #c0c0c0; --scroll-track: #dfdfdf; }
+html[data-theme="retro"] .rules, html[data-theme="retro"] .window { --scroll-thumb: #c0c0c0; --scroll-track: #dfdfdf; }
 /* Older WebKit has no scrollbar-color: draw the same thing with the pseudo-elements. */
 @supports not (scrollbar-color: auto) {
   ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -709,8 +712,10 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
     <div id="rules" class="rules" role="dialog" aria-labelledby="rules-title" hidden>
       <span class="rules-index top" aria-hidden="true"><span>A</span><span>♠</span></span>
       <span class="rules-index bottom" aria-hidden="true"><span>A</span><span>♠</span></span>
-      <button id="rules-close" class="icon-close" type="button" aria-label="Close rules" title="Close rules"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
-      <h2 id="rules-title"></h2>
+      <div class="title-bar">
+        <h2 id="rules-title" class="title-bar-text"></h2>
+        <div class="title-bar-controls"><button id="rules-close" type="button" aria-label="Close rules" title="Close rules"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      </div>
       <div class="rules-scroll">
       <p id="rules-text"></p>
       <div class="rules-divider" aria-hidden="true">◆ ◆ ◆</div>
@@ -734,7 +739,7 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
       <button id="hint-btn" type="button" title="Hint (H)" aria-keyshortcuts="H" hidden><svg class="icon" aria-hidden="true"><use href="#i-lightbulb"/></svg><span class="label">Hint</span></button>
       <button id="undo" type="button" title="Undo (Ctrl+Z)" aria-keyshortcuts="Control+Z Meta+Z"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
       <button id="finish" type="button" title="Auto-finish" disabled><svg class="icon" aria-hidden="true"><use href="#i-fast_forward"/></svg><span class="label">Auto-finish</span></button>
-      <button id="new" type="button" class="primary" title="New deal"><svg class="icon" aria-hidden="true"><use href="#i-playing_cards"/></svg><span class="label">New deal</span></button>
+      <button id="new" type="button" class="default" title="New deal"><svg class="icon" aria-hidden="true"><use href="#i-playing_cards"/></svg><span class="label">New deal</span></button>
       <button id="settings-btn" type="button" class="icon-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings" aria-label="Menu" title="Menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
     </div>
   </header>
@@ -742,10 +747,10 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
   <pre id="diagnostics" class="diagnostics" hidden></pre>
   <div id="update" class="update" hidden role="status">
     <span>A new version is ready.</span>
-    <button id="update-btn" type="button" class="primary" onclick="location.reload()">Reload</button>
+    <button id="update-btn" type="button" class="default" onclick="location.reload()">Reload</button>
   </div>
 
-  <p id="status" class="status"></p>
+  <p id="status" class="status-bar"></p>
   <p id="kbd-help" class="sr-only">Keyboard play: the arrow keys move between piles and cards, Enter or Space picks up a card or puts it down, F sends a card home, Escape drops the card you picked up, H gives a hint, and Control or Command with Z undoes.</p>
   <div id="announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
@@ -754,41 +759,45 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .plaque { --scroll-thu
     <div id="board" class="board" role="group" aria-label="Card table" aria-describedby="kbd-help"></div>
     <div id="toast" class="toast" hidden>
       <span id="toast-text"></span>
-      <button id="toast-close" type="button" class="icon-close" aria-label="Dismiss" title="Dismiss"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      <div class="title-bar-controls"><button id="toast-close" type="button" aria-label="Dismiss" title="Dismiss"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     </div>
     <div id="stats" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="stats-title">
-      <div class="plaque">
-        <button id="stats-close" type="button" class="icon-close" aria-label="Close" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
-        <h2 id="stats-title">Statistics</h2>
-        <div class="plaque-body">
+      <div class="window">
+        <div class="title-bar">
+          <h2 id="stats-title" class="title-bar-text">Statistics</h2>
+          <div class="title-bar-controls"><button id="stats-close" type="button" aria-label="Close" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+        </div>
+        <div class="window-body">
           <p id="stats-result"></p>
           <table id="stats-table" class="stats-table"></table>
         </div>
-        <div class="plaque-buttons">
+        <div class="field-row">
           <button id="stats-reset" type="button">Reset</button>
-          <button id="win-new" type="button" class="primary">New deal</button>
+          <button id="win-new" type="button" class="default">New deal</button>
         </div>
       </div>
     </div>
-    <div id="settings" class="plaque settings" popover="manual" hidden role="dialog" aria-labelledby="settings-title">
-      <h2 id="settings-title">Menu</h2>
-      <button id="settings-close" type="button" class="icon-close" aria-label="Close settings" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
-      <div class="plaque-body">
+    <div id="settings" class="window settings" popover="manual" hidden role="dialog" aria-labelledby="settings-title">
+      <div class="title-bar">
+        <h2 id="settings-title" class="title-bar-text">Menu</h2>
+        <div class="title-bar-controls"><button id="settings-close" type="button" aria-label="Close settings" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      </div>
+      <div class="window-body">
       <div class="panel-links">
           <button id="rules-btn" type="button" aria-controls="rules">Rules</button>
           <button id="stats-btn" type="button" aria-haspopup="dialog">Statistics</button>
         </div>
         <span class="pick"><select id="game" aria-label="Game"></select></span>
         <div id="options"></div>
-        <button id="restart" type="button" class="panel-action primary">Restart this deal</button>
+        <button id="restart" type="button" class="panel-action default">Restart this deal</button>
         <h3 class="panel-heading">Preferences</h3>
         <div id="settings-body"></div>
       </div>
     </div>
     <div id="busy" class="modal" hidden role="alertdialog" aria-modal="true" aria-labelledby="busy-title" aria-describedby="busy-text">
-      <div class="plaque">
+      <div class="window">
         <div id="busy-spinner" class="spinner" role="progressbar" aria-label="Searching"></div>
-        <h2 id="busy-title"></h2>
+        <div class="title-bar"><h2 id="busy-title" class="title-bar-text"></h2></div>
         <p id="busy-text"></p>
         <button id="busy-btn" type="button"></button>
       </div>
@@ -3320,7 +3329,7 @@ const StandardDeck = (() => {
       ...rules.options.filter(o => (!o.when || o.when(session.options)) && !counts.some(s => s.label === o.label))
         .map(o => [o.label, o.id === 'winnable' ? (session.proved ? 'Winnable' : 'Random') : o.choices.find(c => c.value === session.options[o.id])?.label ?? '']),   // Deals says what this deal is, not what is preferred
     ];
-    els.status.replaceChildren(...items.map(([label, value]) => h('span', {}, `${label} `, h('b', {}, String(value)))));
+    els.status.replaceChildren(...items.map(([label, value]) => h('span', { class: 'status-bar-field' }, `${label} `, h('b', {}, String(value)))));
     els.undo.disabled = busy || session.actions.length === 0;
     els.finish.disabled = busy || !rules.autoAction(state);
     els.hints.hidden = !rules.showsMovable;

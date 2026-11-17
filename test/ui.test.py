@@ -1025,7 +1025,7 @@ def check_panels_look_alike(pg):
     via_menu(pg, '#stats-btn')
     assert size('#stats-title') == settings_title, 'one title size for every panel'
     for close in ('#stats-close', '#settings-close', '#rules-close'):
-        assert pg.evaluate(f"document.querySelector('{close}').classList.contains('icon-close') && !document.querySelector('{close}').classList.contains('primary')"), f'{close} is a plain close mark'
+        assert pg.evaluate(f"document.querySelector('{close}').parentElement.classList.contains('title-bar-controls') && !document.querySelector('{close}').classList.contains('default')"), f'{close} is a plain close mark'
     pad = lambda sel: pg.evaluate(f"(() => {{ const s = getComputedStyle(document.querySelector('{sel}')); return [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].join(' '); }})()")
     pg.keyboard.press('Escape')
     pg.click('#settings-btn')
@@ -1203,7 +1203,7 @@ def check_screen_reader_semantics(pg):
     broken = pg.evaluate("""[...document.querySelectorAll('[aria-controls], [aria-labelledby], [aria-describedby]')].flatMap(e =>
         ['aria-controls', 'aria-labelledby', 'aria-describedby'].flatMap(a => (e.getAttribute(a) || '').split(' ').filter(Boolean).filter(id => !document.getElementById(id)))).length""")
     assert broken == 0, 'every aria reference points at something'
-    tips = pg.evaluate("[...document.querySelectorAll('.icon-close, #settings-btn, #hint-btn, #undo')].filter(b => !b.title).map(b => b.id)")
+    tips = pg.evaluate("[...document.querySelectorAll('.title-bar-controls button, #settings-btn, #hint-btn, #undo')].filter(b => !b.title).map(b => b.id)")
     assert not tips, f'icon buttons with no tooltip: {tips}'
     unlabelled = pg.evaluate("[...document.querySelectorAll('#board [role=button]:not([aria-hidden])')].filter(e => !e.getAttribute('aria-label')).length")
     assert unlabelled == 0, 'every card a reader can reach has a label'
@@ -1242,14 +1242,14 @@ def check_titles_stay_put(pg):
         open_settings(pg)
         pg.click(f'#settings button[data-setting="theme"][data-value="{theme}"]')
         before = (top('#settings-title'), top('#settings-close'))
-        pg.evaluate("document.querySelector('#settings .plaque-body').scrollTop = 9999")
-        assert pg.evaluate("document.querySelector('#settings .plaque-body').scrollTop") > 0, f'{theme}: the menu scrolls on a short screen'
+        pg.evaluate("document.querySelector('#settings .window-body').scrollTop = 9999")
+        assert pg.evaluate("document.querySelector('#settings .window-body').scrollTop") > 0, f'{theme}: the menu scrolls on a short screen'
         assert (top('#settings-title'), top('#settings-close')) == before, f'{theme}: the menu keeps its title and close button in view'
         via_menu(pg, '#stats-btn')
         before = (top('#stats-title'), top('#stats-close'))
-        pg.evaluate("document.querySelector('#stats .plaque-body').scrollTop = 9999")
+        pg.evaluate("document.querySelector('#stats .window-body').scrollTop = 9999")
         assert (top('#stats-title'), top('#stats-close')) == before, f'{theme}: Statistics keeps its title and close button in view'
-        assert pg.evaluate("(() => { const r = document.querySelector('#stats .plaque').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()"), f'{theme}: Statistics fits a short screen'
+        assert pg.evaluate("(() => { const r = document.querySelector('#stats .window').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()"), f'{theme}: Statistics fits a short screen'
         pg.keyboard.press('Escape')
         via_menu(pg, '#rules-btn')
         pg.wait_for_timeout(400)                                  # the card eases in
@@ -1261,7 +1261,7 @@ def check_titles_stay_put(pg):
 
 def check_scrollbars_sit_at_the_panel_edge(pg):
     """A panel's scrollbar is at the panel's own edge, not inset in its padding, and nothing makes the body scroll sideways."""
-    measure = """panel => { const p = document.querySelector(panel), b = p.querySelector('.plaque-body'), pr = p.getBoundingClientRect(), r = b.getBoundingClientRect();
+    measure = """panel => { const p = document.querySelector(panel), b = p.querySelector('.window-body'), pr = p.getBoundingClientRect(), r = b.getBoundingClientRect();
         const edge = r.right - (b.offsetWidth - b.clientWidth) - parseFloat(getComputedStyle(b).paddingRight);
         return { sideways: b.scrollWidth - b.clientWidth, gap: Math.round(pr.right - r.right),
                  wide: [...b.querySelectorAll('*')].filter(e => e.getBoundingClientRect().right > edge + 0.5).map(e => e.tagName + '#' + e.id) }; }"""
@@ -1272,7 +1272,7 @@ def check_scrollbars_sit_at_the_panel_edge(pg):
         for theme in ('steampunk', 'cyberpunk', 'scifi', 'retro'):
             open_settings(pg)
             pg.click(f'#settings button[data-setting="theme"][data-value="{theme}"]')
-            for name, panel, opener in (('menu', '#settings', None), ('Statistics', '#stats .plaque', '#stats-btn')):
+            for name, panel, opener in (('menu', '#settings', None), ('Statistics', '#stats .window', '#stats-btn')):
                 if opener:
                     via_menu(pg, opener)
                 m = pg.evaluate(measure, panel)
@@ -1289,7 +1289,7 @@ def check_modals_cover_the_window(pg):
         pg.set_viewport_size({'width': width, 'height': height})
         pg.wait_for_timeout(300)
         via_menu(pg, '#stats-btn')
-        m = pg.evaluate("""(() => { const r = document.querySelector('#stats').getBoundingClientRect(), p = document.querySelector('#stats .plaque').getBoundingClientRect(), t = document.querySelector('#table').getBoundingClientRect();
+        m = pg.evaluate("""(() => { const r = document.querySelector('#stats').getBoundingClientRect(), p = document.querySelector('#stats .window').getBoundingClientRect(), t = document.querySelector('#table').getBoundingClientRect();
           return { modal: [r.left, r.top, r.right, r.bottom], plaque: [p.left, p.top, p.right, p.bottom], table: t.height, w: innerWidth, h: innerHeight }; })()""")
         assert m['modal'] == [0, 0, m['w'], m['h']], f'{width}px: the modal covers the window {m}'
         assert m['plaque'][1] >= 0 and m['plaque'][3] <= m['h'] and m['plaque'][0] >= 0 and m['plaque'][2] <= m['w'], f'{width}px: Statistics fits the window {m}'
@@ -1307,7 +1307,7 @@ def check_popups_fit_the_window(pg):
         for width, height in ((375, 667), (320, 568), (667, 375), (568, 320)):
             pg.set_viewport_size({'width': width, 'height': height})
             pg.wait_for_timeout(250)
-            for name, opener, selector in (('rules', ('#settings-btn', '#rules-btn'), '#rules'), ('statistics', ('#settings-btn', '#stats-btn'), '#stats .plaque'), ('menu', ('#settings-btn',), '#settings')):
+            for name, opener, selector in (('rules', ('#settings-btn', '#rules-btn'), '#rules'), ('statistics', ('#settings-btn', '#stats-btn'), '#stats .window'), ('menu', ('#settings-btn',), '#settings')):
                 for button in opener:
                     pg.click(button)
                     pg.wait_for_timeout(250)
@@ -1489,7 +1489,7 @@ def check_win_panel_is_on_top(pg):
         start(pg, name)
         pg.evaluate("() => { document.getElementById('stats').hidden = false; }")
         covered = pg.evaluate("""() => {
-            const r = document.querySelector('#stats .plaque').getBoundingClientRect();
+            const r = document.querySelector('#stats .window').getBoundingClientRect();
             const points = [[.1, .1], [.5, .5], [.9, .9], [.1, .9], [.9, .1]];
             return points.filter(([x, y]) => !document.elementFromPoint(r.left + r.width * x, r.top + r.height * y)?.closest('.modal')).length;
         }""")
