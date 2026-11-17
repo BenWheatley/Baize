@@ -1476,7 +1476,10 @@ html[data-theme="retro"] .update, html[data-theme="retro"] .toast {
 }
 /* Windows: 98.css's .window gives the frame; the page's windows keep their own widths and scrolling, and take the title bar's height. */
 html[data-theme="retro"] .window { border-radius: 0; color: var(--text-color); text-shadow: 0 0; box-shadow: var(--border-window-outer), var(--border-window-inner), 4px 4px 0 1px rgba(0, 0, 0, 0.45); }
-html[data-theme="retro"] :is(.window, .settings, #stats .window) { --pad-x: 0px; padding: 3px; }
+html[data-theme="retro"] :is(.window, .settings, #stats .window) { padding: 3px; }
+/* 98.css puts an 8px margin round .window-body. Here the body is what scrolls, so its scrollbar would sit 8px in from the window's edge: the space is padding instead, inside the scroller. */
+html[data-theme="retro"] .window-body { margin: 0; padding-block: 8px; }
+html[data-theme="retro"] :is(.window, .settings, #stats .window) { --pad-x: 8px; }
 html[data-theme="retro"] .title-bar { position: relative; }
 html[data-theme="retro"] :is(.window, .settings, #stats .window) .title-bar-text { margin: 0 24px 0 0; font: 700 11px/18px var(--font-display); letter-spacing: 0; text-transform: none; text-align: left; text-shadow: none; }
 html[data-theme="retro"] .window .title-bar-controls { position: static; }
@@ -1488,7 +1491,7 @@ html[data-theme="retro"] .stats-table th { letter-spacing: 0; text-transform: no
 html[data-theme="retro"] .spinner { border-color: var(--button-shadow); border-top-color: var(--dialog-blue); border-radius: 0; }
 @media (pointer: coarse) {
   html[data-theme="retro"] button, html[data-theme="retro"] select { min-height: 44px; }
-  html[data-theme="retro"] .title-bar-controls button.close { width: 30px; height: 28px; min-height: 0; background-position: center; }
+  html[data-theme="retro"] .title-bar-controls button[aria-label].close { width: 30px; height: 28px; min-height: 0; background-position: center; }
 }
 /* The rules card takes its colours from tokens, so each style only has to set them (and a few shapes). */
 html[data-theme="cyberpunk"] .rules { color: var(--ink); text-shadow: none; --card: #0b0a1a; --ink: #d9faff; --ink-soft: #7fc9d3; --card-edge: var(--neon-m); --back-line: var(--neon-c);

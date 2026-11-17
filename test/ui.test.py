@@ -1277,8 +1277,7 @@ def check_scrollbars_sit_at_the_panel_edge(pg):
                     via_menu(pg, opener)
                 m = pg.evaluate(measure, panel)
                 assert m['sideways'] <= 0 and not m['wide'], f'{theme} {width}px: the {name} does not scroll sideways {m}'
-                frame = 3 + 8 if theme == 'retro' else 3      # Retro: 98.css's window frame (3 px) and window-body margin (8 px)
-                assert m['gap'] <= frame, f'{theme} {width}px: the {name} scrollbar is at the panel edge {m}'
+                assert m['gap'] <= 3, f'{theme} {width}px: the {name} scrollbar is at the panel edge {m}'
                 if opener:
                     pg.keyboard.press('Escape')
 
