@@ -1095,7 +1095,7 @@ def check_styles(pg):
         seen.add(colours[0])
     assert len(seen) >= 3, f'the styles colour their scrollbars differently: {seen}'
     pg.click('#settings button[data-setting="theme"][data-value="retro"]')
-    close = pg.evaluate("(() => { const b = document.getElementById('settings-close').getBoundingClientRect(), h = document.getElementById('settings-title').getBoundingClientRect(); return [b.top - h.top, h.bottom - b.bottom, h.right - b.right]; })()")
+    close = pg.evaluate("(() => { const b = document.getElementById('settings-close').getBoundingClientRect(), h = document.querySelector('#settings .title-bar').getBoundingClientRect(); return [b.top - h.top, h.bottom - b.bottom, h.right - b.right]; })()")
     assert abs(close[0] - close[1]) <= 1.5 and close[2] >= 2, f'in the retro title bar the close button is centred and inside it {close}'
     size = lambda: pg.evaluate("(() => { const r = document.getElementById('settings-btn').getBoundingClientRect(); return [r.width, r.height]; })()")
     before = size()
@@ -1277,7 +1277,8 @@ def check_scrollbars_sit_at_the_panel_edge(pg):
                     via_menu(pg, opener)
                 m = pg.evaluate(measure, panel)
                 assert m['sideways'] <= 0 and not m['wide'], f'{theme} {width}px: the {name} does not scroll sideways {m}'
-                assert m['gap'] <= 3, f'{theme} {width}px: the {name} scrollbar is at the panel edge {m}'
+                frame = 3 + 8 if theme == 'retro' else 3      # Retro: 98.css's window frame (3 px) and window-body margin (8 px)
+                assert m['gap'] <= frame, f'{theme} {width}px: the {name} scrollbar is at the panel edge {m}'
                 if opener:
                     pg.keyboard.press('Escape')
 

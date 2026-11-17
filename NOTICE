@@ -14,4 +14,8 @@ Icons: Material Symbols by Google (outlined, weight 500), from @material-symbols
   Licensed under the Apache License, Version 2.0; you may not use these icons except in compliance with that
   licence. They are provided "as is", without warranties or conditions of any kind.
 
+Retro style: 98.css v0.1.21 by Jordan Scales, https://github.com/jdan/98.css (MIT licence, tools/98css/LICENSE),
+  including its "Pixelated MS Sans Serif" font files. The stylesheet is copied unchanged to tools/98css and embedded
+  in baize.html, restricted to the Retro style (see tools/98css/embed.py).
+
 The card back, the table and everything else were drawn for this page and are CC0.

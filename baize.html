@@ -13,6 +13,856 @@
 <title>Baize</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@500;700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
+<!-- 98css:start -->
+<style id="retro-98css">
+/* 98.css v0.1.21, Copyright (c) 2020 Jordan Scales, MIT licence: https://github.com/jdan/98.css */
+html[data-theme="retro"] {
+  
+  --text-color: #222222;
+  --surface: #c0c0c0;
+  --button-highlight: #ffffff;
+  --button-face: #dfdfdf;
+  --button-shadow: #808080;
+  --window-frame: #0a0a0a;
+  --dialog-blue: #000080;
+  --dialog-blue-light: #1084d0;
+  --dialog-gray: #808080;
+  --dialog-gray-light: #b5b5b5;
+  --link-blue: #0000ff;
+
+  
+  --element-spacing: 8px;
+  --grouped-button-spacing: 4px;
+  --grouped-element-spacing: 6px;
+  --radio-width: 12px;
+  --checkbox-width: 13px;
+  --radio-label-spacing: 6px;
+  --range-track-height: 4px;
+  --range-spacing: 10px;
+
+  
+  --radio-total-width-precalc: var(--radio-width) + var(--radio-label-spacing);
+  --radio-total-width: calc(var(--radio-total-width-precalc));
+  --radio-left: calc(-1 * var(--radio-total-width-precalc));
+  --radio-dot-width: 4px;
+  --radio-dot-top: calc(var(--radio-width) / 2 - var(--radio-dot-width) / 2);
+  --radio-dot-left: calc(
+    -1 * (var(--radio-total-width-precalc)) + var(--radio-width) / 2 - var(
+        --radio-dot-width
+      ) / 2
+  );
+
+  --checkbox-total-width-precalc: var(--checkbox-width) +
+    var(--radio-label-spacing);
+  --checkbox-total-width: calc(var(--checkbox-total-width-precalc));
+  --checkbox-left: calc(-1 * var(--checkbox-total-width-precalc));
+  --checkmark-width: 7px;
+  --checkmark-left: 3px;
+
+  
+  --border-width: 1px;
+  --border-raised-outer: inset -1px -1px var(--window-frame),
+    inset 1px 1px var(--button-highlight);
+  --border-raised-inner: inset -2px -2px var(--button-shadow),
+    inset 2px 2px var(--button-face);
+  --border-sunken-outer: inset -1px -1px var(--button-highlight),
+    inset 1px 1px var(--window-frame);
+  --border-sunken-inner: inset -2px -2px var(--button-face),
+    inset 2px 2px var(--button-shadow);
+  --default-button-border-raised-outer: inset -2px -2px var(--window-frame), inset 1px 1px var(--window-frame);
+  --default-button-border-raised-inner: inset 2px 2px var(--button-highlight), inset -3px -3px var(--button-shadow), inset 3px 3px var(--button-face);
+  --default-button-border-sunken-outer: inset 2px 2px var(--window-frame), inset -1px -1px var(--window-frame);
+  --default-button-border-sunken-inner: inset -2px -2px var(--button-highlight), inset 3px 3px var(--button-shadow), inset -3px -3px var(--button-face);
+
+
+  
+  --border-window-outer: inset -1px -1px var(--window-frame),
+    inset 1px 1px var(--button-face);
+  --border-window-inner: inset -2px -2px var(--button-shadow),
+    inset 2px 2px var(--button-highlight);
+
+  
+  --border-field: inset -1px -1px var(--button-highlight),
+    inset 1px 1px var(--button-shadow), inset -2px -2px var(--button-face),
+    inset 2px 2px var(--window-frame);
+  --border-status-field: inset -1px -1px var(--button-face), inset 1px 1px var(--button-shadow);
+
+  
+  --border-tab: inset -1px 0 var(--window-frame),
+    inset 1px 1px var(--button-face),
+    inset -2px 0 var(--button-shadow),
+    inset 2px 2px var(--button-highlight)
+}
+@font-face {
+  font-family: "Pixelated MS Sans Serif";
+  src: url("data:font/woff2;base64,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") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Pixelated MS Sans Serif";
+  src: url("data:font/woff2;base64,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") format("woff2");
+  font-weight: bold;
+  font-style: normal;
+}
+html[data-theme="retro"] body {
+  font-family: Arial;
+  font-size: 12px;
+  color: var(--text-color);
+}
+html[data-theme="retro"] button,
+html[data-theme="retro"] label,
+html[data-theme="retro"] input,
+html[data-theme="retro"] legend,
+html[data-theme="retro"] textarea,
+html[data-theme="retro"] select,
+html[data-theme="retro"] option,
+html[data-theme="retro"] table,
+html[data-theme="retro"] ul.tree-view,
+html[data-theme="retro"] .window,
+html[data-theme="retro"] .title-bar,
+html[data-theme="retro"] li[role=tab] {
+  font-family: "Pixelated MS Sans Serif", Arial;
+  -webkit-font-smoothing: none;
+  font-size: 11px;
+}
+html[data-theme="retro"] u {
+  text-decoration: none;
+  border-bottom: 0.5px solid #222222;
+}
+html[data-theme="retro"] button,
+html[data-theme="retro"] input[type="submit"],
+html[data-theme="retro"] input[type="reset"] {
+  box-sizing: border-box;
+  border: none;
+  color: transparent;
+  text-shadow: 0 0 var(--text-color);
+  background: var(--surface);
+  box-shadow: var(--border-raised-outer), var(--border-raised-inner);
+  border-radius: 0;
+
+  min-width: 75px;
+  min-height: 23px;
+  padding: 0 12px;
+}
+html[data-theme="retro"] button.default,
+html[data-theme="retro"] input[type="submit"].default,
+html[data-theme="retro"] input[type="reset"].default {
+  box-shadow: var(--default-button-border-raised-outer), var(--default-button-border-raised-inner);
+}
+html[data-theme="retro"] .vertical-bar {
+  width: 4px;
+  height: 20px;
+  background: #c0c0c0;
+  box-shadow: var(--border-raised-outer), var(--border-raised-inner);
+}
+html[data-theme="retro"] button:not(:disabled):active,
+html[data-theme="retro"] input[type="submit"]:not(:disabled):active,
+html[data-theme="retro"] input[type="reset"]:not(:disabled):active {
+  box-shadow: var(--border-sunken-outer), var(--border-sunken-inner);
+  text-shadow: 1px 1px var(--text-color);
+}
+html[data-theme="retro"] button.default:not(:disabled):active,
+html[data-theme="retro"] input[type="submit"].default:not(:disabled):active,
+html[data-theme="retro"] input[type="reset"].default:not(:disabled):active {
+  box-shadow: var(--default-button-border-sunken-outer), var(--default-button-border-sunken-inner);
+}
+@media (not(hover)) {
+html[data-theme="retro"] button:not(:disabled):hover,
+html[data-theme="retro"] input[type="submit"]:not(:disabled):hover,
+html[data-theme="retro"] input[type="reset"]:not(:disabled):hover {
+    box-shadow: var(--border-sunken-outer), var(--border-sunken-inner);
+  }
+}
+html[data-theme="retro"] button:focus,
+html[data-theme="retro"] input[type="submit"]:focus,
+html[data-theme="retro"] input[type="reset"]:focus {
+  outline: 1px dotted #000000;
+  outline-offset: -4px;
+}
+html[data-theme="retro"] button::-moz-focus-inner,
+html[data-theme="retro"] input[type="submit"]::-moz-focus-inner,
+html[data-theme="retro"] input[type="reset"]::-moz-focus-inner {
+  border: 0;
+}
+html[data-theme="retro"] :disabled,
+html[data-theme="retro"] :disabled + label,
+html[data-theme="retro"] input[readonly],
+html[data-theme="retro"] input[readonly] + label {
+  color: var(--button-shadow);
+}
+html[data-theme="retro"] button:disabled,
+html[data-theme="retro"] input[type="submit"]:disabled,
+html[data-theme="retro"] input[type="reset"]:disabled,
+html[data-theme="retro"] :disabled + label {
+  text-shadow: 1px 1px 0 var(--button-highlight);
+}
+html[data-theme="retro"] .window {
+  box-shadow: var(--border-window-outer), var(--border-window-inner);
+  background: var(--surface);
+  padding: 3px;
+}
+html[data-theme="retro"] .title-bar {
+  background: linear-gradient(
+    90deg,
+    var(--dialog-blue),
+    var(--dialog-blue-light)
+  );
+  padding: 3px 2px 3px 3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+html[data-theme="retro"] .title-bar.inactive {
+  background: linear-gradient(
+    90deg,
+    var(--dialog-gray),
+    var(--dialog-gray-light)
+  );
+}
+html[data-theme="retro"] .title-bar-text {
+  font-weight: bold;
+  color: white;
+  letter-spacing: 0;
+  margin-right: 24px;
+}
+html[data-theme="retro"] .title-bar-controls {
+  display: flex;
+}
+html[data-theme="retro"] .title-bar-controls button {
+  padding: 0;
+  display: block;
+  min-width: 16px;
+  min-height: 14px;
+}
+html[data-theme="retro"] .title-bar-controls button:active {
+  padding: 0;
+}
+html[data-theme="retro"] .title-bar-controls button:focus {
+  outline: none;
+}
+html[data-theme="retro"] .title-bar-controls button[aria-label="Minimize"],
+html[data-theme="retro"] .title-bar-controls button[aria-label].minimize {
+  background-image: url("data:image/svg+xml,%3Csvg width=%226%22 height=%222%22 viewBox=%220 0 6 2%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Crect width=%226%22 height=%222%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: bottom 3px left 4px;
+}
+html[data-theme="retro"] .title-bar-controls button[aria-label="Maximize"],
+html[data-theme="retro"] .title-bar-controls button[aria-label].maximize {
+  background-image: url("data:image/svg+xml,%3Csvg width=%229%22 height=%229%22 viewBox=%220 0 9 9%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 0H0V2V8V9H1H8H9V8V2V0ZM8 2H1V8H8V2Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: top 2px left 3px;
+}
+html[data-theme="retro"] .title-bar-controls button[aria-label="Maximize"]:disabled,
+html[data-theme="retro"] .title-bar-controls button[aria-label].maximize:disabled {
+  background-image: url("data:image/svg+xml,%3Csvg width=%2210%22 height=%2210%22 viewBox=%220 0 10 10%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A  %3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M10 1H1V3V9V10H2H9H10V9V3V1ZM9 3H2V9H9V3Z%22 fill=%22white%22/%3E%0A  %3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 0H0V2V8V9H1H8H9V8V2V0ZM8 2H1V8H8V2Z%22 fill=%22%23808080%22/%3E%0A%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: top 2px left 3px;
+}
+html[data-theme="retro"] .title-bar-controls button[aria-label="Restore"],
+html[data-theme="retro"] .title-bar-controls button[aria-label].restore {
+  background-image: url("data:image/svg+xml,%3Csvg width=%228%22 height=%229%22 viewBox=%220 0 8 9%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Crect x=%222%22 width=%226%22 height=%222%22 fill=%22black%22/%3E%0A%3Crect x=%227%22 y=%222%22 width=%221%22 height=%224%22 fill=%22black%22/%3E%0A%3Crect x=%222%22 y=%222%22 width=%221%22 height=%221%22 fill=%22black%22/%3E%0A%3Crect x=%226%22 y=%225%22 width=%221%22 height=%221%22 fill=%22black%22/%3E%0A%3Crect y=%223%22 width=%226%22 height=%222%22 fill=%22black%22/%3E%0A%3Crect x=%225%22 y=%225%22 width=%221%22 height=%224%22 fill=%22black%22/%3E%0A%3Crect y=%225%22 width=%221%22 height=%224%22 fill=%22black%22/%3E%0A%3Crect x=%221%22 y=%228%22 width=%224%22 height=%221%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: top 2px left 3px;
+}
+html[data-theme="retro"] .title-bar-controls button[aria-label="Help"],
+html[data-theme="retro"] .title-bar-controls button[aria-label].help {
+  background-image: url("data:image/svg+xml,%3Csvg width=%226%22 height=%229%22 viewBox=%220 0 6 9%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Crect y=%221%22 width=%222%22 height=%222%22 fill=%22black%22/%3E%0A%3Crect x=%221%22 width=%224%22 height=%221%22 fill=%22black%22/%3E%0A%3Crect x=%224%22 y=%221%22 width=%222%22 height=%222%22 fill=%22black%22/%3E%0A%3Crect x=%223%22 y=%223%22 width=%222%22 height=%221%22 fill=%22black%22/%3E%0A%3Crect x=%222%22 y=%224%22 width=%222%22 height=%222%22 fill=%22black%22/%3E%0A%3Crect x=%222%22 y=%227%22 width=%222%22 height=%222%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: top 2px left 5px;
+}
+html[data-theme="retro"] .title-bar-controls button[aria-label="Close"],
+html[data-theme="retro"] .title-bar-controls button[aria-label].close {
+  margin-left: 2px;
+  background-image: url("data:image/svg+xml,%3Csvg width=%228%22 height=%227%22 viewBox=%220 0 8 7%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M0 0H1H2V1H3V2H4H5V1H6V0H7H8V1H7V2H6V3H5V4H6V5H7V6H8V7H7H6V6H5V5H4H3V6H2V7H1H0V6H1V5H2V4H3V3H2V2H1V1H0V0Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: top 3px left 4px;
+}
+html[data-theme="retro"] .status-bar {
+  margin: 0px 1px;
+  display: flex;
+  gap: 1px;
+}
+html[data-theme="retro"] .status-bar-field {
+  box-shadow: var(--border-status-field);
+  flex-grow: 1;
+  padding: 2px 3px;
+  margin: 0;
+}
+html[data-theme="retro"] .window-body {
+  margin: var(--element-spacing);
+}
+html[data-theme="retro"] fieldset {
+  border-image: url("data:image/svg+xml,%3Csvg width=%225%22 height=%225%22 viewBox=%220 0 5 5%22 fill=%22grey%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M0 0H5V5H0V2H2V3H3V2H0%22 fill=%22white%22 /%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M0 0H4V4H0V1H1V3H3V1H0%22 fill=%22%23808080%22 /%3E%0A%3C/svg%3E") 2;
+  padding: calc(2 * var(--border-width) + var(--element-spacing));
+  padding-block-start: var(--element-spacing);
+  margin: 0;
+}
+html[data-theme="retro"] legend {
+  background: var(--surface);
+}
+html[data-theme="retro"] .field-row {
+  display: flex;
+  align-items: center;
+}
+html[data-theme="retro"] [class^="field-row"] + [class^="field-row"] {
+  margin-top: var(--grouped-element-spacing);
+}
+html[data-theme="retro"] .field-row > * + * {
+  margin-left: var(--grouped-element-spacing);
+}
+html[data-theme="retro"] .field-row-stacked {
+  display: flex;
+  flex-direction: column;
+}
+html[data-theme="retro"] .field-row-stacked * + * {
+  margin-top: var(--grouped-element-spacing);
+}
+html[data-theme="retro"] label {
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+html[data-theme="retro"] input[type="radio"],
+html[data-theme="retro"] input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  margin: 0;
+  background: 0;
+  position: fixed;
+  opacity: 0;
+  border: none;
+}
+html[data-theme="retro"] input[type="radio"] + label,
+html[data-theme="retro"] input[type="checkbox"] + label {
+  line-height: 13px;
+}
+html[data-theme="retro"] input[type="radio"] + label {
+  position: relative;
+  margin-left: var(--radio-total-width);
+}
+html[data-theme="retro"] input[type="radio"] + label::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: calc(-1 * (var(--radio-total-width-precalc)));
+  display: inline-block;
+  width: var(--radio-width);
+  height: var(--radio-width);
+  margin-right: var(--radio-label-spacing);
+  background: url("data:image/svg+xml,%3Csvg width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M8 0H4V1H2V2H1V4H0V8H1V10H2V8H1V4H2V2H4V1H8V2H10V1H8V0Z%22 fill=%22%23808080%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M8 1H4V2H2V3V4H1V8H2V9H3V8H2V4H3V3H4V2H8V3H10V2H8V1Z%22 fill=%22black%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 3H10V4H9V3ZM10 8V4H11V8H10ZM8 10V9H9V8H10V9V10H8ZM4 10V11H8V10H4ZM4 10V9H2V10H4Z%22 fill=%22%23DFDFDF%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M11 2H10V4H11V8H10V10H8V11H4V10H2V11H4V12H8V11H10V10H11V8H12V4H11V2Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M4 2H8V3H9V4H10V8H9V9H8V10H4V9H3V8H2V4H3V3H4V2Z%22 fill=%22white%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] input[type="radio"]:active + label::before {
+  background: url("data:image/svg+xml,%3Csvg width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M8 0H4V1H2V2H1V4H0V8H1V10H2V8H1V4H2V2H4V1H8V2H10V1H8V0Z%22 fill=%22%23808080%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M8 1H4V2H2V3V4H1V8H2V9H3V8H2V4H3V3H4V2H8V3H10V2H8V1Z%22 fill=%22black%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 3H10V4H9V3ZM10 8V4H11V8H10ZM8 10V9H9V8H10V9V10H8ZM4 10V11H8V10H4ZM4 10V9H2V10H4Z%22 fill=%22%23DFDFDF%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M11 2H10V4H11V8H10V10H8V11H4V10H2V11H4V12H8V11H10V10H11V8H12V4H11V2Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M4 2H8V3H9V4H10V8H9V9H8V10H4V9H3V8H2V4H3V3H4V2Z%22 fill=%22%23C0C0C0%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] input[type="radio"]:checked + label::after {
+  content: "";
+  display: block;
+  width: var(--radio-dot-width);
+  height: var(--radio-dot-width);
+  top: var(--radio-dot-top);
+  left: var(--radio-dot-left);
+  position: absolute;
+  background: url("data:image/svg+xml,%3Csvg width=%224%22 height=%224%22 viewBox=%220 0 4 4%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M3 0H1V1H0V2V3H1V4H3V3H4V2V1H3V0Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] input[type="radio"]:focus + label,
+html[data-theme="retro"] input[type="checkbox"]:focus + label {
+  outline: 1px dotted #000000;
+}
+html[data-theme="retro"] input[type="radio"][disabled] + label::before {
+  background: url("data:image/svg+xml,%3Csvg width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M8 0H4V1H2V2H1V4H0V8H1V10H2V8H1V4H2V2H4V1H8V2H10V1H8V0Z%22 fill=%22%23808080%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M8 1H4V2H2V3V4H1V8H2V9H3V8H2V4H3V3H4V2H8V3H10V2H8V1Z%22 fill=%22black%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 3H10V4H9V3ZM10 8V4H11V8H10ZM8 10V9H9V8H10V9V10H8ZM4 10V11H8V10H4ZM4 10V9H2V10H4Z%22 fill=%22%23DFDFDF%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M11 2H10V4H11V8H10V10H8V11H4V10H2V11H4V12H8V11H10V10H11V8H12V4H11V2Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M4 2H8V3H9V4H10V8H9V9H8V10H4V9H3V8H2V4H3V3H4V2Z%22 fill=%22%23C0C0C0%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] input[type="radio"][disabled]:checked + label::after {
+  background: url("data:image/svg+xml,%3Csvg width=%224%22 height=%224%22 viewBox=%220 0 4 4%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M3 0H1V1H0V2V3H1V4H3V3H4V2V1H3V0Z%22 fill=%22%23808080%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] input[type="checkbox"] + label {
+  position: relative;
+  margin-left: var(--checkbox-total-width);
+}
+html[data-theme="retro"] input[type="checkbox"] + label::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * (var(--checkbox-total-width-precalc)));
+  display: inline-block;
+  width: var(--checkbox-width);
+  height: var(--checkbox-width);
+  background: var(--button-highlight);
+  box-shadow: var(--border-field);
+  margin-right: var(--radio-label-spacing);
+}
+html[data-theme="retro"] input[type="checkbox"]:active + label::before {
+  background: var(--surface);
+}
+html[data-theme="retro"] input[type="checkbox"]:checked + label::after {
+  content: "";
+  display: block;
+  width: var(--checkmark-width);
+  height: var(--checkmark-width);
+  position: absolute;
+  left: calc(
+    -1 * (var(--checkbox-total-width-precalc)) + var(--checkmark-left)
+  );
+  background: url("data:image/svg+xml,%3Csvg width=%227%22 height=%227%22 viewBox=%220 0 7 7%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M7 0H6V1H5V2H4V3H3V4H2V3H1V2H0V5H1V6H2V7H3V6H4V5H5V4H6V3H7V0Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] input[type="checkbox"][disabled] + label::before {
+  background: var(--surface);
+}
+html[data-theme="retro"] input[type="checkbox"][disabled]:checked + label::after {
+  background: url("data:image/svg+xml,%3Csvg width=%227%22 height=%227%22 viewBox=%220 0 7 7%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M7 0H6V1H5V2H4V3H3V4H2V3H1V2H0V5H1V6H2V7H3V6H4V5H5V4H6V3H7V0Z%22 fill=%22%23808080%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] input[type="text"],
+html[data-theme="retro"] input[type="password"],
+html[data-theme="retro"] input[type="email"],
+html[data-theme="retro"] input[type="url"],
+html[data-theme="retro"] input[type="tel"],
+html[data-theme="retro"] input[type="number"],
+html[data-theme="retro"] input[type="search"],
+html[data-theme="retro"] select,
+html[data-theme="retro"] textarea {
+  padding: 3px 4px;
+  border: none;
+  box-shadow: var(--border-field);
+  background-color: var(--button-highlight);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+html[data-theme="retro"] input[type="text"],
+html[data-theme="retro"] input[type="password"],
+html[data-theme="retro"] input[type="email"],
+html[data-theme="retro"] input[type="url"],
+html[data-theme="retro"] input[type="tel"],
+html[data-theme="retro"] input[type="search"],
+html[data-theme="retro"] select {
+  height: 21px;
+}
+html[data-theme="retro"] input[type="number"] {
+  
+  height: 22px;
+}
+html[data-theme="retro"] input[type=search]::-ms-clear { display: none; width : 0; height: 0; }
+html[data-theme="retro"] input[type=search]::-ms-reveal { display: none; width : 0; height: 0; }
+html[data-theme="retro"] input[type="search"]::-webkit-search-decoration,
+html[data-theme="retro"] input[type="search"]::-webkit-search-cancel-button,
+html[data-theme="retro"] input[type="search"]::-webkit-search-results-button,
+html[data-theme="retro"] input[type="search"]::-webkit-search-results-decoration { display: none; }
+html[data-theme="retro"] input[type="text"],
+html[data-theme="retro"] input[type="password"],
+html[data-theme="retro"] input[type="email"],
+html[data-theme="retro"] input[type="url"],
+html[data-theme="retro"] input[type="tel"],
+html[data-theme="retro"] input[type="number"],
+html[data-theme="retro"] input[type="search"] {
+  
+  line-height: 2;
+}
+html[data-theme="retro"] input[type="email"]:disabled,
+html[data-theme="retro"] input[type="url"]:disabled,
+html[data-theme="retro"] input[type="tel"]:disabled,
+html[data-theme="retro"] input[type="password"]:disabled,
+html[data-theme="retro"] input[type="text"]:disabled,
+html[data-theme="retro"] input[type="number"]:disabled,
+html[data-theme="retro"] input[type="search"]:disabled,
+html[data-theme="retro"] input[type="email"]:read-only,
+html[data-theme="retro"] input[type="url"]:read-only,
+html[data-theme="retro"] input[type="tel"]:read-only,
+html[data-theme="retro"] input[type="password"]:read-only,
+html[data-theme="retro"] input[type="text"]:read-only,
+html[data-theme="retro"] input[type="number"]:read-only,
+html[data-theme="retro"] input[type="search"]:read-only,
+html[data-theme="retro"] textarea:disabled {
+  background-color: var(--surface);
+}
+html[data-theme="retro"] select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  position: relative;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg width=%2216%22 height=%2217%22 viewBox=%220 0 16 17%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 0H0V1V16H1V1H15V0Z%22 fill=%22%23DFDFDF%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M2 1H1V15H2V2H14V1H2Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M16 17H15H0V16H15V0H16V17Z%22 fill=%22black%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 1H14V15H1V16H14H15V1Z%22 fill=%22%23808080%22/%3E%0A%3Crect x=%222%22 y=%222%22 width=%2212%22 height=%2213%22 fill=%22%23C0C0C0%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M11 6H4V7H5V8H6V9H7V10H8V9H9V8H10V7H11V6Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  background-position: top 2px right 2px;
+  background-repeat: no-repeat;
+  border-radius: 0;
+}
+html[data-theme="retro"] select:focus,
+html[data-theme="retro"] input[type="text"]:focus,
+html[data-theme="retro"] input[type="password"]:focus,
+html[data-theme="retro"] input[type="email"]:focus,
+html[data-theme="retro"] input[type="url"]:focus,
+html[data-theme="retro"] input[type="tel"]:focus,
+html[data-theme="retro"] input[type="number"]:focus,
+html[data-theme="retro"] input[type="search"]:focus,
+html[data-theme="retro"] textarea:focus {
+  outline: none;
+}
+html[data-theme="retro"] input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  background: transparent;
+}
+html[data-theme="retro"] input[type="range"]:focus {
+  outline: none;
+}
+html[data-theme="retro"] input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 21px;
+  width: 11px;
+  background: url("data:image/svg+xml,%3Csvg width=%2211%22 height=%2221%22 viewBox=%220 0 11 21%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M0 0V16H2V18H4V20H5V19H3V17H1V1H10V0Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M1 1V16H2V17H3V18H4V19H6V18H7V17H8V16H9V1Z%22 fill=%22%23C0C7C8%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 1H10V16H8V18H6V20H5V19H7V17H9Z%22 fill=%22%2387888F%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M10 0H11V16H9V18H7V20H5V21H6V19H8V17H10Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  transform: translateY(-8px);
+  box-shadow: none;
+  border: none;
+}
+html[data-theme="retro"] input[type="range"].has-box-indicator::-webkit-slider-thumb {
+  background: url("data:image/svg+xml,%3Csvg width=%2211%22 height=%2221%22 viewBox=%220 0 11 21%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M0 0V20H1V1H10V0Z%22 fill=%22white%22/%3E%0A%3Crect x=%221%22 y=%221%22 width=%228%22 height=%2218%22 fill=%22%23C0C7C8%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 1H10V20H1V19H9Z%22 fill=%22%2387888F%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M10 0H11V21H0V20H10Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  transform: translateY(-10px);
+}
+html[data-theme="retro"] input[type="range"]::-moz-range-thumb {
+  height: 21px;
+  width: 11px;
+  border: 0;
+  border-radius: 0;
+  background: url("data:image/svg+xml,%3Csvg width=%2211%22 height=%2221%22 viewBox=%220 0 11 21%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M0 0V16H2V18H4V20H5V19H3V17H1V1H10V0Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M1 1V16H2V17H3V18H4V19H6V18H7V17H8V16H9V1Z%22 fill=%22%23C0C7C8%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 1H10V16H8V18H6V20H5V19H7V17H9Z%22 fill=%22%2387888F%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M10 0H11V16H9V18H7V20H5V21H6V19H8V17H10Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  transform: translateY(2px);
+}
+html[data-theme="retro"] input[type="range"].has-box-indicator::-moz-range-thumb {
+  background: url("data:image/svg+xml,%3Csvg width=%2211%22 height=%2221%22 viewBox=%220 0 11 21%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M0 0V20H1V1H10V0Z%22 fill=%22white%22/%3E%0A%3Crect x=%221%22 y=%221%22 width=%228%22 height=%2218%22 fill=%22%23C0C7C8%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 1H10V20H1V19H9Z%22 fill=%22%2387888F%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M10 0H11V21H0V20H10Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+  transform: translateY(0px);
+}
+html[data-theme="retro"] input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 2px;
+  box-sizing: border-box;
+  background: black;
+  border-right: 1px solid grey;
+  border-bottom: 1px solid grey;
+  box-shadow: 1px 0 0 white, 1px 1px 0 white, 0 1px 0 white, -1px 0 0 darkgrey,
+    -1px -1px 0 darkgrey, 0 -1px 0 darkgrey, -1px 1px 0 white, 1px -1px darkgrey;
+}
+html[data-theme="retro"] input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 2px;
+  box-sizing: border-box;
+  background: black;
+  border-right: 1px solid grey;
+  border-bottom: 1px solid grey;
+  box-shadow: 1px 0 0 white, 1px 1px 0 white, 0 1px 0 white, -1px 0 0 darkgrey,
+    -1px -1px 0 darkgrey, 0 -1px 0 darkgrey, -1px 1px 0 white, 1px -1px darkgrey;
+}
+html[data-theme="retro"] .is-vertical {
+  display: inline-block;
+  width: 4px;
+  height: 150px;
+  transform: translateY(50%);
+}
+html[data-theme="retro"] .is-vertical > input[type="range"] {
+  width: 150px;
+  height: 4px;
+  margin: 0 calc(var(--grouped-element-spacing) + var(--range-spacing)) 0
+    var(--range-spacing);
+  transform-origin: left;
+  transform: rotate(270deg) translateX(calc(-50% + var(--element-spacing)));
+}
+html[data-theme="retro"] .is-vertical > input[type="range"]::-webkit-slider-runnable-track {
+  border-left: 1px solid grey;
+  border-right: 0;
+  border-bottom: 1px solid grey;
+  box-shadow: -1px 0 0 white, -1px 1px 0 white, 0 1px 0 white, 1px 0 0 darkgrey,
+    1px -1px 0 darkgrey, 0 -1px 0 darkgrey, 1px 1px 0 white, -1px -1px darkgrey;
+}
+html[data-theme="retro"] .is-vertical > input[type="range"]::-moz-range-track {
+  border-left: 1px solid grey;
+  border-right: 0;
+  border-bottom: 1px solid grey;
+  box-shadow: -1px 0 0 white, -1px 1px 0 white, 0 1px 0 white, 1px 0 0 darkgrey,
+    1px -1px 0 darkgrey, 0 -1px 0 darkgrey, 1px 1px 0 white, -1px -1px darkgrey;
+}
+html[data-theme="retro"] .is-vertical > input[type="range"]::-webkit-slider-thumb {
+  transform: translateY(-8px) scaleX(-1);
+}
+html[data-theme="retro"] .is-vertical > input[type="range"].has-box-indicator::-webkit-slider-thumb {
+  transform: translateY(-10px) scaleX(-1);
+}
+html[data-theme="retro"] .is-vertical > input[type="range"]::-moz-range-thumb {
+  transform: translateY(2px) scaleX(-1);
+}
+html[data-theme="retro"] .is-vertical > input[type="range"].has-box-indicator::-moz-range-thumb {
+  transform: translateY(0px) scaleX(-1);
+}
+html[data-theme="retro"] select:focus {
+  color: var(--button-highlight);
+  background-color: var(--dialog-blue);
+}
+html[data-theme="retro"] select:focus option {
+  color: #000;
+  background-color: #fff;
+}
+html[data-theme="retro"] select:active {
+  background-image: url("data:image/svg+xml,%3Csvg width=%2216%22 height=%2217%22 viewBox=%220 0 16 17%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M0 0H15H16V17H15H0V16V1V0ZM1 16H15V1H1V16Z%22 fill=%22%23808080%22/%3E%0A%3Crect x=%221%22 y=%221%22 width=%2214%22 height=%2215%22 fill=%22%23C0C0C0%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M12 7H5V8H6V9H7V10H8V11H9V10H10V9H11V8H12V7Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] a {
+  color: var(--link-blue);
+}
+html[data-theme="retro"] a:focus {
+  outline: 1px dotted var(--link-blue);
+}
+html[data-theme="retro"] ul.tree-view {
+  display: block;
+  background: var(--button-highlight);
+  box-shadow: var(--border-field);
+  padding: 6px;
+  margin: 0;
+}
+html[data-theme="retro"] ul.tree-view li {
+  list-style-type: none;
+}
+html[data-theme="retro"] ul.tree-view a {
+  text-decoration: none;
+  color: #000;
+}
+html[data-theme="retro"] ul.tree-view a:focus {
+  background-color: var(--dialog-blue);
+  color: var(--button-highlight);
+}
+html[data-theme="retro"] ul.tree-view ul,
+html[data-theme="retro"] ul.tree-view li {
+  margin-top: 3px;
+}
+html[data-theme="retro"] ul.tree-view ul {
+  margin-left: 16px;
+  padding-left: 16px;
+  
+  border-left: 1px dotted #808080;
+}
+html[data-theme="retro"] ul.tree-view ul > li {
+  position: relative;
+}
+html[data-theme="retro"] ul.tree-view ul > li::before {
+  content: "";
+  display: block;
+  position: absolute;
+  left: -16px;
+  top: 6px;
+  width: 12px;
+  border-bottom: 1px dotted #808080;
+}
+html[data-theme="retro"] ul.tree-view ul > li:last-child::after {
+  content: "";
+  display: block;
+  position: absolute;
+  left: -20px;
+  top: 7px;
+  bottom: 0px;
+  width: 8px;
+  background: var(--button-highlight);
+}
+html[data-theme="retro"] ul.tree-view details {
+  margin-top: 0;
+}
+html[data-theme="retro"] ul.tree-view details[open] summary {
+  margin-bottom: 0;
+}
+html[data-theme="retro"] ul.tree-view ul details > summary:before {
+  margin-left: -22px;
+  position: relative;
+  z-index: 1;
+}
+html[data-theme="retro"] ul.tree-view details > summary:before {
+  text-align: center;
+  display: block;
+  float: left;
+  content: "+";
+  border: 1px solid #808080;
+  width: 8px;
+  height: 9px;
+  line-height: 8px;
+  margin-right: 5px;
+  padding-left: 1px;
+  background-color: #fff;
+}
+html[data-theme="retro"] ul.tree-view details[open] > summary:before {
+  content: "-";
+}
+html[data-theme="retro"] ul.tree-view details > summary::marker,
+html[data-theme="retro"] ul.tree-view details > summary::-webkit-details-marker {
+  content: "";
+}
+html[data-theme="retro"] pre {
+  display: block;
+  background: var(--button-highlight);
+  box-shadow: var(--border-field);
+  padding: 12px 8px;
+  margin: 0;
+}
+html[data-theme="retro"] code,
+html[data-theme="retro"] code * {
+  font-family: monospace;
+}
+html[data-theme="retro"] summary:focus {
+  outline: 1px dotted #000000;
+}
+html[data-theme="retro"] ::-webkit-scrollbar {
+  width: 16px;
+}
+html[data-theme="retro"] ::-webkit-scrollbar:horizontal {
+  height: 17px;
+}
+html[data-theme="retro"] ::-webkit-scrollbar-corner {
+  background: var(--button-face);
+}
+html[data-theme="retro"] ::-webkit-scrollbar-track {
+  background-image: url("data:image/svg+xml,%3Csvg width=%222%22 height=%222%22 viewBox=%220 0 2 2%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M1 0H0V1H1V2H2V1H1V0Z%22 fill=%22%23C0C0C0%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M2 0H1V1H0V2H1V1H2V0Z%22 fill=%22white%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] ::-webkit-scrollbar-thumb {
+  background-color: var(--button-face);
+  box-shadow: var(--border-raised-outer), var(--border-raised-inner);
+}
+html[data-theme="retro"] ::-webkit-scrollbar-button:horizontal:start:decrement,
+html[data-theme="retro"] ::-webkit-scrollbar-button:horizontal:end:increment,
+html[data-theme="retro"] ::-webkit-scrollbar-button:vertical:start:decrement,
+html[data-theme="retro"] ::-webkit-scrollbar-button:vertical:end:increment {
+  display: block;
+}
+html[data-theme="retro"] ::-webkit-scrollbar-button:vertical:start {
+  height: 17px;
+  background-image: url("data:image/svg+xml,%3Csvg width=%2216%22 height=%2217%22 viewBox=%220 0 16 17%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 0H0V1V16H1V1H15V0Z%22 fill=%22%23DFDFDF%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M2 1H1V15H2V2H14V1H2Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M16 17H15H0V16H15V0H16V17Z%22 fill=%22black%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 1H14V15H1V16H14H15V1Z%22 fill=%22%23808080%22/%3E%0A%3Crect x=%222%22 y=%222%22 width=%2212%22 height=%2213%22 fill=%22%23C0C0C0%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M8 6H7V7H6V8H5V9H4V10H11V9H10V8H9V7H8V6Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] ::-webkit-scrollbar-button:vertical:end {
+  height: 17px;
+  background-image: url("data:image/svg+xml,%3Csvg width=%2216%22 height=%2217%22 viewBox=%220 0 16 17%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 0H0V1V16H1V1H15V0Z%22 fill=%22%23DFDFDF%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M2 1H1V15H2V2H14V1H2Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M16 17H15H0V16H15V0H16V17Z%22 fill=%22black%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 1H14V15H1V16H14H15V1Z%22 fill=%22%23808080%22/%3E%0A%3Crect x=%222%22 y=%222%22 width=%2212%22 height=%2213%22 fill=%22%23C0C0C0%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M11 6H4V7H5V8H6V9H7V10H8V9H9V8H10V7H11V6Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] ::-webkit-scrollbar-button:horizontal:start {
+  width: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg width=%2216%22 height=%2217%22 viewBox=%220 0 16 17%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 0H0V1V16H1V1H15V0Z%22 fill=%22%23DFDFDF%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M2 1H1V15H2V2H14V1H2Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M16 17H15H0V16H15V0H16V17Z%22 fill=%22black%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 1H14V15H1V16H14H15V1Z%22 fill=%22%23808080%22/%3E%0A%3Crect x=%222%22 y=%222%22 width=%2212%22 height=%2213%22 fill=%22%23C0C0C0%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M9 4H8V5H7V6H6V7H5V8H6V9H7V10H8V11H9V4Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] ::-webkit-scrollbar-button:horizontal:end {
+  width: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg width=%2216%22 height=%2217%22 viewBox=%220 0 16 17%22 fill=%22none%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 0H0V1V16H1V1H15V0Z%22 fill=%22%23DFDFDF%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M2 1H1V15H2V2H14V1H2Z%22 fill=%22white%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M16 17H15H0V16H15V0H16V17Z%22 fill=%22black%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M15 1H14V15H1V16H14H15V1Z%22 fill=%22%23808080%22/%3E%0A%3Crect x=%222%22 y=%222%22 width=%2212%22 height=%2213%22 fill=%22%23C0C0C0%22/%3E%0A%3Cpath fill-rule=%22evenodd%22 clip-rule=%22evenodd%22 d=%22M7 4H6V11H7V10H8V9H9V8H10V7H9V6H8V5H7V4Z%22 fill=%22black%22/%3E%0A%3C/svg%3E");
+}
+html[data-theme="retro"] .window[role=tabpanel] {
+  position: relative;
+  z-index: 2;
+}
+html[data-theme="retro"] menu[role=tablist] {
+  position: relative;
+  margin: 0 0 -2px 0;
+  text-indent: 0;
+  list-style-type: none;
+  display: flex;
+  padding-left: 3px;
+}
+html[data-theme="retro"] menu[role=tablist] > li {
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  box-shadow: var(--border-tab);
+  z-index: 1;
+}
+html[data-theme="retro"] menu[role=tablist] > li[aria-selected=true] {
+  padding-bottom: 2px;
+  margin-top: -2px;
+  background-color: var(--surface);
+  position: relative;
+  z-index: 8;
+  margin-left: -3px;
+}
+html[data-theme="retro"] menu[role=tablist] > li > a {
+  display: block;
+  color: #222;
+  margin: 6px;
+  text-decoration: none;
+}
+html[data-theme="retro"] menu[role=tablist] > li[aria-selected=true] > a:focus {
+  outline: none;
+}
+html[data-theme="retro"] menu[role=tablist] > li > a:focus {
+  outline: 1px dotted #222;
+}
+html[data-theme="retro"] menu[role=tablist].multirows > li {
+  flex-grow: 1;
+  text-align: center;
+}
+html[data-theme="retro"] .sunken-panel {
+  box-sizing: border-box;
+  border: 2px groove transparent;
+  border-image: url("data:image/svg+xml,%3Csvg width=%225%22 height=%225%22 viewBox=%220 0 5 5%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%0A  %3Crect width=%224%22 height=%221%22 x=%220%22 y=%220%22 fill=%22%23808080%22/%3E%0A  %3Crect width=%221%22 height=%224%22 x=%220%22 y=%220%22 fill=%22%23808080%22/%3E%0A  %3Crect width=%222%22 height=%221%22 x=%221%22 y=%221%22 fill=%22%230a0a0a%22/%3E%0A  %3Crect width=%221%22 height=%222%22 x=%221%22 y=%221%22 fill=%22%230a0a0a%22/%3E%0A  %3Crect width=%225%22 height=%221%22 x=%220%22 y=%224%22 fill=%22%23fff%22/%3E%0A  %3Crect width=%221%22 height=%225%22 x=%224%22 y=%220%22 fill=%22%23fff%22/%3E%0A  %3Crect width=%221%22 height=%223%22 x=%223%22 y=%221%22 fill=%22%23dfdfdf%22/%3E%0A  %3Crect width=%223%22 height=%221%22 x=%221%22 y=%223%22 fill=%22%23dfdfdf%22/%3E%0A%3C/svg%3E") 2;
+  overflow: auto;
+  background-color: #fff;
+}
+html[data-theme="retro"] table {
+  border-collapse: collapse;
+  position: relative;
+  text-align: left;
+  white-space: nowrap;
+  background-color: #fff;
+}
+html[data-theme="retro"] table > thead > tr > * {
+  position: sticky;
+  top: 0;
+  height: 17px;
+  box-shadow: var(--border-raised-outer), var(--border-raised-inner);
+  background: var(--surface);
+  box-sizing: border-box;
+  font-weight: normal;
+  padding: 0 var(--grouped-element-spacing);
+}
+html[data-theme="retro"] table.interactive > tbody > tr {
+  cursor: pointer;
+}
+html[data-theme="retro"] table > tbody > tr.highlighted {
+  color: #fff;
+  background-color: var(--dialog-blue);
+}
+html[data-theme="retro"] table > tbody > tr > * {
+  padding: 0 var(--grouped-element-spacing);
+  height: 14px;
+}
+html[data-theme="retro"] .progress-indicator {
+	height: 32px;
+	position: relative;
+  box-shadow: var(--border-sunken-inner);
+  padding: 4px 4px;
+  border: none;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+html[data-theme="retro"] .progress-indicator > .progress-indicator-bar {
+  height: 100%;
+  display: block;
+  background-color: var(--dialog-blue);
+}
+html[data-theme="retro"] .progress-indicator.segmented > .progress-indicator-bar {
+  width: 100%;
+  background-color: transparent; 
+  background-image: linear-gradient(
+    90deg,
+    var(--dialog-blue) 0 16px,
+    transparent 0 2px
+  );
+  background-repeat: repeat;
+  background-size: 18px 100%;
+}
+html[data-theme="retro"] .field-border {
+  background: var(--button-highlight);
+  box-shadow: var(--border-field);
+  padding: 2px;
+}
+html[data-theme="retro"] .field-border-disabled {
+  background: var(--surface);
+  box-shadow: var(--border-field);
+  padding: 2px;
+}
+html[data-theme="retro"] .status-field-border {
+  background: var(--surface);
+  box-shadow: var(--border-status-field);
+  padding: 1px;
+}
+</style>
+<!-- 98css:end -->
 <style>
 /* Layout: one column. Header (name + controls) and a status line on a wooden desk, then the felt
    table in its wooden rail. The look is a card room: baize felt, walnut, brass fittings, ivory
@@ -54,8 +904,8 @@
 [hidden] { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 * { scrollbar-color: var(--scroll-thumb) var(--scroll-track); scrollbar-width: thin; }
-.rules { --scroll-track: #ece3cb; }
 .window { --scroll-thumb: var(--brass-lo); --scroll-track: rgba(111, 82, 24, 0.28); }
+.rules { --scroll-track: #ece3cb; }
 
 /* The page itself never scrolls or zooms: the table is sized to fit the screen. Only the rules card scrolls. */
 html {
@@ -103,7 +953,7 @@ h1 {
 .controls { display: flex; flex: 1 1 auto; justify-content: flex-end; align-items: center; gap: 9px; min-width: 0; }
 
 /* Enamel pushbuttons in brass bezels */
-button, #game {
+button, select {
   font: 600 14px var(--font-ui);
   color: var(--enamel-ink);
   background: linear-gradient(180deg, var(--enamel-hi), var(--enamel-lo));
@@ -120,7 +970,7 @@ button, #game {
   transition: transform 0.06s, box-shadow 0.06s;
 }
 /* Hover lifts a button: lighter face, brighter brass and a glow, so it stands out from the dark wood and from the other buttons */
-button:hover:not(:disabled), #game:hover {
+button:hover:not(:disabled), select:hover {
   background: linear-gradient(180deg, #fffef7, #f4e7b8);
   box-shadow:
     0 0 0 1.5px var(--brass-hi), 0 0 0 2.5px var(--brass),
@@ -135,7 +985,7 @@ button:active:not(:disabled) {
     inset 0 2px 4px rgba(80, 55, 15, 0.45);
 }
 button:disabled { opacity: 0.45; cursor: default; box-shadow: 0 0 0 1.5px var(--brass-lo), 0 0 0 2.5px #3a2a0a, inset 0 -2px 3px rgba(80, 55, 15, 0.28); }
-button:focus-visible, #game:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 4px; }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 4px; }
 button.default {
   color: var(--cream); text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
   background: linear-gradient(180deg, #a63849, #6b1927);
@@ -159,7 +1009,7 @@ button[aria-pressed="true"].toggle {
     0 0 14px 3px rgba(255, 210, 100, 0.55),
     inset 0 2px 4px rgba(120, 80, 10, 0.4);
 }
-#game { appearance: none; -webkit-appearance: none; letter-spacing: 0.12em; text-transform: uppercase; font-size: 12.5px; padding: 8px 30px 8px 12px; }
+select { appearance: none; -webkit-appearance: none; letter-spacing: 0.12em; text-transform: uppercase; font-size: 12.5px; padding: 8px 30px 8px 12px; }
 
 /* Segmented choice: a recessed track with a raised brass plate on the chosen position */
 .seg {
@@ -335,7 +1185,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 .rules {
   position: absolute; z-index: 20; left: 0; top: calc(100% + 8px);
   box-sizing: border-box;
-  width: min(27rem, 100%);
+  width: min(27rem, 100%); max-width: none; padding: 0; text-shadow: none;   /* a window that is laid out as a card */
   background: var(--card);
   color: var(--ink);
   border-radius: 12px;
@@ -359,7 +1209,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 .rules-index.top { top: 14px; left: 15px; }
 .rules-index.bottom { bottom: 14px; right: 15px; transform: rotate(180deg); }
 .rules .title-bar-controls { position: absolute; top: 12px; right: 14px; }
-.rules h2 { font: 700 28px/1.1 var(--font-display); text-align: center; text-wrap: balance; }
+.rules h2 { margin: 0; font: 700 28px/1.1 var(--font-display); letter-spacing: normal; text-transform: none; text-align: center; text-wrap: balance; }
 .rules h3 { margin: 16px 0 6px; font: 600 11px var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
 .rules p, .rules li { margin: 0; font-size: 14px; line-height: 1.5; }
 .rules ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
@@ -436,7 +1286,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 }
 /* Fingers need bigger targets than a mouse. */
 @media (pointer: coarse) {
-  button, #game { min-height: 44px; touch-action: manipulation; }
+  button, select { min-height: 44px; touch-action: manipulation; }
   .title-bar-controls button { width: 36px; height: 36px; }
   .icon-btn { min-width: 44px; }
 }
@@ -468,7 +1318,7 @@ html[data-back="black"] { --back: #1d1d22; }
 .panel-heading { margin: 4px 0 8px 2px; font: 700 12px/1 var(--font-ui); letter-spacing: 0.16em; text-transform: uppercase; }
 .panel-links { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 12px; }
 .settings .pick { display: block; margin: 0 0 10px; }
-.settings #game { box-sizing: border-box; width: calc(100% - 6px); }   /* its own 3px margins */
+.settings select { box-sizing: border-box; width: calc(100% - 6px); }   /* its own 3px margins */
 .game-name { font: 700 11px/1 var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: #c9ad62; text-shadow: none; }
 .panel-action { display: block; width: 100%; margin: 0 0 12px; }
 .settings .seg { display: grid; margin: 0 0 10px; }
@@ -497,11 +1347,11 @@ html[data-theme="cyberpunk"] h1 {
   background: #07060f; box-shadow: 0 0 0 1px var(--neon-c), 0 0 12px 1px rgba(61, 245, 255, 0.55), inset 0 0 12px rgba(61, 245, 255, 0.2);
 }
 html[data-theme="cyberpunk"] .game-name { color: var(--neon-m); text-shadow: 0 0 6px rgba(255, 46, 151, 0.7); }
-html[data-theme="cyberpunk"] button, html[data-theme="cyberpunk"] #game {
+html[data-theme="cyberpunk"] button, html[data-theme="cyberpunk"] select {
   color: var(--neon-c); text-shadow: 0 0 6px rgba(61, 245, 255, 0.6); background: #0b0a1a; border-radius: 2px; letter-spacing: 0.04em; text-transform: uppercase; font-size: 12.5px;
   box-shadow: 0 0 0 1px var(--neon-c), 0 0 8px rgba(61, 245, 255, 0.35), inset 0 0 8px rgba(61, 245, 255, 0.15);
 }
-html[data-theme="cyberpunk"] button:hover:not(:disabled), html[data-theme="cyberpunk"] #game:hover {
+html[data-theme="cyberpunk"] button:hover:not(:disabled), html[data-theme="cyberpunk"] select:hover {
   background: #12304a; color: #fff; box-shadow: 0 0 0 1px var(--brass-hi), 0 0 16px 2px rgba(61, 245, 255, 0.7), inset 0 0 10px rgba(61, 245, 255, 0.3);
 }
 html[data-theme="cyberpunk"] button:active:not(:disabled) { box-shadow: 0 0 0 1px var(--neon-c), inset 0 0 14px rgba(61, 245, 255, 0.5); }
@@ -549,13 +1399,13 @@ html[data-theme="scifi"] h1 {
   border-radius: 26px 6px 26px 6px; box-shadow: none; padding: 7px 20px 8px;
 }
 html[data-theme="scifi"] .game-name { color: #000; }
-html[data-theme="scifi"] button, html[data-theme="scifi"] #game {
+html[data-theme="scifi"] button, html[data-theme="scifi"] select {
   color: #000; text-shadow: none; background: var(--lc-orange); border-radius: 20px; letter-spacing: 0.08em; text-transform: uppercase; font-size: 12.5px; box-shadow: none;
 }
-html[data-theme="scifi"] button:hover:not(:disabled), html[data-theme="scifi"] #game:hover { background: #ffb88f; box-shadow: none; }
+html[data-theme="scifi"] button:hover:not(:disabled), html[data-theme="scifi"] select:hover { background: #ffb88f; box-shadow: none; }
 html[data-theme="scifi"] button:active:not(:disabled) { background: #e08658; box-shadow: none; }
 html[data-theme="scifi"] button:disabled { background: #6e4a38; color: #1a0f0a; box-shadow: none; opacity: 0.8; }
-html[data-theme="scifi"] button:focus-visible, html[data-theme="scifi"] #game:focus-visible { outline-color: #fff; }
+html[data-theme="scifi"] button:focus-visible, html[data-theme="scifi"] select:focus-visible { outline-color: #fff; }
 html[data-theme="scifi"] button.default { color: #000; text-shadow: none; background: var(--lc-red); box-shadow: none; }
 html[data-theme="scifi"] button.default:hover:not(:disabled) { background: #e08080; box-shadow: none; }
 html[data-theme="scifi"] button[aria-pressed="true"].toggle { background: var(--lc-gold); box-shadow: none; color: #000; }
@@ -580,110 +1430,99 @@ html[data-theme="scifi"] .title-bar-controls button { color: #000; background: v
 html[data-theme="scifi"] .title-bar-controls button:hover:not(:disabled) { background: #ffb88f; }
 html[data-theme="scifi"] .spinner { border-color: rgba(153, 153, 255, 0.3); border-top-color: var(--lc-orange); }
 
-/* ---- Retro: a 1990s desktop: teal background, grey bevelled windows, navy title bars ---- */
+/* ---- Retro: Windows 98. 98.css (embedded above, and only under this style) draws the buttons, windows, title bars, status bar and scrollbars; this block sets the tokens and the shapes it has no class for ---- */
 html[data-theme="retro"] {
-  --font-display: Tahoma, 'MS Sans Serif', Geneva, Verdana, sans-serif;
-  --font-ui: Tahoma, 'MS Sans Serif', Geneva, Verdana, sans-serif;
-  --bevel-out: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
-  --bevel-in: inset -1px -1px #fff, inset 1px 1px #0a0a0a, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
-  --title-bar: linear-gradient(90deg, #000080, #1084d0);
-  --brass: #808080; --brass-hi: #fff; --brass-lo: #0a0a0a;
+  --font-display: "Pixelated MS Sans Serif", Arial, sans-serif;
+  --font-ui: Arial, sans-serif;
+  --brass: var(--button-shadow); --brass-hi: var(--button-highlight); --brass-lo: var(--window-frame);
   --cream: #fff; --cream-dim: #e8e8e8; --enamel-ink: #000;
   --desk: #008080;
-  --btn-pad: 6px 12px;
 }
 html[data-theme="retro"] body, html[data-theme="retro"] { background-repeat: no-repeat; }
+html[data-theme="retro"] body { font-family: var(--font-ui); }
 html[data-theme="retro"] h1 {
   font: 700 22px/1 var(--font-display); letter-spacing: 0; text-transform: none; color: #fff; text-shadow: none;
-  background: var(--title-bar); border-radius: 0; box-shadow: 0 0 0 1px #0a0a0a, 0 0 0 3px #c0c0c0, 0 0 0 4px #0a0a0a; margin: 4px; padding: 5px 12px 6px;
+  background: linear-gradient(90deg, var(--dialog-blue), var(--dialog-blue-light)); border-radius: 0;
+  box-shadow: 0 0 0 1px var(--window-frame), 0 0 0 3px var(--surface), 0 0 0 4px var(--window-frame); margin: 4px; padding: 5px 12px 6px;
 }
 html[data-theme="retro"] .game-name { color: #fff; font-weight: 400; }
-html[data-theme="retro"] button, html[data-theme="retro"] #game {
-  font: 400 13px var(--font-ui); letter-spacing: 0; text-transform: none; color: #000; text-shadow: none;
-  background: #c0c0c0; border-radius: 0; box-shadow: var(--bevel-out);
-}
-html[data-theme="retro"] #game { padding-right: 28px; }
-html[data-theme="retro"] button:hover:not(:disabled), html[data-theme="retro"] #game:hover { background: #c8c8c8; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] button:active:not(:disabled) { transform: none; box-shadow: var(--bevel-in); }
+/* The steampunk rules for hover, a lit toggle and the segmented buttons outrank 98.css, so they are put back to its look here. */
+html[data-theme="retro"] button { min-width: 0; font-weight: 400; letter-spacing: 0; text-transform: none; }
+html[data-theme="retro"] select { letter-spacing: 0; text-transform: none; font-weight: 400; }
+html[data-theme="retro"] button:hover:not(:disabled):not(:active) { background: var(--surface); box-shadow: var(--border-raised-outer), var(--border-raised-inner); }
+html[data-theme="retro"] button.default:hover:not(:disabled):not(:active) { box-shadow: var(--default-button-border-raised-outer), var(--default-button-border-raised-inner); }
+html[data-theme="retro"] button:active:not(:disabled) { transform: none; }
 html[data-theme="retro"] button:active:not(:disabled) > .icon, html[data-theme="retro"] button:active:not(:disabled) > .label { transform: translate(1px, 1px); }   /* the face moves, the button does not change size */
-html[data-theme="retro"] button:disabled { opacity: 1; color: #808080; text-shadow: 1px 1px #fff; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] button:focus-visible, html[data-theme="retro"] #game:focus-visible { outline: 1px dotted #000; outline-offset: -5px; }
-html[data-theme="retro"] button.default { color: #800000; font-weight: 700; text-shadow: none; background: #c0c0c0; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
-html[data-theme="retro"] button.default:hover:not(:disabled) { background: #c8c8c8; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
-html[data-theme="retro"] button[aria-pressed="true"].toggle { background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px; box-shadow: var(--bevel-in); }
-html[data-theme="retro"] .seg { background: #c0c0c0; border-radius: 0; box-shadow: var(--bevel-in); padding: 3px; }
-html[data-theme="retro"] .seg-label { color: #000; text-shadow: none; letter-spacing: 0; text-transform: none; font-size: 12px; }
-html[data-theme="retro"] .seg button { border-radius: 0; margin: 0; color: #000; text-shadow: none; background: #c0c0c0; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] .seg button:hover:not(:disabled) { background: #cfcfcf; color: #000; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] .seg button[aria-pressed="true"], html[data-theme="retro"] .seg button[aria-pressed="true"]:hover:not(:disabled) {
-  color: #fff; text-shadow: none; background: #000080; box-shadow: var(--bevel-in);
+html[data-theme="retro"] button .icon { color: var(--text-color); }   /* 98.css makes the text transparent and draws it with text-shadow, so an icon that is currentColor needs its own */
+html[data-theme="retro"] button:disabled .icon { color: var(--button-shadow); }
+html[data-theme="retro"] .seg button[aria-pressed="true"] .swatch { box-shadow: 0 0 0 1px #fff; }
+html[data-theme="retro"] .pick::after { content: none; }   /* 98.css draws the arrow */
+html[data-theme="retro"] button[aria-pressed="true"].toggle { background: repeating-conic-gradient(var(--surface) 0 25%, #fff 0 50%) 0 0 / 2px 2px; box-shadow: var(--border-sunken-outer), var(--border-sunken-inner); }
+html[data-theme="retro"] .seg { background: var(--surface); border-radius: 0; box-shadow: var(--border-sunken-outer), var(--border-sunken-inner); padding: 3px; }
+html[data-theme="retro"] .seg-label { color: var(--text-color); text-shadow: none; letter-spacing: 0; text-transform: none; font-size: 12px; }
+html[data-theme="retro"] .seg button, html[data-theme="retro"] .seg button:hover:not(:disabled):not(:active) { margin: 0; background: var(--surface); box-shadow: var(--border-raised-outer), var(--border-raised-inner); }
+html[data-theme="retro"] .seg button[aria-pressed="true"], html[data-theme="retro"] .seg button[aria-pressed="true"]:hover:not(:disabled):not(:active) {
+  color: transparent; text-shadow: 0 0 #fff; background: var(--dialog-blue); box-shadow: var(--border-sunken-outer), var(--border-sunken-inner);
 }
-html[data-theme="retro"] .status-bar { text-shadow: none; color: #fff; }
-html[data-theme="retro"] .status-bar-field b { color: #fff; font-weight: 700; }
-html[data-theme="retro"] .rail { padding: 6px; border-radius: 0; background: #c0c0c0; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out); }
-html[data-theme="retro"] .table { border-radius: 0; padding: 12px; box-shadow: var(--bevel-in); background: radial-gradient(120% 90% at 50% 12%, var(--felt), var(--felt-deep)); }
+html[data-theme="retro"] .status-bar { padding: 2px; color: var(--text-color); text-shadow: none; background: var(--surface); box-shadow: 0 0 0 1px var(--window-frame), var(--border-raised-outer), var(--border-raised-inner); }
+html[data-theme="retro"] .status-bar-field b { color: inherit; font-weight: 700; }
+html[data-theme="retro"] .rail { padding: 6px; border-radius: 0; background: var(--surface); box-shadow: 0 0 0 1px var(--window-frame), var(--border-raised-outer), var(--border-raised-inner); }
+html[data-theme="retro"] .table { border-radius: 0; padding: 12px; box-shadow: var(--border-sunken-outer), var(--border-sunken-inner); background: radial-gradient(120% 90% at 50% 12%, var(--felt), var(--felt-deep)); }
 html[data-theme="retro"] .slot { border: 1px solid rgba(0, 0, 0, 0.4); border-radius: 2px; box-shadow: none; color: rgba(255, 255, 255, 0.35); text-shadow: none; font-family: var(--font-display); }
 html[data-theme="retro"] .modal { background: rgba(0, 0, 0, 0.45); }
-html[data-theme="retro"] .window, html[data-theme="retro"] .update, html[data-theme="retro"] .toast {
-  color: #000; text-shadow: none; border-radius: 0; background: #c0c0c0; box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out), 4px 4px 0 1px rgba(0, 0, 0, 0.45);
+html[data-theme="retro"] .update, html[data-theme="retro"] .toast {
+  color: var(--text-color); text-shadow: none; border-radius: 0; background: var(--surface);
+  box-shadow: var(--border-window-outer), var(--border-window-inner), 4px 4px 0 1px rgba(0, 0, 0, 0.45);
 }
-html[data-theme="retro"] .window { padding: 0 14px 14px; }
-html[data-theme="retro"] .settings, html[data-theme="retro"] #stats .window { --pad-x: 14px; padding: 0 0 14px; }
-html[data-theme="retro"] .window h2 {
-  margin: 0 -14px 14px; padding: 3px 30px 3px 6px; font: 700 14px/18px var(--font-display); letter-spacing: 0; text-transform: none; color: #fff; background: var(--title-bar);
-}
-html[data-theme="retro"] .settings h2, html[data-theme="retro"] #stats .window h2 { margin: 0 0 14px; }
-html[data-theme="retro"] .window .title-bar-controls { top: 3px; right: 3px; }
-html[data-theme="retro"] .window .title-bar-controls button { width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] .window .title-bar-controls button .icon { width: 12px; height: 12px; }
-html[data-theme="retro"] .window .title-bar-controls button:active { box-shadow: var(--bevel-in); }
-html[data-theme="retro"] .title-bar-controls button:hover:not(:disabled) { background: #cfcfcf; }
+/* Windows: 98.css's .window gives the frame; the page's windows keep their own widths and scrolling, and take the title bar's height. */
+html[data-theme="retro"] .window { border-radius: 0; color: var(--text-color); text-shadow: 0 0; box-shadow: var(--border-window-outer), var(--border-window-inner), 4px 4px 0 1px rgba(0, 0, 0, 0.45); }
+html[data-theme="retro"] :is(.window, .settings, #stats .window) { --pad-x: 0px; padding: 3px; }
+html[data-theme="retro"] .title-bar { position: relative; }
+html[data-theme="retro"] :is(.window, .settings, #stats .window) .title-bar-text { margin: 0 24px 0 0; font: 700 11px/18px var(--font-display); letter-spacing: 0; text-transform: none; text-align: left; text-shadow: none; }
+html[data-theme="retro"] .window .title-bar-controls { position: static; }
+html[data-theme="retro"] .title-bar-controls button { width: 16px; height: 14px; min-height: 0; border-radius: 0; background-color: var(--surface); }
+html[data-theme="retro"] .title-bar-controls button .icon { display: none; }   /* 98.css draws the × */
+html[data-theme="retro"] .title-bar-controls button:hover:not(:disabled):not(:active) { background-color: var(--surface); }
 html[data-theme="retro"] .panel-heading { letter-spacing: 0; text-transform: none; font-size: 13px; }
-html[data-theme="retro"] .stats-table th { letter-spacing: 0; text-transform: none; border-bottom-color: #808080; }
-html[data-theme="retro"] .spinner { border-color: #808080; border-top-color: #000080; border-radius: 0; }
-html[data-theme="retro"] .update { color: #000; }
+html[data-theme="retro"] .stats-table th { letter-spacing: 0; text-transform: none; }
+html[data-theme="retro"] .spinner { border-color: var(--button-shadow); border-top-color: var(--dialog-blue); border-radius: 0; }
+@media (pointer: coarse) {
+  html[data-theme="retro"] button, html[data-theme="retro"] select { min-height: 44px; }
+  html[data-theme="retro"] .title-bar-controls button.close { width: 30px; height: 28px; min-height: 0; background-position: center; }
+}
 /* The rules card takes its colours from tokens, so each style only has to set them (and a few shapes). */
-html[data-theme="cyberpunk"] .rules { --card: #0b0a1a; --ink: #d9faff; --ink-soft: #7fc9d3; --card-edge: var(--neon-m); --back-line: var(--neon-c);
+html[data-theme="cyberpunk"] .rules { color: var(--ink); text-shadow: none; --card: #0b0a1a; --ink: #d9faff; --ink-soft: #7fc9d3; --card-edge: var(--neon-m); --back-line: var(--neon-c);
   border-radius: 3px; box-shadow: 0 0 0 1px var(--neon-m), 0 0 22px rgba(255, 46, 151, 0.5), inset 0 0 22px rgba(255, 46, 151, 0.15); }
 html[data-theme="cyberpunk"] .rules::before { border-radius: 2px; }
 html[data-theme="cyberpunk"] .rules h2 { color: var(--neon-m); text-shadow: 0 0 8px rgba(255, 46, 151, 0.7); text-transform: uppercase; letter-spacing: 0.08em; }
 html[data-theme="cyberpunk"] .rules kbd { background: #05040c; color: var(--neon-c); border-radius: 2px; }
 html[data-theme="cyberpunk"] .rules .title-bar-controls button { color: var(--neon-c); border-color: var(--neon-c); border-radius: 2px; }
-html[data-theme="scifi"] .rules { --card: #000; --ink: #ffcc99; --ink-soft: #9999ff; --card-edge: #9999ff; --back-line: #cc99cc;
+html[data-theme="scifi"] .rules { color: var(--ink); --card: #000; --ink: #ffcc99; --ink-soft: #9999ff; --card-edge: #9999ff; --back-line: #cc99cc;
   border-radius: 28px 8px 28px 8px; box-shadow: 0 0 0 4px var(--lc-blue), 0 18px 44px rgba(0, 0, 0, 0.5); }
 html[data-theme="scifi"] .rules::before { border-radius: 22px 4px 22px 4px; }
 html[data-theme="scifi"] .rules h2 { color: var(--lc-orange); text-transform: uppercase; letter-spacing: 0.08em; }
 html[data-theme="scifi"] .rules kbd { background: #000; color: var(--lc-peach); border-radius: 8px; }
 html[data-theme="scifi"] .rules .title-bar-controls button { color: #000; background: var(--lc-orange); border: 0; }
-html[data-theme="retro"] .rules { --card: #c0c0c0; --ink: #000; --ink-soft: #404040; --card-edge: #808080; border-radius: 0; font-family: var(--font-ui);
-  box-shadow: 0 0 0 1px #0a0a0a, var(--bevel-out), 4px 4px 0 1px rgba(0, 0, 0, 0.45); }
+html[data-theme="retro"] .rules { --card: var(--surface); --ink: var(--text-color); --ink-soft: #404040; --card-edge: var(--button-shadow); border-radius: 0; font-family: var(--font-ui); }
 html[data-theme="retro"] .rules::before, html[data-theme="retro"] .rules-index, html[data-theme="retro"] .rules-divider { display: none; }
-html[data-theme="retro"] .rules-scroll { margin: 0; padding: 14px 18px 12px; }
-html[data-theme="retro"] .rules h2 { margin: 0; padding: 3px 30px 3px 6px; font: 700 14px/18px var(--font-display); text-align: left; color: #fff; background: var(--title-bar); }
-html[data-theme="retro"] .rules h3 { letter-spacing: 0; text-transform: none; font-size: 13px; color: #000; }
-html[data-theme="retro"] .rules kbd { background: #c0c0c0; border: 0; border-radius: 0; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] .rules .title-bar-controls { top: 3px; right: 3px; z-index: 1; }
-html[data-theme="retro"] .rules .title-bar-controls button { width: 18px; height: 18px; min-height: 0; border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: var(--bevel-out); }
-html[data-theme="retro"] .rules .title-bar-controls button .icon { width: 12px; height: 12px; }
+html[data-theme="retro"] .rules .title-bar-text { padding: 0; }
+html[data-theme="retro"] .rules-scroll { padding: 4px 10px 6px; }
+html[data-theme="retro"] .rules h3 { letter-spacing: 0; text-transform: none; font-size: 13px; color: var(--text-color); }
+html[data-theme="retro"] .rules kbd { background: var(--surface); border: 0; border-radius: 0; box-shadow: var(--border-raised-outer), var(--border-raised-inner); }
 /* Scrollbars follow the style (scrollbar-color and scrollbar-width, which every current browser has). */
 html[data-theme="cyberpunk"] { --scroll-thumb: var(--neon-c); --scroll-track: #05040c; }
 html[data-theme="cyberpunk"] .rules, html[data-theme="cyberpunk"] .window { --scroll-thumb: var(--neon-m); --scroll-track: #05040c; }
 html[data-theme="scifi"] { --scroll-thumb: var(--lc-orange); --scroll-track: #000; }
 html[data-theme="scifi"] .rules, html[data-theme="scifi"] .window { --scroll-thumb: var(--lc-violet); --scroll-track: #000; }
-html[data-theme="retro"] { --scroll-thumb: #c0c0c0; --scroll-track: #dfdfdf; }
-html[data-theme="retro"] .rules, html[data-theme="retro"] .window { --scroll-thumb: #c0c0c0; --scroll-track: #dfdfdf; }
 /* Older WebKit has no scrollbar-color: draw the same thing with the pseudo-elements. */
 @supports not (scrollbar-color: auto) {
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--scroll-track); }
   ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 5px; }
 }
-/* Retro, where the engine can draw it: a chequered trough and a bevelled thumb. */
+/* Retro, where the engine can draw it: 98.css's scrollbar (its ::-webkit-scrollbar rules need the standard properties switched off). */
 @supports selector(::-webkit-scrollbar) {
   html[data-theme="retro"] * { scrollbar-color: auto; scrollbar-width: auto; }
-  html[data-theme="retro"] ::-webkit-scrollbar { width: 16px; height: 16px; }
-  html[data-theme="retro"] ::-webkit-scrollbar-track { background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px; }
-  html[data-theme="retro"] ::-webkit-scrollbar-thumb { background: #c0c0c0; box-shadow: var(--bevel-out); }
 }
 </style>
 
@@ -709,12 +1548,12 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .window { --scroll-thu
 <div class="app">
   <header class="bar">
     <h1><span>Baize</span><span id="game-name" class="game-name"></span></h1>
-    <div id="rules" class="rules" role="dialog" aria-labelledby="rules-title" hidden>
+    <div id="rules" class="rules window" role="dialog" aria-labelledby="rules-title" hidden>
       <span class="rules-index top" aria-hidden="true"><span>A</span><span>♠</span></span>
       <span class="rules-index bottom" aria-hidden="true"><span>A</span><span>♠</span></span>
       <div class="title-bar">
         <h2 id="rules-title" class="title-bar-text"></h2>
-        <div class="title-bar-controls"><button id="rules-close" type="button" aria-label="Close rules" title="Close rules"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+        <div class="title-bar-controls"><button id="rules-close" class="close" type="button" aria-label="Close rules" title="Close rules"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
       </div>
       <div class="rules-scroll">
       <p id="rules-text"></p>
@@ -759,13 +1598,13 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .window { --scroll-thu
     <div id="board" class="board" role="group" aria-label="Card table" aria-describedby="kbd-help"></div>
     <div id="toast" class="toast" hidden>
       <span id="toast-text"></span>
-      <div class="title-bar-controls"><button id="toast-close" type="button" aria-label="Dismiss" title="Dismiss"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="title-bar-controls"><button id="toast-close" class="close" type="button" aria-label="Dismiss" title="Dismiss"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     </div>
     <div id="stats" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="stats-title">
       <div class="window">
         <div class="title-bar">
           <h2 id="stats-title" class="title-bar-text">Statistics</h2>
-          <div class="title-bar-controls"><button id="stats-close" type="button" aria-label="Close" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+          <div class="title-bar-controls"><button id="stats-close" class="close" type="button" aria-label="Close" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
         </div>
         <div class="window-body">
           <p id="stats-result"></p>
@@ -780,7 +1619,7 @@ html[data-theme="retro"] .rules, html[data-theme="retro"] .window { --scroll-thu
     <div id="settings" class="window settings" popover="manual" hidden role="dialog" aria-labelledby="settings-title">
       <div class="title-bar">
         <h2 id="settings-title" class="title-bar-text">Menu</h2>
-        <div class="title-bar-controls"><button id="settings-close" type="button" aria-label="Close settings" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+        <div class="title-bar-controls"><button id="settings-close" class="close" type="button" aria-label="Close settings" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
       </div>
       <div class="window-body">
       <div class="panel-links">
