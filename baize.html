@@ -1491,6 +1491,7 @@ html[data-theme="retro"] .stats-table th { letter-spacing: 0; text-transform: no
 html[data-theme="retro"] .spinner { border-color: var(--button-shadow); border-top-color: var(--dialog-blue); border-radius: 0; }
 @media (pointer: coarse) {
   html[data-theme="retro"] button, html[data-theme="retro"] select { min-height: 44px; }
+  html[data-theme="retro"] select { padding-block: 0; background-position: center right 2px; }   /* 98.css's select is 21px tall, its text and arrow at the top */
   html[data-theme="retro"] .title-bar-controls button[aria-label].close { width: 30px; height: 28px; min-height: 0; background-position: center; }
 }
 /* The rules card takes its colours from tokens, so each style only has to set them (and a few shapes). */
