@@ -672,6 +672,7 @@ def check_page_cannot_zoom(pg):
     assert prevented == [True, True], prevented
     # on a touch screen nothing on the page can be selected; with a mouse, text can be
     rule = pg.evaluate("""() => [...document.styleSheets].flatMap(sheet => { try { return [...sheet.cssRules]; } catch { return []; } })
+        .flatMap(r => r.cssRules && !r.media ? [...r.cssRules] : [r])      // the page's rules are in the layer "app"
         .filter(r => r.media && r.media.mediaText.includes('pointer: coarse') && r.cssText.includes('user-select: none')).length""")
     assert rule == 1, 'a (pointer: coarse) rule turns selection off'
     assert pg.evaluate("getComputedStyle(document.body).userSelect") != 'none', 'a mouse can still select text'

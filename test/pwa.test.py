@@ -14,7 +14,7 @@ from playwright.sync_api import sync_playwright
 REPO = pathlib.Path(__file__).resolve().parent.parent
 # Serve a copy, so the test can change the game while the app is open.
 DIST = pathlib.Path(tempfile.mkdtemp())
-for name in ('baize.html', 'sw.js', 'manifest.webmanifest', 'index.html', 'icons'):
+for name in ('baize.html', 'sw.js', 'manifest.webmanifest', 'index.html', 'icons', 'vendor'):
     (shutil.copytree if (REPO / name).is_dir() else shutil.copy)(REPO / name, DIST / name)
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -40,6 +40,9 @@ with sync_playwright() as p:
     page.reload()                                   # now controlled by the worker
     page.wait_for_timeout(500)
     assert page.evaluate('Boolean(navigator.serviceWorker.controller)'), 'the service worker controls the page'
+
+    assert page.evaluate("caches.match('vendor/98.css/98.css').then(Boolean)"), 'the Retro style sheet is cached for offline use'
+    assert page.evaluate("caches.match('vendor/98.css/ms_sans_serif.woff2').then(Boolean)"), 'the Retro font is cached for offline use'
 
     manifest = page.evaluate("fetch(document.querySelector('link[rel=manifest]').href).then(r => r.json())")
     assert page.evaluate('document.compatMode') == 'CSS1Compat', 'the page is not in quirks mode'

@@ -3,7 +3,8 @@
 // is fetched at once; open pages are told, and offer a reload. Nothing here needs a version number.
 const CACHE = 'baize';
 const SHELL = ['./', 'baize.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
-  'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
+  'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png',
+  'vendor/98.css/98.css', 'vendor/98.css/ms_sans_serif.woff2', 'vendor/98.css/ms_sans_serif_bold.woff2'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
