@@ -67,7 +67,7 @@ def wait_for_deal(pg):
 
 def check_menu_and_saves(pg):
     names = pg.eval_on_selector_all('#game option', 'o => o.map(x => x.textContent)')
-    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid', 'Spider', 'Forty Thieves', 'Yukon', 'TriPeaks', 'Accordion'], names
+    assert names == ['Accordion', 'Forty Thieves', 'FreeCell', 'Golf', 'Klondike', 'Pyramid', 'Spider', 'TriPeaks', 'Yukon'], names
     start(pg, 'klondike')
     box = pg.locator('.slot[data-pile=stock]').bounding_box()
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)

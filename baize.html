@@ -3947,7 +3947,8 @@ const StandardDeck = (() => {
     }
   });
 
-  GAMES.forEach((g, i) => els.game.append(h('option', { value: String(i) }, g.rules.name)));
+  GAMES.map((g, i) => ({ name: g.rules.name, value: String(i) })).sort((a, b) => a.name.localeCompare(b.name))
+    .forEach(({ name, value }) => els.game.append(h('option', { value }, name)));
   // A menu that keeps focus after a mouse or touch pick would swallow the rank keys, and letters typed
   // into it would jump to another game. Keyboard users keep focus so they can go on with the arrow keys.
   let menuUsedKeyboard = false;
