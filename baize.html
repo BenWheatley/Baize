@@ -2245,6 +2245,79 @@ const CardSim = (() => {
     ],
   });
 
+  /* ---------- Accordion ----------
+     All 52 cards in a line, face up. A pile may be moved, whole, onto the pile one place to its left or
+     three places to its left when their top cards share a suit or a rank. The gap closes, so the line
+     gets shorter. Win with a single pile. Only top cards ever matter, which is how the search can tell
+     positions apart. The piles are a0, a1, ...; the ones in use are always the first of them. */
+
+  const ACCORDION_COLUMNS = 9;
+  const ACCORDION = Array.from({ length: 52 }, (_, i) => `a${i}`);
+  const JUMPS = [1, 3];
+  const pilesLeft = piles => ACCORDION.filter(id => piles[id].length).length;
+  const matches = (a, b) => a.suit === b.suit || a.rank === b.rank;
+
+  /** Every pile that may move, onto every pile it may go on. */
+  function accordionJumps(piles) {
+    const n = pilesLeft(piles);
+    return ACCORDION.slice(0, n).flatMap((from, p) => JUMPS.filter(gap => gap <= p && matches(top(piles[from]).card, top(piles[ACCORDION[p - gap]]).card))
+      .map(gap => ({ type: 'move', from, index: piles[from].length - 1, to: ACCORDION[p - gap] })));
+  }
+
+  const accordionActions = {
+    move(piles, { from, index, to }) {
+      const p = ACCORDION.indexOf(from), q = ACCORDION.indexOf(to);
+      if (p < 0 || q < 0) return 'Only a pile can move onto a pile';
+      if (!piles[from].length) return 'There is no card there';
+      if (index !== piles[from].length - 1) return 'A pile is moved by its top card';
+      if (!JUMPS.includes(p - q)) return 'A pile moves one or three places to the left';
+      if (!matches(top(piles[from]).card, top(piles[to]).card)) return 'The cards share neither a suit nor a rank';
+      piles[to].push(...piles[from]);
+      for (let i = p; i < ACCORDION.length; i++) piles[ACCORDION[i]] = piles[ACCORDION[i + 1]] ?? [];   // the gap closes
+    },
+  };
+
+  const accordion = defineRules({
+    id: 'accordion',
+    name: 'Accordion',
+    showsMovable: true,
+    help: 'Move a pile onto the pile one place to its left, or three places to its left, when their top cards have the same suit or the same rank. The gap closes. Tap a card to move it when only one move is possible; otherwise tap it and then the pile it should go on, or drag it. Finish with one pile.',
+
+    options: [WINNABLE_OPTION],
+    canSolve: () => true,
+    searchNodes: 1500,
+
+    setup(_options, rng) {
+      const deck = dealDeck(rng);
+      return { piles: Object.fromEntries(ACCORDION.map((id, i) => [id, [{ card: deck[i], up: true }]])) };
+    },
+
+    layout: () => ACCORDION.map((id, i) => ({ id, col: i % ACCORDION_COLUMNS, y: Math.floor(i / ACCORDION_COLUMNS) * 1.1, bare: true })),
+
+    faceUp: (_state, _pileId, entry) => entry.up,
+    reduce: (state, action) => reduceWith(accordionActions, state, action),
+
+    canPickUp: (state, pileId, index) => index >= 0 && index === state.piles[pileId]?.length - 1,
+
+    onTap(state, pileId, index, selection) {
+      if (selection) return null;
+      const own = accordionJumps(state.piles).filter(action => action.from === pileId && action.index === index);
+      return own.length === 1 ? own[0] : null;
+    },
+
+    moves: state => accordionJumps(state.piles),
+
+    /** Only the top cards matter to what can still be played. */
+    key: state => ACCORDION.map(id => state.piles[id].length ? top(state.piles[id]).card.id : '').join(','),
+
+    /** Fewer piles is better; of equal positions, the one with more ways to go on. */
+    progress: state => -100 * pilesLeft(state.piles) + accordionJumps(state.piles).length,
+
+    isWon: state => pilesLeft(state.piles) === 1,
+
+    status: state => [{ label: 'Piles', value: `${pilesLeft(state.piles)} / 52` }],
+  });
+
   /* ---------- Statistics ----------
      One record per game: deals played, deals won, the fewest moves in a win, and the winning streak.
      A deal is counted when it is won, or when it is given up after at least one move. `deal` names
@@ -2379,7 +2452,7 @@ const CardSim = (() => {
     }));
   }
 
-  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks };
+  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion };
 })();
 </script>
 
@@ -2528,6 +2601,7 @@ const StandardDeck = (() => {
     { rules: CardSim.forty, deck: StandardDeck },
     { rules: CardSim.yukon, deck: StandardDeck },
     { rules: CardSim.tripeaks, deck: StandardDeck },
+    { rules: CardSim.accordion, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';
@@ -3523,6 +3597,7 @@ const StandardDeck = (() => {
     if (prefix === 'c' && game.rules.id === 'freecell') return `Free cell ${number(id)}`;
     if (prefix === 'f') return `Foundation ${number(id)}`;
     if (prefix === 't') return `Column ${number(id)}`;
+    if (prefix === 'a') return `Pile ${number(id)}`;
     if (prefix === 'p' || prefix === 'k') { const [row, i] = id.slice(1).split('_').map(Number); return `${prefix === 'p' ? 'Pyramid' : 'Peak'} row ${row + 1}, card ${i + 1}`; }
     return id;
   }

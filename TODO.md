@@ -16,7 +16,7 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 
 ## Open
 - 13. WebAssembly: Forty Thieves and Spider searches are in `tools/wasm` (one core, a rules file per game) and embedded in `baize.html` (one file, as decided); hints from any position use them. Next: the same for more games where the JavaScript search is slow (Klondike, FreeCell) if their Winnable or hint success needs it; dominance rules and a learned score for Spider (see the open questions of the write-up)
-- 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion, Accordion (not Clock: it has no decisions); Hanabi (multiplayer, hidden information) much later
+- 8. More games: Canfield, Beleaguered Castle, Baker's Dozen, Scorpion (Accordion is done; not Clock: it has no decisions); Hanabi (multiplayer, hidden information) much later
 
 ## Follow-ups
 - Safe cards for Yukon too (the rule is the same); a drop near a foundation for Golf-style games does not apply

@@ -8,7 +8,7 @@ import traceback
 from playwright.sync_api import sync_playwright
 
 URL = (pathlib.Path(__file__).resolve().parent.parent / 'baize.html').as_uri()
-GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2', 'pyramid': '3', 'spider': '4', 'forty': '5', 'yukon': '6', 'tripeaks': '7'}
+GAMES = {'klondike': '0', 'freecell': '1', 'golf': '2', 'pyramid': '3', 'spider': '4', 'forty': '5', 'yukon': '6', 'tripeaks': '7', 'accordion': '8'}
 FACE_DOWN = 'Face-down card'
 
 # Deals are fixed so that the checks do not depend on luck. Seed 1 of FreeCell has three
@@ -16,7 +16,7 @@ FACE_DOWN = 'Face-down card'
 # pair (queen and ace of spades) and one king (hearts) in the free bottom row; seed 30 of Spider
 # (one suit) has exactly one tap-move: the six of spades onto the seven; seed 8 of Forty Thieves
 # has exactly one, the two of hearts onto the three, and no ace showing.
-SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14, 'pyramid': 2, 'spider': 30, 'forty': 8, 'yukon': 3, 'tripeaks': 5}
+SEEDS = {'klondike': 7, 'freecell': 1, 'golf': 14, 'pyramid': 2, 'spider': 30, 'forty': 8, 'yukon': 3, 'tripeaks': 5, 'accordion': 1}
 
 
 def status(pg):
@@ -67,7 +67,7 @@ def wait_for_deal(pg):
 
 def check_menu_and_saves(pg):
     names = pg.eval_on_selector_all('#game option', 'o => o.map(x => x.textContent)')
-    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid', 'Spider', 'Forty Thieves', 'Yukon', 'TriPeaks'], names
+    assert names == ['Klondike', 'FreeCell', 'Golf', 'Pyramid', 'Spider', 'Forty Thieves', 'Yukon', 'TriPeaks', 'Accordion'], names
     start(pg, 'klondike')
     box = pg.locator('.slot[data-pile=stock]').bounding_box()
     pg.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
@@ -451,6 +451,47 @@ def check_tripeaks(pg):
     assert 'Stock 22' in status(pg), status(pg)
     problems = pg.evaluate(STACKING_PROBLEMS)
     assert not problems, problems[:3]
+
+
+def check_accordion(pg):
+    start(pg, 'accordion')
+    assert 'Piles 52 / 52' in status(pg), status(pg)
+    assert pg.locator('.card').count() == 52
+    plays = pg.evaluate("""() => {
+        const rules = CardSim.accordion, state = rules.setup({}, CardSim.mulberry32(1));
+        const named = a => ({ from: a.from, to: a.to, lead: state.piles[a.from][0].card.id, target: state.piles[a.to][0].card.id });
+        const moves = rules.moves(state);
+        const once = moves.filter(a => moves.filter(b => b.from === a.from).length === 1).map(named);
+        const twice = moves.filter(a => moves.filter(b => b.from === a.from).length === 2).map(named);
+        return { once: once[0] ?? null, twice: twice.slice(0, 2) }; }""")
+    assert plays['once'], 'seed 1 has a pile with exactly one move'
+    tap(pg, f'.card[data-id="{plays["once"]["lead"]}"]', 0.5)
+    assert 'Piles 51 / 52' in status(pg) and 'Moves 1' in status(pg), status(pg)
+    pg.click('#undo')
+    pg.wait_for_timeout(300)
+    assert 'Piles 52 / 52' in status(pg), status(pg)
+    drag = plays['once']
+    a, b = pg.locator(f'.card[data-id="{drag["lead"]}"]').bounding_box(), pg.locator(f'.card[data-id="{drag["target"]}"]').bounding_box()
+    pg.mouse.move(a['x'] + a['width'] / 2, a['y'] + a['height'] / 2)
+    pg.mouse.down()
+    pg.mouse.move(b['x'] + b['width'] / 2, b['y'] + b['height'] / 2, steps=8)
+    pg.mouse.up()
+    pg.wait_for_timeout(400)
+    assert 'Piles 51 / 52' in status(pg), f'dragging a pile onto its target moves it: {status(pg)}'
+    if plays['twice']:
+        pg.click('#undo')
+        pg.wait_for_timeout(300)
+        two = plays['twice'][0]
+        tap(pg, f'.card[data-id="{two["lead"]}"]', 0.5)
+        assert 'Piles 52 / 52' in status(pg), 'with two places to go a tap only picks the pile up'
+    problems = pg.evaluate(STACKING_PROBLEMS)
+    assert not problems, problems[:3]
+    pg.set_viewport_size({'width': 375, 'height': 800})
+    pg.wait_for_timeout(400)
+    box = pg.locator('#board').bounding_box()
+    assert pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), 'no sideways scrolling on a phone'
+    cards = pg.evaluate("[...document.querySelectorAll('.card')].every(c => { const r = c.getBoundingClientRect(); return r.right <= innerWidth + 1 && r.left >= -1; })")
+    assert cards, 'every pile is on the screen on a phone'
 
 
 def check_forty_thieves(pg):
@@ -1065,7 +1106,7 @@ def check_header_layout(pg):
 
 
 def check_deals_default_to_winnable(pg):
-    for name in ('klondike', 'freecell', 'golf', 'pyramid', 'spider', 'tripeaks'):
+    for name in ('klondike', 'freecell', 'golf', 'pyramid', 'spider', 'tripeaks', 'accordion'):
         start(pg, name)
         open_settings(pg)
         pressed = pg.inner_text('[data-option-group="winnable"] button[aria-pressed="true"]')
@@ -1498,7 +1539,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_popups_fit_the_window, check_drop_near_foundation_goes_home, check_safe_cards_play_themselves, check_forty_winnable_is_quick, check_deal_label_is_the_truth, check_saved_deal_without_a_record_is_checked, check_first_deal_honours_winnable, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_accordion, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_popups_fit_the_window, check_drop_near_foundation_goes_home, check_safe_cards_play_themselves, check_forty_winnable_is_quick, check_deal_label_is_the_truth, check_saved_deal_without_a_record_is_checked, check_first_deal_honours_winnable, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]
