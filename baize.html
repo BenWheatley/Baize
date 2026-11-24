@@ -961,12 +961,8 @@ const CardSim = (() => {
     rng,
   );
 
-  /** Face-up cards in descending rank, alternating colour. */
-  function isRun(entries) {
-    return entries.every((entry, i) => entry.up && (i === 0 ||
-      (entries[i - 1].card.rank === entry.card.rank + 1 &&
-       isRed(entries[i - 1].card.suit) !== isRed(entry.card.suit))));
-  }
+  /** Face-up cards in descending rank, alternating colour (an ace is followed by a king when `wrap`). */
+  const isRun = (entries, wrap = false) => entries.every((entry, i) => entry.up && (i === 0 || buildsDown(entries[i - 1], entry.card, wrap)));
 
   /** Can `lead` go on a foundation whose top entry is `landing` (undefined when empty)? */
   const fitsFoundation = (landing, lead) => landing
@@ -982,9 +978,9 @@ const CardSim = (() => {
     return gap === 1 || (wrap && gap === 12);
   };
 
-  /** Can `lead` go on a non-empty tableau column whose top entry is `landing`? */
-  const buildsDown = (landing, lead) =>
-    landing.up && isRed(landing.card.suit) !== isRed(lead.suit) && landing.card.rank === lead.rank + 1;
+  /** Can `lead` go on a non-empty tableau column whose top entry is `landing`? A king goes on an ace when `wrap`. */
+  const buildsDown = (landing, lead, wrap = false) =>
+    landing.up && isRed(landing.card.suit) !== isRed(lead.suit) && (landing.card.rank === lead.rank + 1 || (wrap && landing.card.rank === 1 && lead.rank === 13));
 
   /** Run a handler on a private copy of the state. A handler returns an error message, or nothing. */
   /** Entries are copied, cards are shared: a handler may turn an entry over but never edits a card. */
@@ -1051,8 +1047,9 @@ const CardSim = (() => {
   }
 
   /** A move in the Klondike family: a run (or a stack) goes to a foundation, one card at a time, or to a column
-      that it builds down on; a king goes to an empty column. `liftError(moving, from)` says what may be picked up. */
-  function columnMove(piles, action, { blocked, liftError }) {
+      that it builds down on; a king goes to an empty column. `liftError(moving, from)` says what may be picked up.
+      A game with other rules for what builds says so in `fitsHome` and `fitsColumn`, which take the landing entry (if any) and the lead card. */
+  function columnMove(piles, action, { blocked, liftError, fitsHome = fitsFoundation, fitsColumn = (landing, lead) => (landing ? buildsDown(landing, lead) : lead.rank === 13) }) {
     const lifted = lift(piles, action, blocked);
     if (lifted.error) return lifted.error;
     const { source, target, moving } = lifted;
@@ -1064,10 +1061,9 @@ const CardSim = (() => {
 
     if (FOUNDATIONS.includes(to)) {
       if (FOUNDATIONS.includes(from) || moving.length > 1) return 'Only one card can go to a foundation';
-      if (!fitsFoundation(landing, lead)) return 'That card does not build on this foundation';
-    } else {
-      const fits = landing ? buildsDown(landing, lead) : lead.rank === 13;
-      if (!fits) return 'That card does not build on this column';
+      if (!fitsHome(landing, lead)) return 'That card does not build on this foundation';
+    } else if (!fitsColumn(landing, lead)) {
+      return 'That card does not build on this column';
     }
 
     source.splice(index);
@@ -1115,6 +1111,13 @@ const CardSim = (() => {
       },
     }),
   };
+
+  /** A tap on the stock draws, or turns the waste over again when the stock is spent. */
+  function turnStock(state, pileId) {
+    if (pileId !== 'stock') return null;
+    if (state.piles.stock.length) return { type: 'draw' };
+    return state.piles.waste.length ? { type: 'recycle' } : null;
+  }
 
   /** Cards home, cards turned over and empty columns are good; cards still face down are bad (Klondike and Yukon). */
   function hiddenProgress(state) {
@@ -1172,11 +1175,7 @@ const CardSim = (() => {
 
     reduce: (state, action, options) => reduceWith(klondikeActions, state, action, options),
 
-    onTap(state, pileId) {
-      if (pileId !== 'stock') return null;
-      if (state.piles.stock.length) return { type: 'draw' };
-      return state.piles.waste.length ? { type: 'recycle' } : null;
-    },
+    onTap: turnStock,
 
     onActivate: (state, pileId, index) => sendHome(klondike, state, pileId, index),
     homeAction: (state, pileId, index) => sendHome(klondike, state, pileId, index),
