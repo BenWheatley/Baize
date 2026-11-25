@@ -10,7 +10,7 @@ const ctx = vm.createContext({ structuredClone, console, atob });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 vm.runInContext(grab('solver-wasm'), ctx);                          // adds the WebAssembly search for Forty Thieves
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, search, seedHunt, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, HintBook, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, search, seedHunt, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, HintBook, fanOffsets, movableCards, mulberry32 } = CardSim;
 // What the tests mean by solving, and by a hint: the one search, asked for a win or for a line.
 const solve = (rules, options, state, { nodes } = {}) => { const found = search(rules, options, state, { nodes, winOnly: true }); return found?.sure ? found.line : null; };
 const hintLine = search;
@@ -996,7 +996,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   const cases = [
     ['klondike', klondike, { draw: 1 }, 40], ['klondike', klondike, { draw: 3 }, 60], ['freecell', freecell, {}, 20],
     ['golf', golf, { wrap: 1 }, 80], ['golf', golf, { wrap: 0 }, 400], ['pyramid', pyramid, { redeals: 2 }, 30],
-    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10], ['spider', spider, { suits: 2, gaps: 1 }, 40], ['yukon', yukon, {}, 20], ['forty', forty, {}, 80], ['accordion', accordion, {}, 60],
+    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10], ['spider', spider, { suits: 2, gaps: 1 }, 40], ['yukon', yukon, {}, 20], ['forty', forty, {}, 80], ['accordion', accordion, {}, 60], ['canfield', canfield, { draw: 3 }, 30], ['canfield', canfield, { draw: 1 }, 60],
   ];
   for (const [name, rules, base, tries] of cases) {
     const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };
@@ -1605,6 +1605,104 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   console.log(`accordion playouts: ${count} moves checked, ${wins} wins`);
 }
 
+/* Canfield: the deal, the base rank and wrapping, columns, refilling from the reserve, playouts */
+{
+  const FOUND = ['f0', 'f1', 'f2', 'f3'], COLS = ['t0', 't1', 't2', 't3'];
+  const opts = { draw: 3 };
+  const c = (suit, rank, up = true) => ({ card: { id: `${suit[0]}${rank}`, suit, rank }, up });
+  /** A position built by hand: the piles named, every other pile empty. */
+  const make = (base, piles) => ({ piles: { stock: [], waste: [], reserve: [], ...Object.fromEntries([...FOUND, ...COLS].map(id => [id, []])), ...piles }, base });
+  const move = (from, to, index) => ({ type: 'move', from, to, index });
+  const bad = (state, action, why) => assert(canfield.reduce(state, action, opts).error, `expected illegal: ${why}`);
+  const ok = (state, action) => { const r = canfield.reduce(state, action, opts); assert(r.state, `expected legal: ${JSON.stringify(action)} (${r.error})`); return r.state; };
+
+  const deal = canfield.setup(opts, mulberry32(7));
+  const sizes = Object.fromEntries(Object.entries(deal.piles).map(([id, pile]) => [id, pile.length]));
+  same(sizes, { stock: 34, waste: 0, f0: 1, f1: 0, f2: 0, f3: 0, reserve: 13, t0: 1, t1: 1, t2: 1, t3: 1 });
+  assert.strictEqual(deal.base, deal.piles.f0[0].card.rank, 'the first foundation card sets the base');
+  assert(deal.piles.reserve.every((e, i) => e.up === (i === 12)), 'only the top of the reserve is face up');
+  assert(deal.piles.stock.every(e => !e.up) && COLS.every(id => deal.piles[id][0].up));
+  same(canfield.setup(opts, mulberry32(7)), deal, 'the deal repeats');
+
+  // foundations start on the base, build up in suit, and go round from king to ace
+  const home = make(5, { f0: [c('hearts', 5)], t0: [c('spades', 5)], t1: [c('hearts', 6)], t2: [c('clubs', 6)], t3: [c('spades', 13)] });
+  bad(home, move('t2', 'f1', 0), 'a six cannot start a foundation based on five');
+  ok(home, move('t0', 'f1', 0));
+  bad(home, move('t2', 'f0', 0), 'a six of another suit');
+  ok(home, move('t1', 'f0', 0));
+  const round = make(5, { f0: [c('hearts', 12), c('hearts', 13)], t0: [c('hearts', 1)] });
+  assert.strictEqual(ok(round, move('t0', 'f0', 0)).piles.f0.length, 3, 'an ace follows a king');
+  bad(make(5, { f0: [c('hearts', 5)], t0: [c('spades', 13)] }), move('t0', 'f0', 0), 'a king does not follow a five');
+  bad(home, move('f0', 't0', 0), 'a card cannot leave a foundation');
+
+  // columns build down in alternating colours and a king goes on an ace
+  const cols = make(5, { t0: [c('clubs', 1)], t1: [c('hearts', 13)], t2: [c('spades', 3), c('hearts', 2)], t3: [c('hearts', 9)], f0: [c('hearts', 5)] });
+  ok(cols, move('t1', 't0', 0));
+  bad(make(5, { t0: [c('hearts', 1)], t1: [c('hearts', 13)], f0: [c('hearts', 5)] }), move('t1', 't0', 0), 'same colour');
+  bad(cols, move('t0', 't1', 0), 'an ace does not go on a king');
+  bad(cols, move('t3', 't0', 0), 'a nine on an ace');
+  const run = make(5, { t0: [c('clubs', 1), c('hearts', 13), c('spades', 12)], t1: [c('diamonds', 2)], f0: [c('hearts', 5)] });
+  same(ok(run, move('t0', 't1', 0)).piles.t1.map(e => e.card.id), ['d2', 'c1', 'h13', 's12'], 'a run that wraps moves whole');
+  bad(make(5, { t0: [c('clubs', 1), c('hearts', 11), c('spades', 12)], t1: [c('diamonds', 2)], f0: [c('hearts', 5)] }), move('t0', 't1', 0), 'a broken run');
+
+  // an emptied column is filled from the reserve; the reserve shows its new top
+  const fill = make(5, { f0: [c('hearts', 5)], t0: [c('spades', 6)], t1: [c('hearts', 7)], t2: [c('clubs', 3)], t3: [c('clubs', 4)], reserve: [c('clubs', 9, false), c('clubs', 10, false), c('diamonds', 8)] });
+  const filled = ok(fill, move('t0', 't1', 0));
+  same(filled.piles.t0.map(e => e.card.id), ['d8'], 'the reserve fills the empty column');
+  assert(filled.piles.reserve.at(-1).up && filled.piles.reserve.length === 2, 'the reserve turns up its next card');
+  const spent = ok(make(5, { f0: [c('hearts', 5)], t0: [c('spades', 6)], t1: [c('hearts', 7)], t2: [c('clubs', 3)] }), move('t0', 't1', 0));
+  assert.strictEqual(spent.piles.t0.length, 0, 'with no reserve the column stays empty');
+  assert(ok(spent, move('t1', 't0', 0)).piles.t0.length === 2 && ok(spent, move('t1', 't0', 1)).piles.t0.length === 1, 'and takes any run or card');
+
+  // the reserve and the waste give up only their top card, and take nothing
+  const res = make(5, { f0: [c('hearts', 5)], reserve: [c('clubs', 9, false), c('hearts', 6)], waste: [c('spades', 3), c('clubs', 4)], t0: [c('spades', 7)] });
+  assert(canfield.canPickUp(res, 'reserve', 1) && !canfield.canPickUp(res, 'reserve', 0));
+  assert(canfield.canPickUp(res, 'waste', 1) && !canfield.canPickUp(res, 'waste', 0));
+  assert(!canfield.canPickUp(res, 'f0', 0) && !canfield.canPickUp(res, 'stock', 0));
+  ok(res, move('reserve', 't0', 1));
+  ok(res, move('reserve', 'f0', 1));
+  bad(res, move('reserve', 'waste', 1), 'onto the waste');
+  bad(res, move('t0', 'reserve', 0), 'onto the reserve');
+  bad(res, move('reserve', 't0', 0), 'not the top card');
+
+  // the stock: a tap draws, then turns the waste over once the stock is spent
+  same(canfield.onTap(deal, 'stock', 0), { type: 'draw' });
+  same(canfield.onTap(make(5, { waste: [c('spades', 3)] }), 'stock', 0), { type: 'recycle' });
+  assert.strictEqual(canfield.onTap(make(5, {}), 'stock', 0), null);
+  assert.strictEqual(ok(make(5, { stock: [c('spades', 3, false), c('spades', 4, false), c('spades', 5, false), c('spades', 6, false)] }), { type: 'draw' }).piles.waste.length, 3);
+
+  assert(canfield.isWon(make(5, Object.fromEntries(FOUND.map(id => [id, Array.from({ length: 13 }, (_, i) => c('spades', i + 1))])))) && !canfield.isWon(deal));
+
+  // random playouts: cards are kept, replays match, undo restores, and moves() lists every legal move
+  let count = 0, wins = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const rng = mulberry32(seed + 700);
+    const o = { draw: seed % 2 ? 3 : 1 };
+    const session = new Session(canfield, o, seed);
+    for (let step = 0; step < 120; step++) {
+      const now = session.state;
+      const listed = canfield.moves(now, o);
+      for (const action of listed) assert(canfield.reduce(now, action, o).state, `listed move is legal: ${JSON.stringify(action)}`);
+      const everything = Object.keys(now.piles).flatMap(from => now.piles[from].map((_, index) => Object.keys(now.piles).map(to => move(from, to, index)))).flat()
+        .filter(a => canfield.reduce(now, a, o).state);
+      for (const action of everything) assert(listed.some(l => l.from === action.from && l.to === action.to && l.index === action.index),
+        `moves() omits ${JSON.stringify(action)}`);
+      if (!listed.length) break;
+      assert(session.apply(listed[Math.floor(rng() * listed.length)]));
+      count++;
+      const cards = Object.values(session.state.piles).flat();
+      assert.strictEqual(cards.length, 52);
+      assert.strictEqual(new Set(cards.map(e => e.card.id)).size, 52);
+      assert(COLS.every(id => session.state.piles[id].length || !session.state.piles.reserve.length), 'an empty column is never left with a reserve');
+    }
+    if (session.won) wins++;
+    same(new Session(canfield, o, seed, session.actions).state, session.state, 'replay matches');
+    while (session.undo());
+    same(session.state, canfield.setup(o, mulberry32(seed)), 'undo restores the deal');
+  }
+  console.log(`canfield playouts: ${count} moves checked, ${wins} wins`);
+}
+
 /* Statistics */
 {
   const won = (moves, deal) => ({ outcome: 'won', moves, deal });
@@ -1710,7 +1808,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   // every combination of options, of every game that offers Winnable
   const combinations = rules => rules.options.filter(o => o.id !== 'winnable').reduce(
     (all, option) => all.flatMap(base => option.choices.map(choice => ({ ...base, [option.id]: choice.value }))), [{}]);
-  const cases = [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion].flatMap(rules => combinations(rules).map(base => [rules, base]));
+  const cases = [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield].flatMap(rules => combinations(rules).map(base => [rules, base]));
   let proved = 0;
   for (const [rules, base] of cases) {
     const options = { ...base, winnable: 1 };
@@ -1747,7 +1845,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 {
   // Whatever way the search records, the line it returns plays out on the real position: it wins if it says it does.
   // (FreeCell is the case that once failed: its free cells are interchangeable in the position key.)
-  for (const rules of [freecell, klondike, golf, pyramid, tripeaks, spider, forty, yukon, accordion]) {
+  for (const rules of [freecell, klondike, golf, pyramid, tripeaks, spider, forty, yukon, accordion, canfield]) {
     const options = Object.fromEntries(rules.options.map(o => [o.id, o.default]));
     for (let seed = 1; seed <= (rules === freecell ? 40 : 6); seed++) {
       const state = rules.setup(options, mulberry32(seed));
@@ -1767,7 +1865,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 }
 
 // Every pile a deal creates has a slot to be drawn in, so no card can vanish from the table.
-for (const rules of [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion]) {
+for (const rules of [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield]) {
   const options = Object.fromEntries(rules.options.map(o => [o.id, o.default]));
   const state = rules.setup(options, mulberry32(1));
   const slots = new Set(rules.layout(options).map(s => s.id));

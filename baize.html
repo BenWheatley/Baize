@@ -2317,6 +2317,133 @@ const CardSim = (() => {
     status: state => [{ label: 'Piles', value: `${pilesLeft(state.piles)} / 52` }],
   });
 
+  /* ---------- Canfield ----------
+     A reserve of 13 cards, one card on the first foundation, four columns and the stock. The rank of that first
+     foundation card is the base: every foundation starts on it and builds up in suit, a king going on to an ace
+     and so round. Columns build down in alternating colours, wrapping the same way. A column that empties is
+     filled at once from the reserve, and from the waste or another column once the reserve has gone. Only the
+     top of the reserve and of the waste can be played. The stock is drawn three at a time and turned over as
+     often as you like. */
+
+  const CANFIELD_COLUMNS = ['t0', 't1', 't2', 't3'];
+  const nextRank = rank => (rank % 13) + 1;
+
+  /** Does `lead` go on a foundation whose top entry is `landing`, when the foundations start on `base`? */
+  const canfieldHome = base => (landing, lead) => (landing
+    ? landing.card.suit === lead.suit && lead.rank === nextRank(landing.card.rank)
+    : lead.rank === base);
+  const canfieldColumn = (landing, lead) => !landing || buildsDown(landing, lead, true);
+
+  /** An empty column takes the top of the reserve; the new top of the reserve is turned up. */
+  function refill(piles) {
+    for (const id of CANFIELD_COLUMNS) if (!piles[id].length && piles.reserve.length) piles[id].push(piles.reserve.pop());
+    if (piles.reserve.length) top(piles.reserve).up = true;
+  }
+
+  const canfieldActions = {
+    draw: klondikeActions.draw,
+    recycle: klondikeActions.recycle,
+
+    move(piles, action, _options, state) {
+      const error = columnMove(piles, action, {
+        blocked: (from, to) => from === 'stock' || ['stock', 'waste', 'reserve'].includes(to),
+        liftError: (moving, from) => {
+          if (FOUNDATIONS.includes(from)) return 'A card cannot leave a foundation';
+          if (!CANFIELD_COLUMNS.includes(from) && moving.length > 1) return 'Only one card can leave here at a time';
+          return isRun(moving, true) ? null : 'Only a run can move';
+        },
+        fitsHome: canfieldHome(state.base),
+        fitsColumn: canfieldColumn,
+      });
+      if (!error) refill(piles);
+      return error;
+    },
+  };
+
+  const canfield = defineRules({
+    id: 'canfield',
+    name: 'Canfield',
+    showsMovable: true,
+    help: 'The card dealt to the first foundation sets the rank every foundation starts on; build them up in suit, kings going on to aces. Build the four columns down in alternating colours, an ace taking a king. A column that empties is filled from the reserve at once. Only the top of the reserve and of the waste can be played. Drag a card or a run, or tap it and then tap where it goes.',
+
+    options: [
+      { id: 'draw', label: 'Draw', default: 3, choices: [{ value: 1, label: 'One' }, { value: 3, label: 'Three' }] },
+      WINNABLE_OPTION,
+    ],
+    canSolve: () => true,
+
+    setup(_options, rng) {
+      const deck = dealDeck(rng);
+      const piles = { stock: deck.slice(18).map(faceDown), waste: [], ...emptyPiles(FOUNDATIONS) };
+      piles.reserve = deck.slice(0, 13).map((card, i) => ({ card, up: i === 12 }));
+      piles.f0 = [{ card: deck[13], up: true }];
+      CANFIELD_COLUMNS.forEach((id, i) => { piles[id] = [{ card: deck[14 + i], up: true }]; });
+      return { piles, base: deck[13].rank };
+    },
+
+    layout(options) {
+      return [
+        { id: 'stock', col: 0, row: 0, glyph: '↻' },
+        { id: 'waste', col: 1, row: 0, fan: 'right', visible: options.draw },
+        ...homeLayout(FOUNDATIONS, 3),
+        { id: 'reserve', col: 0, row: 1, fan: 'down', limit: 2.4 },
+        ...CANFIELD_COLUMNS.map((id, i) => ({ id, col: i + 2, row: 1, fan: 'down', limit: 3.8 })),
+      ];
+    },
+
+    faceUp: (_state, _pileId, entry) => entry.up,
+
+    canPickUp(state, pileId, index) {
+      const pile = state.piles[pileId];
+      const entry = pile?.[index];
+      if (!entry || !entry.up || pileId === 'stock' || FOUNDATIONS.includes(pileId)) return false;
+      return CANFIELD_COLUMNS.includes(pileId) || index === pile.length - 1;
+    },
+
+    reduce: (state, action, options) => reduceWith(canfieldActions, state, action, options),
+    onTap: turnStock,
+    onActivate: (state, pileId, index) => sendHome(canfield, state, pileId, index),
+    homeAction: (state, pileId, index) => sendHome(canfield, state, pileId, index),
+
+    /** Home first, then the reserve, then the rest; the stock last. */
+    moves(state) {
+      const { piles } = state;
+      const fitsHome = canfieldHome(state.base);
+      const sources = [...CANFIELD_COLUMNS, 'reserve', 'waste'];
+      const home = [], reserve = [], others = [];
+      for (const from of sources) {
+        const column = piles[from];
+        if (!column.length) continue;
+        const first = CANFIELD_COLUMNS.includes(from) ? column.findIndex(entry => entry.up) : column.length - 1;
+        for (let index = first; index < column.length; index++) {
+          const lead = column[index].card;
+          if (!isRun(column.slice(index), true)) continue;
+          const group = from === 'reserve' ? reserve : others;
+          if (index === column.length - 1) {
+            for (const to of FOUNDATIONS) if (fitsHome(top(piles[to]), lead)) home.push({ type: 'move', from, index, to });
+          }
+          for (const to of CANFIELD_COLUMNS) {
+            const landing = top(piles[to]);
+            if (to !== from && canfieldColumn(landing, lead) && (landing || index > 0 || !CANFIELD_COLUMNS.includes(from))) group.push({ type: 'move', from, index, to });
+          }
+        }
+      }
+      const turn = piles.stock.length ? [{ type: 'draw' }] : piles.waste.length ? [{ type: 'recycle' }] : [];
+      return [...home, ...reserve, ...others, ...turn];
+    },
+
+    /** Cards home count most; the fewer left in the reserve the better. */
+    progress: state => 10 * homeCount(state, FOUNDATIONS) - 4 * state.piles.reserve.length,
+
+    isWon: state => allComplete(state, FOUNDATIONS),
+
+    status: state => [
+      homeStatus(state, FOUNDATIONS, 52),
+      { label: 'Reserve', value: state.piles.reserve.length },
+      { label: 'Stock', value: state.piles.stock.length },
+    ],
+  });
+
   /* ---------- Statistics ----------
      One record per game: deals played, deals won, the fewest moves in a win, and the winning streak.
      A deal is counted when it is won, or when it is given up after at least one move. `deal` names
@@ -2451,7 +2578,7 @@ const CardSim = (() => {
     }));
   }
 
-  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion };
+  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield };
 })();
 </script>
 
@@ -2601,6 +2728,7 @@ const StandardDeck = (() => {
     { rules: CardSim.yukon, deck: StandardDeck },
     { rules: CardSim.tripeaks, deck: StandardDeck },
     { rules: CardSim.accordion, deck: StandardDeck },
+    { rules: CardSim.canfield, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';
@@ -3597,6 +3725,7 @@ const StandardDeck = (() => {
     if (prefix === 'f') return `Foundation ${number(id)}`;
     if (prefix === 't') return `Column ${number(id)}`;
     if (prefix === 'a') return `Pile ${number(id)}`;
+    if (id === 'reserve') return 'Reserve';
     if (prefix === 'p' || prefix === 'k') { const [row, i] = id.slice(1).split('_').map(Number); return `${prefix === 'p' ? 'Pyramid' : 'Peak'} row ${row + 1}, card ${i + 1}`; }
     return id;
   }
