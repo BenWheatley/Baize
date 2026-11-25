@@ -949,6 +949,8 @@ const CardSim = (() => {
   const homeCount = (state, ids) => ids.reduce((n, id) => n + state.piles[id].length, 0);
   const homeStatus = (state, ids, total) => ({ label: 'Home', value: `${homeCount(state, ids)} / ${total}` });
   const allComplete = (state, ids) => ids.every(id => state.piles[id].length === 13);
+  /** Does every one of these columns run strictly downward, so that its lowest card is always playable? */
+  const runDownward = (piles, ids) => ids.every(id => piles[id].every((entry, i, col) => !i || col[i - 1].card.rank > entry.card.rank));
 
   const isRed = suit => suit === 'hearts' || suit === 'diamonds';
   const top = pile => pile[pile.length - 1];
@@ -1317,8 +1319,7 @@ const CardSim = (() => {
 
     /** Offered once every column runs strictly downward: the lowest card left is always playable. */
     autoAction(state) {
-      const { piles } = state;
-      const ordered = COLUMNS.every(id => piles[id].every((entry, i, col) => !i || col[i - 1].card.rank > entry.card.rank));
+      const ordered = runDownward(state.piles, COLUMNS);
       return ordered ? firstHomeMove(freecell, state, [...CELLS, ...COLUMNS]) : null;
     },
 
