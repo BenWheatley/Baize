@@ -2533,6 +2533,58 @@ const CardSim = (() => {
     status: state => [homeStatus(state, FOUNDATIONS, 52)],
   });
 
+  /* ---------- Beleaguered Castle ----------
+     The four aces start on the foundations; the other 48 cards lie face up in eight columns of six. Cards go one at
+     a time, up on a foundation in suit or onto a card one rank higher of any suit; any card may go to an empty column. */
+
+  const CASTLE = Array.from({ length: 8 }, (_, i) => `t${i}`);
+  const castleFits = (landing, lead) => !landing || landing.card.rank === lead.rank + 1;
+  const castleActions = oneCardActions(CASTLE, castleFits);
+
+  const castle = defineRules({
+    id: 'castle',
+    name: 'Beleaguered Castle',
+    showsMovable: true,
+    help: 'The aces are already on the foundations; build each up to its king in suit. Move one card at a time: onto a card one rank higher, whatever its suit, or home. Any card may go to an empty column.',
+
+    options: [WINNABLE_OPTION],
+    canSolve: () => true,
+
+    setup(_options, rng) {
+      const piles = { ...emptyPiles(FOUNDATIONS), ...emptyPiles(CASTLE) };
+      const rest = [];
+      dealDeck(rng).forEach(card => (card.rank === 1 ? piles[FOUNDATIONS[SUITS.indexOf(card.suit)]].push({ card, up: true }) : rest.push(card)));
+      rest.forEach((card, i) => piles[CASTLE[i % CASTLE.length]].push({ card, up: true }));
+      return { piles };
+    },
+
+    layout: () => [
+      ...homeLayout(FOUNDATIONS, 2),
+      ...CASTLE.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 4.8 })),
+    ],
+
+    faceUp: () => true,
+
+    canPickUp: (state, pileId, index) => CASTLE.includes(pileId) && index === state.piles[pileId].length - 1,
+
+    reduce: (state, action, options) => reduceWith(castleActions, state, action, options),
+    onTap: () => null,
+
+    onActivate: (state, pileId, index) => sendHome(castle, state, pileId, index),
+    homeAction: (state, pileId, index) => sendHome(castle, state, pileId, index),
+
+    /** Offered once every column runs strictly downward: the lowest card left is always playable. */
+    autoAction: state => (runDownward(state.piles, CASTLE) ? firstHomeMove(castle, state, CASTLE) : null),
+
+    moves: state => oneCardMoves(state.piles, CASTLE, castleFits),
+
+    progress: state => 2 * homeCount(state, FOUNDATIONS) - trapped(state.piles, CASTLE),
+
+    isWon: state => allComplete(state, FOUNDATIONS),
+
+    status: state => [homeStatus(state, FOUNDATIONS, 52)],
+  });
+
   /* ---------- Scorpion ----------
      Seven columns of seven; in the first four the lowest three cards are face down. Any face-up card can move
      with everything on top of it onto a card of its own suit one rank higher; only a king (and what is on it) goes
@@ -2777,7 +2829,7 @@ const CardSim = (() => {
     }));
   }
 
-  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers, scorpion };
+  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers, scorpion, castle };
 })();
 </script>
 
@@ -2930,6 +2982,7 @@ const StandardDeck = (() => {
     { rules: CardSim.canfield, deck: StandardDeck },
     { rules: CardSim.bakers, deck: StandardDeck },
     { rules: CardSim.scorpion, deck: StandardDeck },
+    { rules: CardSim.castle, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';
