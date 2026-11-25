@@ -2523,6 +2523,116 @@ const CardSim = (() => {
     status: state => [homeStatus(state, FOUNDATIONS, 52)],
   });
 
+  /* ---------- Scorpion ----------
+     Seven columns of seven; in the first four the lowest three cards are face down. Any face-up card can move
+     with everything on top of it onto a card of its own suit one rank higher; only a king (and what is on it) goes
+     to an empty column. The three cards left over are dealt face up onto the first three columns whenever you like.
+     A finished run of one suit from king to ace leaves the table. Clear four runs to win. */
+
+  const SCORPION_COLUMNS = Array.from({ length: 7 }, (_, i) => `t${i}`);
+  const SCORPION_HOME = homeIds(4);
+  const scorpionFits = (landing, lead) => (landing ? landing.card.suit === lead.suit && landing.card.rank === lead.rank + 1 : lead.rank === 13);
+
+  const scorpionActions = {
+    deal(piles) {
+      if (!piles.stock.length) return 'The stock is empty';
+      for (const id of SCORPION_COLUMNS.slice(0, 3)) {
+        const entry = piles.stock.pop();
+        entry.up = true;
+        piles[id].push(entry);
+      }
+      clearRuns(piles, SCORPION_COLUMNS, SCORPION_HOME);
+    },
+
+    move(piles, { from, index, to }) {
+      if (!SCORPION_COLUMNS.includes(from) || !SCORPION_COLUMNS.includes(to) || from === to) return 'Cards cannot move there';
+      const source = piles[from];
+      const target = piles[to];
+      if (!Number.isInteger(index) || index < 0 || index >= source.length) return 'No such card';
+      if (!source[index].up) return 'That card is face down';
+      if (!scorpionFits(top(target), source[index].card)) return target.length ? 'That card does not build on this column' : 'Only a king goes to an empty column';
+      target.push(...source.splice(index));
+      if (source.length) top(source).up = true;
+      clearRuns(piles, SCORPION_COLUMNS, SCORPION_HOME);
+    },
+  };
+
+  const scorpion = defineRules({
+    id: 'scorpion',
+    name: 'Scorpion',
+    showsMovable: true,
+    help: 'Clear four runs, each a whole suit from king down to ace; a finished run leaves the table. Move any face-up card, with everything on top of it, onto the card of its own suit one rank higher; only a king goes to an empty column. Tap the stock to deal its three cards onto the first three columns.',
+
+    options: [WINNABLE_OPTION],
+    canSolve: () => true,
+
+    setup(_options, rng) {
+      const deck = dealDeck(rng);
+      const piles = emptyPiles(SCORPION_HOME);
+      SCORPION_COLUMNS.forEach((id, i) => {
+        piles[id] = deck.slice(i * 7, i * 7 + 7).map((card, j) => ({ card, up: i >= 4 || j >= 3 }));
+      });
+      piles.stock = deck.slice(49).map(faceDown);
+      return { piles };
+    },
+
+    layout: () => [
+      { id: 'stock', col: 0, row: 0 },
+      ...homeLayout(SCORPION_HOME, 3),
+      ...SCORPION_COLUMNS.map((id, i) => ({ id, col: i, row: 1, fan: 'down', limit: 5 })),
+    ],
+
+    faceUp: (_state, _pileId, entry) => entry.up,
+
+    canPickUp: (state, pileId, index) => SCORPION_COLUMNS.includes(pileId) && !!state.piles[pileId][index]?.up,
+
+    reduce: (state, action, options) => reduceWith(scorpionActions, state, action, options),
+    onTap: (state, pileId) => (pileId === 'stock' && state.piles.stock.length ? { type: 'deal' } : null),
+
+    /** Moves that build on a card first, those that turn a card over before the others; the deal last. */
+    moves(state) {
+      const { piles } = state;
+      const flips = [], others = [];
+      for (const from of SCORPION_COLUMNS) {
+        const column = piles[from];
+        column.forEach((entry, index) => {
+          if (!entry.up) return;
+          let spare = false;
+          for (const to of SCORPION_COLUMNS) {
+            const landing = top(piles[to]);
+            if (to === from || !scorpionFits(landing, entry.card) || (!landing && (index === 0 || spare))) continue;
+            if (!landing) spare = true;                            // one empty column is as good as another
+            (index > 0 && !column[index - 1].up ? flips : others).push({ type: 'move', from, index, to });
+          }
+        });
+      }
+      return [...flips, ...others, ...(piles.stock.length ? [{ type: 'deal' }] : [])];
+    },
+
+    /** Finished runs count most; then one-suit links between neighbouring cards, empty columns and turned-over cards. */
+    progress(state) {
+      const { piles } = state;
+      let score = 0;
+      for (const id of SCORPION_HOME) score += 100 * Math.floor(piles[id].length / 13);
+      for (const id of SCORPION_COLUMNS) {
+        const column = piles[id];
+        if (!column.length) score += 6;
+        column.forEach((entry, i) => {
+          if (!entry.up) score -= 8;
+          else if (i && column[i - 1].up && column[i - 1].card.suit === entry.card.suit && column[i - 1].card.rank === entry.card.rank + 1) score += 8;
+        });
+      }
+      return score - piles.stock.length;
+    },
+
+    isWon: state => allComplete(state, SCORPION_HOME),
+
+    status: state => [
+      { label: 'Runs', value: `${SCORPION_HOME.filter(id => state.piles[id].length).length} / ${SCORPION_HOME.length}` },
+      { label: 'Stock', value: state.piles.stock.length },
+    ],
+  });
+
   /* ---------- Statistics ----------
      One record per game: deals played, deals won, the fewest moves in a win, and the winning streak.
      A deal is counted when it is won, or when it is given up after at least one move. `deal` names
@@ -2657,7 +2767,7 @@ const CardSim = (() => {
     }));
   }
 
-  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers };
+  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers, scorpion };
 })();
 </script>
 
@@ -2809,6 +2919,7 @@ const StandardDeck = (() => {
     { rules: CardSim.accordion, deck: StandardDeck },
     { rules: CardSim.canfield, deck: StandardDeck },
     { rules: CardSim.bakers, deck: StandardDeck },
+    { rules: CardSim.scorpion, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';

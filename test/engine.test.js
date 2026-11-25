@@ -10,7 +10,7 @@ const ctx = vm.createContext({ structuredClone, console, atob });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 vm.runInContext(grab('solver-wasm'), ctx);                          // adds the WebAssembly search for Forty Thieves
 const StandardDeck = vm.runInContext(grab('deck-art') + '\n' + grab('deck') + '\n;StandardDeck', ctx);
-const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers, search, seedHunt, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, HintBook, fanOffsets, movableCards, mulberry32 } = CardSim;
+const { Session, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers, scorpion, search, seedHunt, recordResult, readSettings, SETTINGS, fingerprint, planLine, freshMove, HintBook, fanOffsets, movableCards, mulberry32 } = CardSim;
 // What the tests mean by solving, and by a hint: the one search, asked for a win or for a line.
 const solve = (rules, options, state, { nodes } = {}) => { const found = search(rules, options, state, { nodes, winOnly: true }); return found?.sure ? found.line : null; };
 const hintLine = search;
@@ -996,7 +996,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   const cases = [
     ['klondike', klondike, { draw: 1 }, 40], ['klondike', klondike, { draw: 3 }, 60], ['freecell', freecell, {}, 20],
     ['golf', golf, { wrap: 1 }, 80], ['golf', golf, { wrap: 0 }, 400], ['pyramid', pyramid, { redeals: 2 }, 30],
-    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10], ['spider', spider, { suits: 2, gaps: 1 }, 40], ['yukon', yukon, {}, 20], ['forty', forty, {}, 80], ['accordion', accordion, {}, 60], ['canfield', canfield, { draw: 3 }, 30], ['canfield', canfield, { draw: 1 }, 60], ['bakers', bakers, {}, 60],
+    ['pyramid', pyramid, { redeals: 99 }, 30], ['tripeaks', tripeaks, { wrap: 0 }, 60], ['tripeaks', tripeaks, { wrap: 1 }, 40], ['spider', spider, { suits: 1, gaps: 1 }, 10], ['spider', spider, { suits: 2, gaps: 1 }, 40], ['yukon', yukon, {}, 20], ['forty', forty, {}, 80], ['accordion', accordion, {}, 60], ['canfield', canfield, { draw: 3 }, 30], ['canfield', canfield, { draw: 1 }, 60], ['bakers', bakers, {}, 60], ['scorpion', scorpion, {}, 60],
   ];
   for (const [name, rules, base, tries] of cases) {
     const options = { ...Object.fromEntries(rules.options.map(o => [o.id, o.default])), ...base };
@@ -1776,6 +1776,83 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   console.log(`bakers dozen playouts: ${count} moves checked, ${wins} wins`);
 }
 
+/* Scorpion: the deal, moving any face-up card with what is on it, kings only to gaps, the stock, finished runs */
+{
+  const COLS = Array.from({ length: 7 }, (_, i) => `t${i}`), HOME = ['f0', 'f1', 'f2', 'f3'];
+  const c = (suit, rank, up = true) => ({ card: { id: `${suit[0]}${rank}`, suit, rank }, up });
+  const make = piles => ({ piles: Object.fromEntries(['stock', ...HOME, ...COLS].map(id => [id, piles[id] ?? []])) });
+  const move = (from, to, index) => ({ type: 'move', from, index, to });
+  const bad = (state, action, why) => assert(scorpion.reduce(state, action, {}).error, `expected illegal: ${why}`);
+  const ok = (state, action) => { const r = scorpion.reduce(state, action, {}); assert(r.state, `expected legal: ${JSON.stringify(action)} (${r.error})`); return r.state; };
+
+  const deal = scorpion.setup({}, mulberry32(5));
+  assert(COLS.every(id => deal.piles[id].length === 7), 'seven columns of seven');
+  assert(COLS.every((id, i) => deal.piles[id].every((e, j) => e.up === (i >= 4 || j >= 3))), 'three face down at the bottom of the first four columns');
+  assert(deal.piles.stock.length === 3 && deal.piles.stock.every(e => !e.up));
+  assert.strictEqual(new Set(Object.values(deal.piles).flat().map(e => e.card.id)).size, 52);
+  same(scorpion.setup({}, mulberry32(5)), deal, 'the deal repeats');
+
+  // any face-up card goes with what is on it, onto its own suit one rank up; nothing else builds
+  const st = make({ t0: [c('spades', 9, false), c('hearts', 5), c('clubs', 12), c('hearts', 2)], t1: [c('hearts', 6)], t2: [c('spades', 6)], t3: [c('hearts', 13)] });
+  const moved = ok(st, move('t0', 't1', 1));
+  same(moved.piles.t1.map(e => e.card.id), ['h6', 'h5', 'c12', 'h2'], 'a card and everything on it, whatever that is');
+  assert(moved.piles.t0[0].up, 'the card left behind is turned up');
+  bad(st, move('t0', 't2', 1), 'another suit');
+  bad(st, move('t0', 't1', 0), 'a face-down card');
+  bad(st, move('t0', 't0', 1), 'its own column');
+  bad(st, move('t0', 't4', 1), 'a non-king to an empty column');
+  bad(st, move('t1', 't0', 0), 'wrong rank');
+  same(ok(st, move('t3', 't4', 0)).piles.t4.map(e => e.card.id), ['h13'], 'a king goes to an empty column');
+  assert(scorpion.canPickUp(st, 't0', 2) && !scorpion.canPickUp(st, 't0', 0) && !scorpion.canPickUp(st, 'stock', 0));
+
+  // the stock goes onto the first three columns, face up, once
+  const stocked = make({ stock: [c('spades', 1, false), c('spades', 2, false), c('spades', 3, false)], t0: [c('hearts', 9)], t1: [c('hearts', 8)], t2: [c('hearts', 7)], t3: [c('hearts', 6)] });
+  const dealt = ok(stocked, { type: 'deal' });
+  assert(dealt.piles.stock.length === 0 && ['t0', 't1', 't2'].every(id => dealt.piles[id].length === 2 && dealt.piles[id][1].up) && dealt.piles.t3.length === 1);
+  bad(dealt, { type: 'deal' }, 'an empty stock');
+  same(scorpion.onTap(stocked, 'stock', 0), { type: 'deal' });
+  assert.strictEqual(scorpion.onTap(dealt, 'stock', 0), null);
+
+  // a finished run leaves the table, after a move and after a deal
+  const king = Array.from({ length: 12 }, (_, i) => c('clubs', 13 - i));
+  const last = make({ t0: [c('hearts', 4, false), ...king], t1: [c('hearts', 3), c('clubs', 1)] });
+  const cleared = ok(last, move('t1', 't0', 1));
+  assert(cleared.piles.f0.length === 13 && cleared.piles.f0[0].card.rank === 13 && cleared.piles.t0.length === 1 && cleared.piles.t0[0].up, 'the run goes home and the card under it turns up');
+  const byDeal = ok(make({ stock: [c('spades', 3, false), c('spades', 2, false), c('clubs', 1, false)], t0: king }), { type: 'deal' });
+  assert.strictEqual(byDeal.piles.f0.length, 13, 'a deal can finish a run');
+  const full = make(Object.fromEntries(HOME.map(id => [id, Array.from({ length: 13 }, (_, i) => c('spades', 13 - i))])));
+  assert(scorpion.isWon(full) && !scorpion.isWon(deal));
+
+  // random playouts: cards are kept, replays match, undo restores, and moves() lists exactly the legal moves
+  let count = 0, wins = 0;
+  for (let seed = 1; seed <= 25; seed++) {
+    const rng = mulberry32(seed + 300);
+    const session = new Session(scorpion, {}, seed);
+    for (let step = 0; step < 100; step++) {
+      const now = session.state;
+      const listed = scorpion.moves(now, {});
+      for (const action of listed) assert(scorpion.reduce(now, action, {}).state, 'a listed move is legal');
+      const everything = COLS.flatMap(from => now.piles[from].flatMap((_, index) => COLS.map(to => move(from, to, index)))).filter(a => scorpion.reduce(now, a, {}).state);
+      const named = a => `${a.from}:${a.index}>${a.to}`;
+      const covered = new Set(listed.map(named));
+      for (const action of everything) {
+        if (covered.has(named(action))) continue;
+        // only another empty column, or a whole column moved to a gap, may be left out
+        assert(!now.piles[action.to].length && (action.index === 0 || everything.some(o => o.from === action.from && o.index === action.index && covered.has(named(o)))), `moves() omits ${named(action)}`);
+      }
+      if (!listed.length) break;
+      assert(session.apply(listed[Math.floor(rng() * listed.length)]));
+      count++;
+      assert.strictEqual(new Set(Object.values(session.state.piles).flat().map(e => e.card.id)).size, 52);
+    }
+    if (session.won) wins++;
+    same(new Session(scorpion, {}, seed, session.actions).state, session.state, 'replay matches');
+    while (session.undo());
+    same(session.state, scorpion.setup({}, mulberry32(seed)), 'undo restores the deal');
+  }
+  console.log(`scorpion playouts: ${count} moves checked, ${wins} wins`);
+}
+
 /* Statistics */
 {
   const won = (moves, deal) => ({ outcome: 'won', moves, deal });
@@ -1881,7 +1958,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
   // every combination of options, of every game that offers Winnable
   const combinations = rules => rules.options.filter(o => o.id !== 'winnable').reduce(
     (all, option) => all.flatMap(base => option.choices.map(choice => ({ ...base, [option.id]: choice.value }))), [{}]);
-  const cases = [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers].flatMap(rules => combinations(rules).map(base => [rules, base]));
+  const cases = [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers, scorpion].flatMap(rules => combinations(rules).map(base => [rules, base]));
   let proved = 0;
   for (const [rules, base] of cases) {
     const options = { ...base, winnable: 1 };
@@ -1918,7 +1995,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 {
   // Whatever way the search records, the line it returns plays out on the real position: it wins if it says it does.
   // (FreeCell is the case that once failed: its free cells are interchangeable in the position key.)
-  for (const rules of [freecell, klondike, golf, pyramid, tripeaks, spider, forty, yukon, accordion, canfield, bakers]) {
+  for (const rules of [freecell, klondike, golf, pyramid, tripeaks, spider, forty, yukon, accordion, canfield, bakers, scorpion]) {
     const options = Object.fromEntries(rules.options.map(o => [o.id, o.default]));
     for (let seed = 1; seed <= (rules === freecell ? 40 : 6); seed++) {
       const state = rules.setup(options, mulberry32(seed));
@@ -1938,7 +2015,7 @@ assert.throws(() => new Session(klondike, opts1, 3, [move('t0', 0, 't1')]));
 }
 
 // Every pile a deal creates has a slot to be drawn in, so no card can vanish from the table.
-for (const rules of [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers]) {
+for (const rules of [klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers, scorpion]) {
   const options = Object.fromEntries(rules.options.map(o => [o.id, o.default]));
   const state = rules.setup(options, mulberry32(1));
   const slots = new Set(rules.layout(options).map(s => s.id));
