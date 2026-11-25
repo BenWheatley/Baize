@@ -1611,11 +1611,11 @@ const CardSim = (() => {
     (entries[i - 1].card.suit === entry.card.suit && entries[i - 1].card.rank === entry.card.rank + 1)));
 
   /** Move any complete king-to-ace run from the end of a column to a free home pile, and turn up the card beneath. */
-  function clearRuns(piles) {
-    for (const id of SPIDER_COLUMNS) {
+  function clearRuns(piles, columns = SPIDER_COLUMNS, homes = SPIDER_HOME) {
+    for (const id of columns) {
       const column = piles[id];
       if (column.length < 13 || column.at(-13).card.rank !== 13 || !isSuitRun(column.slice(-13))) continue;
-      piles[SPIDER_HOME.find(home => !piles[home].length)].push(...column.splice(-13));
+      piles[homes.find(home => !piles[home].length)].push(...column.splice(-13));
       if (column.length) top(column).up = true;
     }
   }
