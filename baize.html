@@ -2445,6 +2445,84 @@ const CardSim = (() => {
     ],
   });
 
+  /* ---------- Baker's Dozen ----------
+     Thirteen columns of four, all face up, the kings moved to the bottom of their columns. Cards go one at a
+     time, to a foundation (upward in suit) or onto a card one rank higher of any suit. An empty column stays empty. */
+
+  const DOZEN = Array.from({ length: 13 }, (_, i) => `t${i}`);
+  const DOZEN_LONG = 7;               // the first seven columns make the first row, the other six the second
+  const dozenFits = (landing, lead) => !!landing && landing.card.rank === lead.rank + 1;
+
+  const bakersActions = {
+    move: (piles, action) => columnMove(piles, action, {
+      blocked: (from, to) => !DOZEN.includes(from) && !FOUNDATIONS.includes(to) && !DOZEN.includes(to),
+      liftError: (moving, from) => (FOUNDATIONS.includes(from) ? 'A card cannot leave a foundation' : moving.length > 1 ? 'Only one card can move at a time' : null),
+      fitsColumn: dozenFits,
+    }),
+  };
+
+  /** How many bigger cards sit on top of smaller ones in the columns: each pair must be taken apart. */
+  const trapped = (piles, ids) => ids.reduce((n, id) => n + piles[id].reduce((sum, entry, i, col) =>
+    sum + col.slice(i + 1).filter(above => above.card.rank > entry.card.rank).length, 0), 0);
+
+  const bakers = defineRules({
+    id: 'bakers',
+    name: "Baker's Dozen",
+    showsMovable: true,
+    help: 'Everything is face up and the kings start at the bottom of their columns. Move one card at a time: onto a card one rank higher, whatever its suit, or home. Build the foundations upward in suit from the ace. An empty column stays empty.',
+
+    options: [WINNABLE_OPTION],
+    canSolve: () => true,
+    searchNodes: 3000,
+
+    setup(_options, rng) {
+      const piles = { ...emptyPiles(FOUNDATIONS), ...emptyPiles(DOZEN) };
+      dealDeck(rng).forEach((card, i) => piles[DOZEN[i % DOZEN.length]].push({ card, up: true }));
+      for (const id of DOZEN) piles[id] = [...piles[id].filter(e => e.card.rank === 13), ...piles[id].filter(e => e.card.rank !== 13)];
+      return { piles };
+    },
+
+    layout: () => [
+      ...homeLayout(FOUNDATIONS, 1.5, 'A'),
+      ...DOZEN.map((id, i) => ({ id, col: i < DOZEN_LONG ? i : i - DOZEN_LONG + 0.5, y: i < DOZEN_LONG ? 1.2 : 4.1, fan: 'down', limit: 2.7 })),
+    ],
+
+    faceUp: () => true,
+
+    canPickUp: (state, pileId, index) => DOZEN.includes(pileId) && index === state.piles[pileId].length - 1,
+
+    reduce: (state, action, options) => reduceWith(bakersActions, state, action, options),
+
+    onTap: () => null,
+
+    onActivate: (state, pileId, index) => sendHome(bakers, state, pileId, index),
+    homeAction: (state, pileId, index) => sendHome(bakers, state, pileId, index),
+
+    /** Offered once every column runs strictly downward: the lowest card left is always playable. */
+    autoAction: state => (runDownward(state.piles, DOZEN) ? firstHomeMove(bakers, state, DOZEN) : null),
+
+    /** Home first, then onto a card, taking the biggest columns apart first. */
+    moves(state) {
+      const { piles } = state;
+      const home = [], onto = [];
+      for (const from of DOZEN) {
+        const entry = top(piles[from]);
+        if (!entry) continue;
+        const index = piles[from].length - 1;
+        const to = homeTarget(piles, FOUNDATIONS, entry.card);
+        if (to) home.push({ type: 'move', from, index, to });
+        for (const other of DOZEN) if (other !== from && dozenFits(top(piles[other]), entry.card)) onto.push({ type: 'move', from, index, to: other });
+      }
+      return [...home, ...onto];
+    },
+
+    progress: state => 2 * homeCount(state, FOUNDATIONS) - trapped(state.piles, DOZEN),
+
+    isWon: state => allComplete(state, FOUNDATIONS),
+
+    status: state => [homeStatus(state, FOUNDATIONS, 52)],
+  });
+
   /* ---------- Statistics ----------
      One record per game: deals played, deals won, the fewest moves in a win, and the winning streak.
      A deal is counted when it is won, or when it is given up after at least one move. `deal` names
@@ -2579,7 +2657,7 @@ const CardSim = (() => {
     }));
   }
 
-  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield };
+  return { mulberry32, shuffle, Session, search, seedHunt, fast: fastSolvers, recordResult, emptyRecord, HintBook, fingerprint, planLine, freshMove, leadsSomewhereNew, SETTINGS, readSettings, FAN_STEP, fanOffsets, movableCards, klondike, freecell, golf, pyramid, spider, forty, yukon, tripeaks, accordion, canfield, bakers };
 })();
 </script>
 
@@ -2730,6 +2808,7 @@ const StandardDeck = (() => {
     { rules: CardSim.tripeaks, deck: StandardDeck },
     { rules: CardSim.accordion, deck: StandardDeck },
     { rules: CardSim.canfield, deck: StandardDeck },
+    { rules: CardSim.bakers, deck: StandardDeck },
   ];
 
   const STORE_KEY = 'baize.v2';

@@ -17,7 +17,7 @@ const ctx = vm.createContext({ structuredClone, console });
 const CardSim = vm.runInContext(grab('engine') + '\n;CardSim', ctx);
 const { mulberry32, movableCards } = CardSim;
 
-const GAMES = ['klondike', 'freecell', 'golf', 'pyramid', 'spider', 'forty', 'yukon', 'tripeaks', 'accordion', 'canfield'];
+const GAMES = ['klondike', 'freecell', 'golf', 'pyramid', 'spider', 'forty', 'yukon', 'tripeaks', 'accordion', 'canfield', 'bakers'];
 const SEEDS = 4;
 const STEPS = 40;
 const GOLDEN = path.join(__dirname, 'golden.json');
