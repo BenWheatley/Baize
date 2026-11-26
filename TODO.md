@@ -16,6 +16,7 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 
 ## Open
 - 13. WebAssembly: Forty Thieves and Spider searches are in `tools/wasm` (one core, a rules file per game) and embedded in `baize.html` (one file, as decided); hints from any position use them. Next: the same for more games where the JavaScript search is slow (Klondike, FreeCell) if their Winnable or hint success needs it; dominance rules and a learned score for Spider (see the open questions of the write-up)
+  - Measured (JavaScript, 3,000 nodes unless stated): Scorpion proves about 13% of deals winnable, and 100,000 nodes finds hardly more because most deals are unwinnable (the search runs out of positions), so it needs no more speed. Beleaguered Castle proves 30% at 3,000 nodes and 50% at 30,000, and Accordion 16% at 1,500 and 32% at 6,000, so those two would gain from a faster search. Tuning the score gave nothing: Castle's and Accordion's were each the best of six variants tried. Next candidates for WebAssembly: Beleaguered Castle, Accordion (then Baker's Dozen, 78% at 3,000 and 90% at 30,000)
 - 8. More games: none planned (not Clock: it has no decisions); Hanabi (multiplayer, hidden information) much later
 
 ## Follow-ups
