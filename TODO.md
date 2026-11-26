@@ -20,7 +20,11 @@ Kept in the repository so the list survives between sessions. Numbers follow the
 
 ## Follow-ups
 - Safe cards for Yukon too (the rule is the same); a drop near a foundation for Golf-style games does not apply
-- Accessibility: a card-size setting (the page does not allow pinch zoom); a screen-reader pass with real VoiceOver/NVDA; a keyboard shortcut for the menu
+- Safe cards for Baker's Dozen and Beleaguered Castle: their columns build on any suit, so a card is safe once the cards of the next rank down in every suit are home, not by Klondike's colour rule
+- A card-size setting (Small, Normal, Large): the page does not allow pinch zoom, and Baker's Dozen (13 columns), Beleaguered Castle and Scorpion are tight on a phone
+- Keep the keyboard's selected-card highlight and the hint's from and to highlights apart: they are too easy to mix up (different shape or colour, and say which in the screen-reader text)
+- A keyboard shortcut for the menu
+- Accessibility: a screen-reader pass with real VoiceOver/NVDA
 
 ## Conventions for new games
 - Where a game can be solved, offer a hint (`moves`) and the shared `WINNABLE_OPTION`, and say in the TODO if a solver is not worth building; it defaults to Winnable (`default: 1`), as every game's does.
