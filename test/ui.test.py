@@ -1424,6 +1424,40 @@ def check_scrollbars_sit_at_the_panel_edge(pg):
                 assert m['gap'] <= 3, f'{theme} {width}px: the {name} scrollbar is at the panel edge {m}'
                 if opener:
                     pg.keyboard.press('Escape')
+            if theme == 'retro':           # the other styles frame the rules card with a margin on purpose
+                via_menu(pg, '#rules-btn')
+                gap = pg.evaluate("(() => { const w = document.querySelector('#rules'), s = w.querySelector('.rules-scroll'); return Math.round(w.getBoundingClientRect().right - s.getBoundingClientRect().right); })()")
+                assert gap <= 3, f'{width}px: the rules scrollbar is at the window edge, as in the menu ({gap}px in)'
+                pg.keyboard.press('Escape')
+
+
+def check_retro_widgets_share_one_size(pg):
+    """Retro's widgets are 98.css's size: the game picker is no taller than a button (not a 44px touch target), and the busy
+    dialogue shows 98.css's block progress bar below its title bar instead of the other styles' turning ring."""
+    start(pg, 'klondike')
+    pg.set_viewport_size({'width': 390, 'height': 780})
+    open_settings(pg)
+    pg.click('#settings button[data-setting="theme"][data-value="retro"]')
+    pg.wait_for_timeout(300)
+    m = pg.evaluate("""(() => { const h = e => e.getBoundingClientRect().height;
+        return { select: h(document.querySelector('#settings select')), button: h(document.querySelector('#rules-btn')) }; })()""")
+    assert m['select'] <= m['button'] + 4, f'the game picker is the size of the other widgets {m}'
+    pg.keyboard.press('Escape')
+    pg.evaluate("(() => { const b = document.getElementById('busy'); b.dataset.state = 'searching'; b.hidden = false; })()")
+    pg.wait_for_timeout(300)
+    m = pg.evaluate("""(() => { const r = e => e.getBoundingClientRect(), bar = document.querySelector('#busy-spinner > .progress-indicator-bar'),
+        sp = document.querySelector('#busy-spinner'), t = document.querySelector('#busy .title-bar');
+        return { barShown: getComputedStyle(bar).display, ring: getComputedStyle(sp).borderTopWidth, below: r(sp).top >= r(t).bottom - 0.5 }; })()""")
+    assert m['barShown'] == 'block' and m['ring'] == '0px', f'a progress bar, not a ring {m}'
+    assert m['below'], f'the bar is under the title bar {m}'
+    pg.evaluate("document.getElementById('busy').hidden = true")
+    open_settings(pg)
+    pg.click('#settings button[data-setting="theme"][data-value="steampunk"]')
+    pg.evaluate("(() => { const b = document.getElementById('busy'); b.dataset.state = 'searching'; b.hidden = false; })()")
+    pg.wait_for_timeout(200)
+    shown = pg.evaluate("getComputedStyle(document.querySelector('#busy-spinner > .progress-indicator-bar')).display")
+    assert shown == 'none', 'the other styles keep their ring'
+    pg.evaluate("document.getElementById('busy').hidden = true")
 
 
 def check_modals_cover_the_window(pg):
@@ -1641,7 +1675,7 @@ def check_win_panel_is_on_top(pg):
 
 
 CHECKS = [check_menu_and_saves, check_shift_highlight, check_rank_keys, check_toggle_persists,
-          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_accordion, check_canfield, check_bakers, check_scorpion, check_castle, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_modals_cover_the_window, check_popups_fit_the_window, check_drop_near_foundation_goes_home, check_safe_cards_play_themselves, check_forty_winnable_is_quick, check_deal_label_is_the_truth, check_saved_deal_without_a_record_is_checked, check_first_deal_honours_winnable, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
+          check_golf_tap_and_undo, check_tap_moves_are_animated, check_animation_survives_a_small_resize, check_diagnostics_panel, check_tap_moves_are_animated_even_with_reduced_motion, check_freecell_drag_and_double_tap, check_rules_card, check_pyramid, check_pyramid_stacking, check_stacking_every_game, check_spider, check_forty_thieves, check_yukon, check_tripeaks, check_accordion, check_canfield, check_bakers, check_scorpion, check_castle, check_redeal_order, check_winnable_deals, check_responsive, check_search_can_be_cancelled, check_page_cannot_zoom, check_statistics, check_settings, check_restart_lives_in_settings, check_panels_are_exclusive, check_cleared_is_the_statistics_panel, check_panels_look_alike, check_styles, check_high_contrast_faces, check_keyboard_play, check_screen_reader_semantics, check_more_contrast_asked_for, check_titles_stay_put, check_scrollbars_sit_at_the_panel_edge, check_retro_widgets_share_one_size, check_modals_cover_the_window, check_popups_fit_the_window, check_drop_near_foundation_goes_home, check_safe_cards_play_themselves, check_forty_winnable_is_quick, check_deal_label_is_the_truth, check_saved_deal_without_a_record_is_checked, check_first_deal_honours_winnable, check_header_layout, check_deals_default_to_winnable, check_buttons_lose_their_words_when_narrow, check_hover_never_hides_a_button, check_hint_dialogue_is_not_a_flash, check_hint_uses_what_the_winnable_search_found, check_animation_setting_overrides_the_device, check_hint, check_rules_text_stays_inside_the_frame, check_selected_and_highlighted_combine, check_winnable_preference_is_shared, check_game_menu_gives_up_focus, check_win_panel_is_on_top]
 
 if sys.argv[1:]:                       # run only the checks named on the command line
     CHECKS = [c for c in CHECKS if c.__name__ in sys.argv[1:]]

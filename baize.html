@@ -333,6 +333,7 @@ html[data-motion="reduced"] .cursor, html[data-motion="off"] .cursor { transitio
 @media (max-width: 340px) { .stats-table { font-size: 12px; } .stats-table th { font-size: 9px; letter-spacing: 0; } .stats-table th, .stats-table td, .stats-table th[scope="row"] { padding-inline: 2px; } }
 .field-row { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.spinner > .progress-indicator-bar { display: none; }   /* only Retro, which has 98.css's progress bar, shows it */
 
 /* Rules card: a popover styled as an ivory playing card with a brass inner frame. */
 .rules {
@@ -636,7 +637,7 @@ html[data-theme="retro"] h2 { font: 700 11px/18px var(--font-display); }
 html[data-theme="retro"] h3 { font: 700 13px var(--font-ui); }
 html[data-theme="retro"] .game-name { color: #fff; font-weight: 400; }
 html[data-theme="retro"] button { min-width: 0; font-weight: 400; transform: none; }   /* header buttons can be icons only */
-html[data-theme="retro"] select { font-weight: 400; letter-spacing: 0; text-transform: none; }
+html[data-theme="retro"] select { min-height: 0; font-weight: 400; letter-spacing: 0; text-transform: none; }   /* no 44px touch target: the other widgets are 98.css's size */
 html[data-theme="retro"] button:active:not(:disabled) > .icon, html[data-theme="retro"] button:active:not(:disabled) > .label { transform: translate(1px, 1px); }   /* the face moves, the button does not change size */
 html[data-theme="retro"] button .icon { color: var(--text-color); }   /* 98.css draws a button's text with text-shadow and colours it transparent, so an icon needs a colour of its own */
 html[data-theme="retro"] button:disabled .icon { color: var(--button-shadow); }
@@ -664,10 +665,17 @@ html[data-theme="retro"] .title-bar-controls button { width: 16px; height: 14px;
 html[data-theme="retro"] .title-bar-controls button .icon { display: none; }   /* 98.css draws the × */
 html[data-theme="retro"] .panel-heading { letter-spacing: 0; text-transform: none; font-size: 13px; }
 html[data-theme="retro"] .stats-table th { letter-spacing: 0; text-transform: none; }
-html[data-theme="retro"] .spinner { border-color: var(--button-shadow); border-top-color: var(--dialog-blue); border-radius: 0; }
+/* The busy dialog's wait is a 98.css progress bar that fills block by block, over and over (14 blocks fit the width). */
+html[data-theme="retro"] #busy .window { display: flex; flex-direction: column; }
+html[data-theme="retro"] #busy .title-bar { order: -2; }
+html[data-theme="retro"] #busy-btn { align-self: center; }
+html[data-theme="retro"] .spinner { order: -1; width: 260px; max-width: 100%; height: 32px; margin: 8px auto 6px; animation: none; }   /* under the title bar, which other styles put below it */
+html[data-theme="retro"] .spinner > .progress-indicator-bar { width: 0; animation: progress-fill 2.8s steps(14) infinite; }
+html[data-motion="reduced"][data-theme="retro"] .spinner > .progress-indicator-bar, html[data-motion="off"][data-theme="retro"] .spinner > .progress-indicator-bar { width: 100%; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes progress-fill { to { width: 100%; } }
 html[data-theme="retro"] .rules { --card: var(--surface); --ink: var(--text-color); --ink-soft: #404040; --card-edge: var(--button-shadow); border-radius: 0; font-family: var(--font-ui); }
 html[data-theme="retro"] .rules::before, html[data-theme="retro"] .rules-index, html[data-theme="retro"] .rules-divider { display: none; }
-html[data-theme="retro"] .rules-scroll { padding: 4px 10px 6px; }
+html[data-theme="retro"] .rules-scroll { margin: 0; padding: 4px 8px 8px; }   /* the scrollbar at the window's edge, as in the menu */
 html[data-theme="retro"] .rules h3 { letter-spacing: 0; text-transform: none; color: var(--text-color); }
 html[data-theme="retro"] .rules kbd { background: var(--surface); border: 0; border-radius: 0; box-shadow: var(--bevel-raised); }
 /* 98.css draws its own scrollbar with the ::-webkit-scrollbar pseudo-elements, which the standard properties would switch off. */
@@ -783,7 +791,7 @@ html[data-theme="retro"] .rules kbd { background: var(--surface); border: 0; bor
     </div>
     <div id="busy" class="modal" hidden role="alertdialog" aria-modal="true" aria-labelledby="busy-title" aria-describedby="busy-text">
       <div class="window">
-        <div id="busy-spinner" class="spinner" role="progressbar" aria-label="Searching"></div>
+        <div id="busy-spinner" class="spinner progress-indicator segmented" role="progressbar" aria-label="Searching"><span class="progress-indicator-bar"></span></div>
         <div class="title-bar"><h2 id="busy-title" class="title-bar-text"></h2></div>
         <p id="busy-text"></p>
         <button id="busy-btn" type="button"></button>
